@@ -1,4 +1,7 @@
-use frame_support::{parameter_types, traits::Everything};
+use frame_support::{
+    parameter_types,
+    traits::{ConstU32, Everything},
+};
 use orml_traits::parameter_type_with_key;
 pub use primitives::{CurrencyId::Token, TokenSymbol::*};
 use sp_arithmetic::{FixedI128, FixedU128};
@@ -47,8 +50,8 @@ impl frame_system::Config for Test {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = Index;
     type BlockNumber = BlockNumber;
     type Hash = H256;
@@ -56,7 +59,7 @@ impl frame_system::Config for Test {
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -83,15 +86,17 @@ parameter_type_with_key! {
 }
 
 impl orml_tokens::Config for Test {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type Balance = Balance;
-    type Amount = primitives::Amount;
+    type Amount = primitives::SignedBalance;
     type CurrencyId = CurrencyId;
     type WeightInfo = ();
     type ExistentialDeposits = ExistentialDeposits;
-    type OnDust = ();
+    type CurrencyHooks = ();
     type MaxLocks = MaxLocks;
     type DustRemovalWhitelist = Everything;
+    type MaxReserves = ConstU32<0>; // we don't use named reserves
+    type ReserveIdentifier = (); // we don't use named reserves
 }
 
 pub struct CurrencyConvert;
@@ -118,8 +123,6 @@ impl crate::Config for Test {
 parameter_types! {
     pub const MinimumPeriod: Moment = 5;
 }
-
-pub type TestEvent = Event;
 
 pub struct ExtBuilder;
 

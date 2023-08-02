@@ -1,16 +1,16 @@
 use crate as redeem;
 use crate::{Config, Error};
-use currency::Amount;
 use frame_support::{
     assert_ok, parameter_types,
-    traits::{Everything, GenesisBuild},
-    PalletId,
+    traits::{ConstU32, Everything, GenesisBuild},
+    BoundedVec, PalletId,
 };
+use frame_system::EnsureRoot;
 use mocktopus::{macros::mockable, mocking::clear_mocks};
 pub use oracle::{CurrencyId, OracleKey};
 use orml_traits::parameter_type_with_key;
 pub use primitives::{CurrencyId::Token, TokenSymbol::*};
-use primitives::{VaultCurrencyPair, VaultId};
+use primitives::{Rate, VaultCurrencyPair, VaultId};
 pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
@@ -18,7 +18,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup, Zero},
 };
 
-type TestExtrinsic = TestXt<Call, ()>;
+type TestExtrinsic = TestXt<RuntimeCall, ()>;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -35,7 +35,9 @@ frame_support::construct_runtime!(
         // Tokens & Balances
         Tokens: orml_tokens::{Pallet, Storage, Config<T>, Event<T>},
 
-        Rewards: reward::{Pallet, Call, Storage, Event<T>},
+        CapacityRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        VaultRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
+        VaultStaking: staking::{Pallet, Storage, Event<T>},
 
         // Operational
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
@@ -44,8 +46,9 @@ frame_support::construct_runtime!(
         Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>},
         Fee: fee::{Pallet, Call, Config<T>, Storage},
-        Staking: staking::{Pallet, Storage, Event<T>},
         Currency: currency::{Pallet},
+        Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>},
+        Loans: loans::{Pallet, Storage, Call, Event<T>, Config},
     }
 );
 
@@ -58,7 +61,6 @@ pub type Index = u64;
 pub type SignedFixedPoint = FixedI128;
 pub type SignedInner = i128;
 pub type UnsignedFixedPoint = FixedU128;
-pub type UnsignedInner = u128;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -70,8 +72,8 @@ impl frame_system::Config for Test {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = Index;
     type BlockNumber = BlockNumber;
     type Hash = H256;
@@ -79,7 +81,7 @@ impl frame_system::Config for Test {
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -100,6 +102,8 @@ pub const DEFAULT_CURRENCY_PAIR: VaultCurrencyPair<CurrencyId> = VaultCurrencyPa
     collateral: DEFAULT_COLLATERAL_CURRENCY,
     wrapped: DEFAULT_WRAPPED_CURRENCY,
 };
+pub const DEFAULT_MAX_EXCHANGE_RATE: u128 = 1_000_000_000_000_000_000; // 1
+pub const DEFAULT_MIN_EXCHANGE_RATE: u128 = 20_000_000_000_000_000; // 0.02
 
 parameter_types! {
     pub const GetCollateralCurrencyId: CurrencyId = DEFAULT_COLLATERAL_CURRENCY;
@@ -115,15 +119,17 @@ parameter_type_with_key! {
 }
 
 impl orml_tokens::Config for Test {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type Balance = Balance;
     type Amount = RawAmount;
     type CurrencyId = CurrencyId;
     type WeightInfo = ();
     type ExistentialDeposits = ExistentialDeposits;
-    type OnDust = ();
+    type CurrencyHooks = ();
     type MaxLocks = MaxLocks;
     type DustRemovalWhitelist = Everything;
+    type MaxReserves = ConstU32<0>; // we don't use named reserves
+    type ReserveIdentifier = (); // we don't use named reserves
 }
 
 parameter_types! {
@@ -132,29 +138,22 @@ parameter_types! {
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
 where
-    Call: From<C>,
+    RuntimeCall: From<C>,
 {
-    type OverarchingCall = Call;
+    type OverarchingCall = RuntimeCall;
     type Extrinsic = TestExtrinsic;
 }
 
 impl vault_registry::Config for Test {
     type PalletId = VaultPalletId;
-    type Event = TestEvent;
-    type Balance = Balance;
+    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
 }
 
-pub struct CurrencyConvert;
-impl currency::CurrencyConversion<currency::Amount<Test>, CurrencyId> for CurrencyConvert {
-    fn convert(
-        amount: &currency::Amount<Test>,
-        to: CurrencyId,
-    ) -> Result<currency::Amount<Test>, sp_runtime::DispatchError> {
-        let amount = convert_to(to, amount.amount())?;
-        Ok(Amount::new(amount, to))
-    }
+impl nomination::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
 }
 
 #[cfg_attr(test, mockable)]
@@ -170,24 +169,37 @@ impl currency::Config for Test {
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetRelayChainCurrencyId = GetCollateralCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
-    type CurrencyConversion = CurrencyConvert;
+    type CurrencyConversion = currency::CurrencyConvert<Test, Oracle, Loans>;
+}
+
+type CapacityRewardsInstance = reward::Instance1;
+
+impl reward::Config<CapacityRewardsInstance> for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type PoolId = ();
+    type StakeId = CurrencyId;
+    type CurrencyId = CurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
+}
+
+type VaultRewardsInstance = reward::Instance2;
+
+impl reward::Config<VaultRewardsInstance> for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type PoolId = CurrencyId;
+    type StakeId = VaultId<AccountId, CurrencyId>;
+    type CurrencyId = CurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
 impl staking::Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
-}
-
-impl reward::Config for Test {
-    type Event = TestEvent;
-    type SignedFixedPoint = SignedFixedPoint;
-    type RewardId = VaultId<AccountId, CurrencyId>;
-    type CurrencyId = CurrencyId;
-    type GetNativeCurrencyId = GetNativeCurrencyId;
-    type GetWrappedCurrencyId = GetWrappedCurrencyId;
 }
 
 parameter_types! {
@@ -195,13 +207,14 @@ parameter_types! {
 }
 
 impl btc_relay::Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type ParachainBlocksPerBitcoinBlock = ParachainBlocksPerBitcoinBlock;
     type WeightInfo = ();
 }
 
 impl security::Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
 }
 
 parameter_types! {
@@ -216,12 +229,15 @@ impl pallet_timestamp::Config for Test {
 }
 
 impl oracle::Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
+    type OnExchangeRateChange = ();
     type WeightInfo = ();
+    type MaxNameLength = ConstU32<255>;
 }
 
 parameter_types! {
     pub const FeePalletId: PalletId = PalletId(*b"mod/fees");
+    pub const MaxExpectedValue: UnsignedFixedPoint = UnsignedFixedPoint::from_inner(<UnsignedFixedPoint as FixedPointNumber>::DIV);
 }
 
 impl fee::Config for Test {
@@ -229,19 +245,36 @@ impl fee::Config for Test {
     type WeightInfo = ();
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
-    type UnsignedFixedPoint = UnsignedFixedPoint;
-    type UnsignedInner = UnsignedInner;
-    type VaultRewards = Rewards;
-    type VaultStaking = Staking;
+    type CapacityRewards = CapacityRewards;
+    type VaultRewards = VaultRewards;
+    type VaultStaking = VaultStaking;
     type OnSweep = ();
+    type MaxExpectedValue = MaxExpectedValue;
+    type NominationApi = Nomination;
+}
+
+parameter_types! {
+    pub const LoansPalletId: PalletId = PalletId(*b"par/loan");
+}
+
+impl loans::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type PalletId = LoansPalletId;
+    type ReserveOrigin = EnsureRoot<AccountId>;
+    type UpdateOrigin = EnsureRoot<AccountId>;
+    type WeightInfo = ();
+    type UnixTime = Timestamp;
+    type RewardAssetId = GetNativeCurrencyId;
+    type ReferenceAssetId = GetWrappedCurrencyId;
+    type OnExchangeRateChange = ();
 }
 
 impl Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
 }
 
-pub type TestEvent = Event;
+pub type TestEvent = RuntimeEvent;
 pub type TestError = Error<Test>;
 pub type VaultRegistryError = vault_registry::Error<Test>;
 
@@ -270,13 +303,10 @@ impl ExtBuilder {
         fee::GenesisConfig::<Test> {
             issue_fee: UnsignedFixedPoint::checked_from_rational(5, 1000).unwrap(), // 0.5%
             issue_griefing_collateral: UnsignedFixedPoint::checked_from_rational(5, 100000).unwrap(), // 0.005%
-            refund_fee: UnsignedFixedPoint::checked_from_rational(5, 1000).unwrap(), // 0.5%
             redeem_fee: UnsignedFixedPoint::checked_from_rational(5, 1000).unwrap(), // 0.5%
             premium_redeem_fee: UnsignedFixedPoint::checked_from_rational(5, 100).unwrap(), // 5%
             punishment_fee: UnsignedFixedPoint::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: UnsignedFixedPoint::checked_from_rational(1, 10).unwrap(), // 10%
-            theft_fee: UnsignedFixedPoint::checked_from_rational(5, 100).unwrap(),  // 5%
-            theft_fee_max: 10000000,                                                // 0.1 BTC
         }
         .assimilate_storage(&mut storage)
         .unwrap();
@@ -310,10 +340,19 @@ impl ExtBuilder {
         .unwrap();
 
         oracle::GenesisConfig::<Test> {
-            authorized_oracles: vec![(USER, "test".as_bytes().to_vec())],
+            authorized_oracles: vec![(USER, BoundedVec::truncate_from("test".as_bytes().to_vec()))],
             max_delay: 0,
         }
         .assimilate_storage(&mut storage)
+        .unwrap();
+
+        GenesisBuild::<Test>::assimilate_storage(
+            &loans::GenesisConfig {
+                max_exchange_rate: Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE),
+                min_exchange_rate: Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE),
+            },
+            &mut storage,
+        )
         .unwrap();
 
         storage.into()
@@ -340,7 +379,7 @@ where
     clear_mocks();
     ExtBuilder::build().execute_with(|| {
         assert_ok!(<oracle::Pallet<Test>>::feed_values(
-            Origin::signed(USER),
+            RuntimeOrigin::signed(USER),
             vec![
                 (OracleKey::ExchangeRate(Token(DOT)), FixedU128::from(1)),
                 (OracleKey::FeeEstimation, FixedU128::from(3)),

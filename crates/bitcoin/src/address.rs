@@ -1,10 +1,12 @@
 use crate::{types::*, Error, Script};
 use bitcoin_hashes::{hash160::Hash as Hash160, Hash};
 use codec::{Decode, Encode, MaxEncodedLen};
+use primitive_types::{H160, H256};
 use scale_info::TypeInfo;
 use sha2::{Digest, Sha256};
-use sp_core::{H160, H256};
-use sp_std::vec::Vec;
+
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 
 use secp256k1::{constants::PUBLIC_KEY_SIZE, Error as Secp256k1Error, PublicKey as Secp256k1PublicKey};
 
@@ -47,8 +49,17 @@ impl Address {
         const OP_EQUAL: u8 = OpCode::OpEqual as u8;
         const OP_0: u8 = OpCode::Op0 as u8;
         const OP_1: u8 = OpCode::Op1 as u8;
+        const MAX_ADDRESS_BYTES: usize = HASH256_SIZE_HEX as usize + 2; // max length is for P2WSHv0; see the match below
 
-        match script.as_bytes() {
+        let bytes = script.as_bytes();
+
+        if bytes.len() > MAX_ADDRESS_BYTES {
+            // the `match` below might be O(bytes.len()) due to the binding of slices
+            // Provide an early exit here to make sure this function is O(1)
+            return Err(Error::InvalidBtcAddress);
+        }
+
+        match bytes {
             &[OP_DUP, OP_HASH_160, HASH160_SIZE_HEX, ref addr @ .., OP_EQUAL_VERIFY, OP_CHECK_SIG]
                 if addr.len() == HASH160_SIZE_HEX as usize =>
             {
@@ -118,6 +129,20 @@ impl Address {
     pub fn random() -> Self {
         Address::P2PKH(H160::random())
     }
+
+    #[cfg(any(feature = "runtime-benchmarks", feature = "std"))]
+    pub const fn dummy() -> Self {
+        Address::P2PKH(H160([
+            149, 83, 39, 14, 55, 21, 215, 67, 152, 46, 157, 24, 82, 192, 192, 150, 62, 190, 160, 90,
+        ]))
+    }
+
+    pub fn is_zero(&self) -> bool {
+        match self {
+            Self::P2PKH(hash) | Self::P2SH(hash) | Self::P2WPKHv0(hash) => hash.is_zero(),
+            Self::P2WSHv0(hash) | Self::P2TRv1(hash) => hash.is_zero(),
+        }
+    }
 }
 
 impl Default for Address {
@@ -169,8 +194,10 @@ impl<'de> serde::Deserialize<'de> for PublicKey {
 }
 
 pub mod global {
+    #[cfg(not(feature = "std"))]
+    use alloc::{vec, vec::Vec};
+    use core::ops::Deref;
     use secp256k1::{ffi::types::AlignedType, AllPreallocated, Secp256k1};
-    use sp_std::{ops::Deref, vec, vec::Vec};
     // this is what lazy_static uses internally
     use spin::Once;
 
@@ -285,6 +312,14 @@ impl PublicKey {
         script.append(&sig);
         script.append(self.to_redeem_script());
         script
+    }
+
+    #[cfg(any(feature = "runtime-benchmarks", feature = "std"))]
+    pub const fn dummy() -> Self {
+        PublicKey([
+            2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222,
+            180, 119, 54, 243, 97, 173, 150, 161, 169, 230,
+        ])
     }
 }
 

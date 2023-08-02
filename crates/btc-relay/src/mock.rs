@@ -2,7 +2,7 @@ use crate as btc_relay;
 use crate::{Config, Error};
 use frame_support::{
     parameter_types,
-    traits::{Everything, GenesisBuild},
+    traits::{ConstU32, Everything, GenesisBuild},
 };
 use mocktopus::mocking::clear_mocks;
 use sp_core::H256;
@@ -48,8 +48,8 @@ impl frame_system::Config for Test {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = Index;
     type BlockNumber = BlockNumber;
     type Hash = H256;
@@ -57,7 +57,7 @@ impl frame_system::Config for Test {
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -67,7 +67,7 @@ impl frame_system::Config for Test {
     type SystemWeightInfo = ();
     type SS58Prefix = SS58Prefix;
     type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
+    type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
@@ -75,7 +75,7 @@ parameter_types! {
 }
 
 impl Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type ParachainBlocksPerBitcoinBlock = ParachainBlocksPerBitcoinBlock;
     type WeightInfo = ();
 }
@@ -92,10 +92,11 @@ impl pallet_timestamp::Config for Test {
 }
 
 impl security::Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
 }
 
-pub type TestEvent = Event;
+pub type TestEvent = RuntimeEvent;
 pub type TestError = Error<Test>;
 
 pub struct ExtBuilder;

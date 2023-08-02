@@ -2,10 +2,11 @@
 
 use crate::{ReferendumIndex, VoteThreshold};
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::traits::Get;
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{Bounded, CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Saturating, Zero},
-    RuntimeDebug,
+    BoundedVec, RuntimeDebug,
 };
 use sp_std::prelude::*;
 
@@ -17,10 +18,20 @@ pub struct Vote<Balance> {
 }
 
 /// The account is voting directly.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Default, RuntimeDebug, TypeInfo)]
-pub struct Voting<Balance> {
+#[derive(Clone, Encode, Decode, Eq, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
+#[codec(mel_bound(skip_type_params(MaxVotes)))]
+#[scale_info(skip_type_params(MaxVotes))]
+pub struct Voting<Balance, MaxVotes: Get<u32>> {
     /// The current votes of the account.
-    pub(crate) votes: Vec<(ReferendumIndex, Vote<Balance>)>,
+    pub(crate) votes: BoundedVec<(ReferendumIndex, Vote<Balance>), MaxVotes>,
+}
+
+impl<Balance: Default, MaxVotes: Get<u32>> Default for Voting<Balance, MaxVotes> {
+    fn default() -> Self {
+        Voting {
+            votes: Default::default(),
+        }
+    }
 }
 
 /// Info regarding an ongoing referendum.
@@ -62,11 +73,11 @@ impl<Balance: From<u8> + Zero + Copy + CheckedAdd + CheckedSub + CheckedMul + Ch
 
 /// Info regarding an ongoing referendum.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub struct ReferendumStatus<BlockNumber, Hash, Balance> {
+pub struct ReferendumStatus<BlockNumber, Proposal, Balance> {
     /// When voting on this referendum will end.
     pub end: BlockNumber,
-    /// The hash of the proposal being voted on.
-    pub proposal_hash: Hash,
+    /// The proposal being voted on.
+    pub proposal: Proposal,
     /// The thresholding mechanism to determine whether it passed.
     pub threshold: VoteThreshold,
     /// The delay (in blocks) to wait after a successful referendum before deploying.
@@ -77,9 +88,9 @@ pub struct ReferendumStatus<BlockNumber, Hash, Balance> {
 
 /// Info regarding a referendum, present or past.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-pub enum ReferendumInfo<BlockNumber, Hash, Balance> {
+pub enum ReferendumInfo<BlockNumber, Proposal, Balance> {
     /// Referendum is happening, the arg is the block number at which it will end.
-    Ongoing(ReferendumStatus<BlockNumber, Hash, Balance>),
+    Ongoing(ReferendumStatus<BlockNumber, Proposal, Balance>),
     /// Referendum finished at `end`, and has been `approved` or rejected.
     Finished { approved: bool, end: BlockNumber },
 }

@@ -5,7 +5,7 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(any(feature = "runtime-benchmarks", test))]
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
 mod default_weights;
@@ -30,11 +30,14 @@ pub mod types;
 pub use crate::types::{DefaultRedeemRequest, RedeemRequest, RedeemRequestStatus};
 
 use crate::types::{BalanceOf, RedeemRequestExt, Version};
+use bitcoin::types::FullTransactionProof;
 use btc_relay::BtcAddress;
 use currency::Amount;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    ensure, transactional,
+    ensure,
+    pallet_prelude::Weight,
+    transactional,
 };
 use frame_system::{ensure_root, ensure_signed};
 use oracle::OracleKey;
@@ -49,6 +52,27 @@ use vault_registry::{
 
 pub use pallet::*;
 
+/// Complexity:
+/// - `O(H + I + O + B)` where:
+///   - `H` is the number of hashes in the merkle tree
+///   - `I` is the number of transaction inputs
+///   - `O` is the number of transaction outputs
+///   - `B` is `transaction` size in bytes (length-fee-bounded)
+fn weight_for_execute_redeem<T: Config>(proof: &FullTransactionProof) -> Weight {
+    <T as Config>::WeightInfo::execute_redeem(
+        proof.user_tx_proof.merkle_proof.hashes.len() as u32, // H
+        proof.user_tx_proof.transaction.inputs.len() as u32,  // I
+        proof.user_tx_proof.transaction.outputs.len() as u32, // O
+        proof.user_tx_proof.tx_encoded_len,
+    )
+    .saturating_add(<T as Config>::WeightInfo::execute_redeem(
+        proof.coinbase_proof.merkle_proof.hashes.len() as u32, // H
+        proof.coinbase_proof.transaction.inputs.len() as u32,  // I
+        proof.coinbase_proof.transaction.outputs.len() as u32, // O
+        proof.coinbase_proof.tx_encoded_len,
+    ))
+}
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -60,11 +84,9 @@ pub mod pallet {
     /// ## Configuration
     /// The pallet's configuration trait.
     #[pallet::config]
-    pub trait Config:
-        frame_system::Config + vault_registry::Config + btc_relay::Config + fee::Config<UnsignedInner = BalanceOf<Self>>
-    {
+    pub trait Config: frame_system::Config + vault_registry::Config + btc_relay::Config + fee::Config {
         /// The overarching event type.
-        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
@@ -106,6 +128,14 @@ pub mod pallet {
             redeem_id: H256,
             vault_id: DefaultVaultId<T>,
             amount: BalanceOf<T>,
+        },
+        RedeemPeriodChange {
+            period: T::BlockNumber,
+        },
+        SelfRedeem {
+            vault_id: DefaultVaultId<T>,
+            amount: BalanceOf<T>,
+            fee: BalanceOf<T>,
         },
     }
 
@@ -211,6 +241,7 @@ pub mod pallet {
         /// * `amount` - amount of issued tokens
         /// * `btc_address` - the address to receive BTC
         /// * `vault_id` - address of the vault
+        #[pallet::call_index(0)]
         #[pallet::weight(<T as Config>::WeightInfo::request_redeem())]
         #[transactional]
         pub fn request_redeem(
@@ -234,6 +265,7 @@ pub mod pallet {
         /// * `collateral_currency` - currency to be received
         /// * `wrapped_currency` - currency of the wrapped token to burn
         /// * `amount_wrapped` - amount of issued tokens to burn
+        #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::liquidation_redeem())]
         #[transactional]
         pub fn liquidation_redeem(
@@ -255,19 +287,19 @@ pub mod pallet {
         /// * `origin` - anyone executing this redeem request
         /// * `redeem_id` - identifier of redeem request as output from request_redeem
         /// * `tx_id` - transaction hash
-        /// * `tx_block_height` - block number of collateral chain
-        /// * `merkle_proof` - raw bytes
-        /// * `raw_tx` - raw bytes
-        #[pallet::weight(<T as Config>::WeightInfo::execute_redeem())]
+        /// * `merkle_proof` - membership proof
+        /// * `transaction` - tx containing payment
+        #[pallet::call_index(2)]
+        #[pallet::weight(weight_for_execute_redeem::<T>(unchecked_transaction))]
         #[transactional]
         pub fn execute_redeem(
             origin: OriginFor<T>,
             redeem_id: H256,
-            merkle_proof: Vec<u8>,
-            raw_tx: Vec<u8>,
+            unchecked_transaction: FullTransactionProof,
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_signed(origin)?;
-            Self::_execute_redeem(redeem_id, merkle_proof, raw_tx)?;
+
+            Self::_execute_redeem(redeem_id, unchecked_transaction)?;
 
             // Don't take tx fees on success. If the vault had to pay for this function, it would
             // have been vulnerable to a griefing attack where users would redeem amounts just
@@ -277,7 +309,7 @@ pub mod pallet {
 
         /// If a redeem request is not completed on time, the redeem request can be cancelled.
         /// The user that initially requested the redeem process calls this function to obtain
-        /// the Vault’s collateral as compensation for not refunding the BTC back to their address.
+        /// the Vault’s collateral as compensation for not transferring the BTC back to their address.
         ///
         /// # Arguments
         ///
@@ -286,6 +318,7 @@ pub mod pallet {
         /// * `reimburse` - specifying if the user wishes to be reimbursed in collateral
         /// and slash the Vault, or wishes to keep the tokens (and retry
         /// Redeem with another Vault)
+        #[pallet::call_index(3)]
         #[pallet::weight(if *reimburse { <T as Config>::WeightInfo::cancel_redeem_reimburse() } else { <T as Config>::WeightInfo::cancel_redeem_retry() })]
         #[transactional]
         pub fn cancel_redeem(origin: OriginFor<T>, redeem_id: H256, reimburse: bool) -> DispatchResultWithPostInfo {
@@ -302,11 +335,13 @@ pub mod pallet {
         /// * `period` - default period for new requests
         ///
         /// # Weight: `O(1)`
+        #[pallet::call_index(4)]
         #[pallet::weight(<T as Config>::WeightInfo::set_redeem_period())]
         #[transactional]
         pub fn set_redeem_period(origin: OriginFor<T>, period: T::BlockNumber) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             <RedeemPeriod<T>>::set(period);
+            Self::deposit_event(Event::RedeemPeriodChange { period });
             Ok(().into())
         }
 
@@ -321,6 +356,7 @@ pub mod pallet {
         /// * `redeem_id` - identifier of redeem request as output from request_redeem
         ///
         /// # Weight: `O(1)`
+        #[pallet::call_index(5)]
         #[pallet::weight(<T as Config>::WeightInfo::set_redeem_period())]
         #[transactional]
         pub fn mint_tokens_for_reimbursed_redeem(
@@ -332,9 +368,104 @@ pub mod pallet {
             Self::_mint_tokens_for_reimbursed_redeem(vault_id, redeem_id)?;
             Ok(().into())
         }
+
+        #[pallet::call_index(6)]
+        #[pallet::weight(<T as Config>::WeightInfo::self_redeem())]
+        #[transactional]
+        pub fn self_redeem(
+            origin: OriginFor<T>,
+            currency_pair: DefaultVaultCurrencyPair<T>,
+            amount_wrapped: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
+            let account_id = ensure_signed(origin)?;
+            let vault_id = VaultId::new(account_id, currency_pair.collateral, currency_pair.wrapped);
+            let amount_wrapped = Amount::new(amount_wrapped, vault_id.wrapped_currency());
+
+            self_redeem::execute::<T>(vault_id, amount_wrapped)?;
+
+            Ok(().into())
+        }
     }
 }
 
+mod self_redeem {
+    use super::*;
+
+    pub(crate) fn execute<T: Config>(vault_id: DefaultVaultId<T>, amount_wrapped: Amount<T>) -> DispatchResult {
+        // ensure that vault is not liquidated and not banned
+        ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
+
+        // for self-redeem, dustAmount is effectively 1 satoshi
+        ensure!(!amount_wrapped.is_zero(), Error::<T>::AmountBelowDustAmount);
+
+        let (fees, consumed_issued_tokens) = calculate_token_amounts::<T>(&vault_id, &amount_wrapped)?;
+
+        take_user_tokens::<T>(&vault_id.account_id, &consumed_issued_tokens, &fees)?;
+
+        update_vault_tokens::<T>(&vault_id, &consumed_issued_tokens)?;
+
+        Pallet::<T>::deposit_event(Event::<T>::SelfRedeem {
+            vault_id,
+            amount: consumed_issued_tokens.amount(),
+            fee: fees.amount(),
+        });
+
+        Ok(())
+    }
+
+    /// returns (fees, consumed_issued_tokens)
+    fn calculate_token_amounts<T: Config>(
+        vault_id: &DefaultVaultId<T>,
+        requested_redeem_amount: &Amount<T>,
+    ) -> Result<(Amount<T>, Amount<T>), DispatchError> {
+        let redeemable_tokens = ext::vault_registry::get_free_redeemable_tokens(&vault_id)?;
+
+        let fees = if redeemable_tokens.eq(&requested_redeem_amount)? {
+            Amount::zero(vault_id.wrapped_currency())
+        } else {
+            ext::fee::get_redeem_fee::<T>(&requested_redeem_amount)?
+        };
+
+        let consumed_issued_tokens = requested_redeem_amount.checked_sub(&fees)?;
+
+        Ok((fees, consumed_issued_tokens))
+    }
+
+    fn take_user_tokens<T: Config>(
+        account_id: &T::AccountId,
+        consumed_issued_tokens: &Amount<T>,
+        fees: &Amount<T>,
+    ) -> DispatchResult {
+        // burn the tokens that the vault no longer is backing
+        consumed_issued_tokens
+            .lock_on(account_id)
+            .map_err(|_| Error::<T>::AmountExceedsUserBalance)?;
+        consumed_issued_tokens.burn_from(account_id)?;
+
+        // transfer fees to pool
+        fees.transfer(account_id, &ext::fee::fee_pool_account_id::<T>())
+            .map_err(|_| Error::<T>::AmountExceedsUserBalance)?;
+        ext::fee::distribute_rewards::<T>(fees)?;
+
+        Ok(())
+    }
+
+    fn update_vault_tokens<T: Config>(
+        vault_id: &DefaultVaultId<T>,
+        consumed_issued_tokens: &Amount<T>,
+    ) -> DispatchResult {
+        ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(vault_id, consumed_issued_tokens)?;
+        ext::vault_registry::redeem_tokens::<T>(
+            vault_id,
+            consumed_issued_tokens,
+            &Amount::zero(vault_id.collateral_currency()),
+            &vault_id.account_id,
+        )?;
+
+        Pallet::<T>::release_replace_collateral(vault_id, consumed_issued_tokens)?;
+        Ok(())
+    }
+}
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
@@ -346,13 +477,15 @@ impl<T: Config> Pallet<T> {
     ) -> Result<H256, DispatchError> {
         let amount_wrapped = Amount::new(amount_wrapped, vault_id.wrapped_currency());
 
-        ext::security::ensure_parachain_status_running::<T>()?;
-
         let redeemer_balance = ext::treasury::get_balance::<T>(&redeemer, vault_id.wrapped_currency());
         ensure!(
             amount_wrapped.le(&redeemer_balance)?,
             Error::<T>::AmountExceedsUserBalance
         );
+
+        // We saw a user lose bitcoin when they forgot to enter the address in the polkadot-js ui.
+        // Make sure this can't happen again.
+        ensure!(!btc_address.is_zero(), btc_relay::Error::<T>::InvalidBtcHash);
 
         // todo: currently allowed to redeem from one currency to the other for free - decide if this is desirable
         let fee_wrapped = if redeemer == vault_id.account_id {
@@ -395,20 +528,7 @@ impl<T: Config> Pallet<T> {
             Amount::zero(currency_id)
         };
 
-        // decrease to-be-replaced tokens - when the vault requests tokens to be replaced, it
-        // want to get rid of tokens, and it does not matter whether this is through a redeem,
-        // or a replace. As such, we decrease the to-be-replaced tokens here. This call will
-        // never fail due to insufficient to-be-replaced tokens
-        let (_, griefing_collateral) =
-            ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&vault_id, &vault_to_be_burned_tokens)?;
-        // release the griefing collateral that is locked for the replace request
-        if !griefing_collateral.is_zero() {
-            ext::vault_registry::transfer_funds(
-                CurrencySource::AvailableReplaceCollateral(vault_id.clone()),
-                CurrencySource::FreeBalance(vault_id.account_id.clone()),
-                &griefing_collateral,
-            )?;
-        }
+        Self::release_replace_collateral(&vault_id, &vault_to_be_burned_tokens)?;
 
         Self::insert_redeem_request(
             &redeem_id,
@@ -467,15 +587,12 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn _execute_redeem(redeem_id: H256, raw_merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> Result<(), DispatchError> {
+    fn _execute_redeem(redeem_id: H256, unchecked_transaction: FullTransactionProof) -> Result<(), DispatchError> {
         let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
 
         // check the transaction inclusion and validity
-        let transaction = ext::btc_relay::parse_transaction::<T>(&raw_tx)?;
-        let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
         ext::btc_relay::verify_and_validate_op_return_transaction::<T, _>(
-            merkle_proof,
-            transaction,
+            unchecked_transaction,
             redeem.btc_address,
             redeem.amount_btc,
             redeem_id,
@@ -506,8 +623,6 @@ impl<T: Config> Pallet<T> {
     }
 
     fn _cancel_redeem(redeemer: T::AccountId, redeem_id: H256, reimburse: bool) -> DispatchResult {
-        ext::security::ensure_parachain_status_running::<T>()?;
-
         let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
         ensure!(redeemer == redeem.redeemer, Error::<T>::UnauthorizedRedeemer);
 
@@ -618,8 +733,6 @@ impl<T: Config> Pallet<T> {
     }
 
     fn _mint_tokens_for_reimbursed_redeem(vault_id: DefaultVaultId<T>, redeem_id: H256) -> DispatchResult {
-        ext::security::ensure_parachain_status_running::<T>()?;
-
         let redeem = RedeemRequests::<T>::try_get(&redeem_id).or(Err(Error::<T>::RedeemIdNotFound))?;
         ensure!(
             matches!(redeem.status, RedeemRequestStatus::Reimbursed(false)),
@@ -642,6 +755,24 @@ impl<T: Config> Pallet<T> {
             amount: reimbursed_amount.amount(),
         });
 
+        Ok(())
+    }
+
+    fn release_replace_collateral(vault_id: &DefaultVaultId<T>, burned_tokens: &Amount<T>) -> DispatchResult {
+        // decrease to-be-replaced tokens - when the vault requests tokens to be replaced, it
+        // want to get rid of tokens, and it does not matter whether this is through a redeem,
+        // or a replace. As such, we decrease the to-be-replaced tokens here. This call will
+        // never fail due to insufficient to-be-replaced tokens
+        let (_, griefing_collateral) =
+            ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&vault_id, &burned_tokens)?;
+        // release the griefing collateral that is locked for the replace request
+        if !griefing_collateral.is_zero() {
+            ext::vault_registry::transfer_funds(
+                CurrencySource::AvailableReplaceCollateral(vault_id.clone()),
+                CurrencySource::FreeBalance(vault_id.account_id.clone()),
+                &griefing_collateral,
+            )?;
+        }
         Ok(())
     }
 

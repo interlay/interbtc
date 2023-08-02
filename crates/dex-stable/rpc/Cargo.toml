@@ -1,0 +1,18 @@
+[package]
+name = "dex-stable-rpc"
+version = "0.1.0"
+authors = ["Zenlink Developers", "Interlay Ltd"]
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0.119", features = ["derive"], optional = true }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false }
+
+jsonrpsee = { version = "0.16.2", features = ["server", "macros"] }
+
+sp-blockchain = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.31" }
+sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.31" }
+sp-rpc = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.31" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.31" }
+
+dex-stable-rpc-runtime-api = { path = "./runtime-api" }

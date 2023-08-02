@@ -1,7 +1,15 @@
 use crate as reward;
 use crate::{Config, Error};
-use frame_support::{parameter_types, traits::Everything};
-pub use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*, VaultCurrencyPair, VaultId};
+use frame_support::{
+    parameter_types,
+    traits::{ConstU32, Everything},
+};
+pub use primitives::{
+    CurrencyId,
+    CurrencyId::{ForeignAsset, Token},
+    TokenSymbol::*,
+    VaultCurrencyPair, VaultId,
+};
 use sp_arithmetic::FixedI128;
 use sp_core::H256;
 use sp_runtime::{
@@ -39,8 +47,8 @@ impl frame_system::Config for Test {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = Index;
     type BlockNumber = BlockNumber;
     type Hash = H256;
@@ -48,7 +56,7 @@ impl frame_system::Config for Test {
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -58,24 +66,18 @@ impl frame_system::Config for Test {
     type SystemWeightInfo = ();
     type SS58Prefix = SS58Prefix;
     type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
-}
-
-parameter_types! {
-    pub const GetNativeCurrencyId: CurrencyId = Token(INTR);
-    pub const GetWrappedCurrencyId: CurrencyId = Token(IBTC);
+    type MaxConsumers = ConstU32<16>;
 }
 
 impl Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type SignedFixedPoint = SignedFixedPoint;
-    type RewardId = AccountId;
+    type PoolId = ();
+    type StakeId = AccountId;
     type CurrencyId = CurrencyId;
-    type GetNativeCurrencyId = GetNativeCurrencyId;
-    type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
-pub type TestEvent = Event;
 pub type TestError = Error<Test>;
 
 pub const ALICE: AccountId = 1;

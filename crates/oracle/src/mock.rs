@@ -2,7 +2,8 @@ use crate as oracle;
 use crate::{Config, Error};
 use frame_support::{
     parameter_types,
-    traits::{Everything, GenesisBuild},
+    traits::{ConstU32, Everything, GenesisBuild},
+    BoundedVec,
 };
 use mocktopus::mocking::clear_mocks;
 use orml_traits::parameter_type_with_key;
@@ -57,8 +58,8 @@ impl frame_system::Config for Test {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = Index;
     type BlockNumber = BlockNumber;
     type Hash = H256;
@@ -66,7 +67,7 @@ impl frame_system::Config for Test {
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -97,15 +98,17 @@ parameter_type_with_key! {
 }
 
 impl orml_tokens::Config for Test {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type Balance = Balance;
-    type Amount = primitives::Amount;
+    type Amount = primitives::SignedBalance;
     type CurrencyId = CurrencyId;
     type WeightInfo = ();
     type ExistentialDeposits = ExistentialDeposits;
-    type OnDust = ();
+    type CurrencyHooks = ();
     type MaxLocks = MaxLocks;
     type DustRemovalWhitelist = Everything;
+    type MaxReserves = ConstU32<0>; // we don't use named reserves
+    type ReserveIdentifier = (); // we don't use named reserves
 }
 
 pub struct CurrencyConvert;
@@ -130,8 +133,10 @@ impl currency::Config for Test {
 }
 
 impl Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
+    type OnExchangeRateChange = ();
     type WeightInfo = ();
+    type MaxNameLength = ConstU32<255>;
 }
 
 parameter_types! {
@@ -146,18 +151,19 @@ impl pallet_timestamp::Config for Test {
 }
 
 impl security::Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
 }
 
 impl staking::Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
 }
 
-pub type TestEvent = Event;
+pub type TestEvent = RuntimeEvent;
 pub type TestError = Error<Test>;
 
 pub struct ExtBuilder;
@@ -167,7 +173,7 @@ impl ExtBuilder {
         let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
         oracle::GenesisConfig::<Test> {
-            authorized_oracles: vec![(0, "test".as_bytes().to_vec())],
+            authorized_oracles: vec![(0, BoundedVec::try_from("test".as_bytes().to_vec()).unwrap())],
             max_delay: 0,
         }
         .assimilate_storage(&mut storage)

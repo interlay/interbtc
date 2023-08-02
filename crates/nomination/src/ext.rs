@@ -2,15 +2,6 @@
 use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
-pub(crate) mod security {
-    use frame_support::dispatch::DispatchResult;
-
-    pub fn ensure_parachain_status_running<T: crate::Config>() -> DispatchResult {
-        <security::Pallet<T>>::ensure_parachain_status_running()
-    }
-}
-
-#[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
     use currency::Amount;
     pub use frame_support::dispatch::{DispatchError, DispatchResult};
@@ -31,16 +22,9 @@ pub(crate) mod vault_registry {
 
     pub fn is_allowed_to_withdraw_collateral<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
-        amount: &Amount<T>,
+        amount: Option<Amount<T>>,
     ) -> Result<bool, DispatchError> {
         <vault_registry::Pallet<T>>::is_allowed_to_withdraw_collateral(vault_id, amount)
-    }
-
-    pub fn get_max_nominatable_collateral<T: crate::Config>(
-        vault_collateral: &Amount<T>,
-        currency_pair: &DefaultVaultCurrencyPair<T>,
-    ) -> Result<Amount<T>, DispatchError> {
-        <vault_registry::Pallet<T>>::get_max_nominatable_collateral(vault_collateral, currency_pair)
     }
 
     pub fn try_increase_total_backing_collateral<T: crate::Config>(
@@ -56,15 +40,30 @@ pub(crate) mod vault_registry {
     ) -> DispatchResult {
         <vault_registry::Pallet<T>>::decrease_total_backing_collateral(currency_pair, amount)
     }
-}
 
-#[cfg_attr(test, mockable)]
-pub(crate) mod fee {
-    use crate::DefaultVaultId;
-    use frame_support::dispatch::DispatchResult;
+    pub mod pool_manager {
+        use super::*;
 
-    pub fn withdraw_all_vault_rewards<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> DispatchResult {
-        <fee::Pallet<T>>::withdraw_all_vault_rewards(vault_id)
+        pub fn deposit_collateral<T: crate::Config>(
+            vault_id: &DefaultVaultId<T>,
+            nominator_id: &T::AccountId,
+            amount: &Amount<T>,
+        ) -> Result<(), DispatchError> {
+            <vault_registry::PoolManager<T>>::deposit_collateral(vault_id, nominator_id, amount)
+        }
+
+        pub fn withdraw_collateral<T: crate::Config>(
+            vault_id: &DefaultVaultId<T>,
+            nominator_id: &T::AccountId,
+            maybe_amount: Option<Amount<T>>,
+            nonce: Option<<T as frame_system::Config>::Index>,
+        ) -> Result<Amount<T>, DispatchError> {
+            <vault_registry::PoolManager<T>>::withdraw_collateral(vault_id, nominator_id, maybe_amount, nonce)
+        }
+
+        pub fn kick_nominators<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
+            <vault_registry::PoolManager<T>>::kick_nominators(vault_id)
+        }
     }
 }
 
@@ -72,38 +71,17 @@ pub(crate) mod fee {
 pub(crate) mod staking {
     use crate::BalanceOf;
     use frame_support::dispatch::DispatchError;
-    use staking::Staking;
+    use staking::{RewardsApi, StakingApi};
     use vault_registry::DefaultVaultId;
 
     pub fn nonce<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> T::Index {
         T::VaultStaking::nonce(vault_id)
     }
 
-    pub fn deposit_stake<T: crate::Config>(
-        vault_id: &DefaultVaultId<T>,
-        nominator_id: &T::AccountId,
-        amount: BalanceOf<T>,
-    ) -> Result<(), DispatchError> {
-        T::VaultStaking::deposit_stake(vault_id, nominator_id, amount)
-    }
-
-    pub fn withdraw_stake<T: crate::Config>(
-        vault_id: &DefaultVaultId<T>,
-        nominator_id: &T::AccountId,
-        amount: BalanceOf<T>,
-        index: Option<T::Index>,
-    ) -> Result<(), DispatchError> {
-        T::VaultStaking::withdraw_stake(vault_id, nominator_id, amount, index)
-    }
-
     pub fn compute_stake<T: vault_registry::Config>(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
     ) -> Result<BalanceOf<T>, DispatchError> {
-        T::VaultStaking::compute_stake(vault_id, nominator_id)
-    }
-
-    pub fn force_refund<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<BalanceOf<T>, DispatchError> {
-        T::VaultStaking::force_refund(vault_id)
+        T::VaultStaking::get_stake(&(None, vault_id.clone()), nominator_id)
     }
 }

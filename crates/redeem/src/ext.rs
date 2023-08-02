@@ -3,22 +3,20 @@ use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod btc_relay {
-    use bitcoin::types::{MerkleProof, Transaction, Value};
+    use bitcoin::types::{FullTransactionProof, Value};
     use btc_relay::BtcAddress;
     use frame_support::dispatch::DispatchError;
     use sp_core::H256;
     use sp_std::convert::TryInto;
 
     pub fn verify_and_validate_op_return_transaction<T: crate::Config, V: TryInto<Value>>(
-        merkle_proof: MerkleProof,
-        transaction: Transaction,
+        unchecked_transaction: FullTransactionProof,
         recipient_btc_address: BtcAddress,
         expected_btc: V,
         op_return_id: H256,
     ) -> Result<(), DispatchError> {
         <btc_relay::Pallet<T>>::verify_and_validate_op_return_transaction(
-            merkle_proof,
-            transaction,
+            unchecked_transaction,
             recipient_btc_address,
             expected_btc,
             op_return_id,
@@ -27,14 +25,6 @@ pub(crate) mod btc_relay {
 
     pub fn get_best_block_height<T: crate::Config>() -> u32 {
         <btc_relay::Pallet<T>>::get_best_block_height()
-    }
-
-    pub fn parse_transaction<T: btc_relay::Config>(raw_tx: &[u8]) -> Result<Transaction, DispatchError> {
-        <btc_relay::Pallet<T>>::parse_transaction(raw_tx)
-    }
-
-    pub fn parse_merkle_proof<T: btc_relay::Config>(raw_merkle_proof: &[u8]) -> Result<MerkleProof, DispatchError> {
-        <btc_relay::Pallet<T>>::parse_merkle_proof(raw_merkle_proof)
     }
 
     pub fn has_request_expired<T: crate::Config>(
@@ -57,6 +47,12 @@ pub(crate) mod vault_registry {
         vault_id: &DefaultVaultId<T>,
     ) -> Result<Amount<T>, DispatchError> {
         <vault_registry::Pallet<T>>::get_liquidated_collateral(vault_id)
+    }
+
+    pub fn get_free_redeemable_tokens<T: crate::Config>(
+        vault_id: &DefaultVaultId<T>,
+    ) -> Result<Amount<T>, DispatchError> {
+        <vault_registry::Pallet<T>>::get_free_redeemable_tokens(vault_id)
     }
 
     pub fn transfer_funds<T: crate::Config>(
@@ -184,15 +180,10 @@ pub(crate) mod treasury {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
-    use frame_support::dispatch::DispatchResult;
     use sp_core::H256;
 
     pub fn get_secure_id<T: crate::Config>(id: &T::AccountId) -> H256 {
         <security::Pallet<T>>::get_secure_id(id)
-    }
-
-    pub fn ensure_parachain_status_running<T: crate::Config>() -> DispatchResult {
-        <security::Pallet<T>>::ensure_parachain_status_running()
     }
 
     pub fn active_block_number<T: crate::Config>() -> T::BlockNumber {

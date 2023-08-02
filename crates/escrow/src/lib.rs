@@ -16,7 +16,7 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(any(feature = "runtime-benchmarks", test))]
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
 mod default_weights;
@@ -37,7 +37,7 @@ use frame_support::{
     },
     transactional,
 };
-use reward::ModifyStake;
+use reward::RewardsApi;
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{AtLeast32BitUnsigned, CheckedSub, Convert, Saturating, Zero},
@@ -120,7 +120,7 @@ impl<Balance: AtLeast32BitUnsigned + Default + Copy, BlockNumber: AtLeast32BitUn
 
 #[derive(Default, Encode, Decode, Clone, TypeInfo, MaxEncodedLen)]
 pub struct LockedBalance<Balance, BlockNumber> {
-    amount: Balance,
+    pub amount: Balance,
     end: BlockNumber,
 }
 
@@ -137,7 +137,7 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config {
         /// The overarching event type.
-        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// Convert the block number into a balance.
         type BlockNumberToBalance: Convert<Self::BlockNumber, BalanceOf<Self>>;
@@ -154,7 +154,7 @@ pub mod pallet {
         type MaxPeriod: Get<Self::BlockNumber>;
 
         /// Escrow reward pool.
-        type EscrowRewards: reward::ModifyStake<Self::AccountId, BalanceOf<Self>>;
+        type EscrowRewards: reward::RewardsApi<(), Self::AccountId, BalanceOf<Self>>;
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
@@ -196,11 +196,13 @@ pub mod pallet {
         /// Previous lock has expired.
         LockHasExpired,
         /// Lock amount is too large.
-        LockAmountTooLarge,
+        LockAmountTooLow,
         /// Insufficient account balance.
         InsufficientFunds,
         /// Not supported.
         NotSupported,
+        /// Incorrect Percent
+        IncorrectPercent,
     }
 
     #[pallet::hooks]
@@ -248,12 +250,12 @@ pub mod pallet {
     pub type Blocks<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, bool, ValueQuery>;
 
     #[pallet::pallet]
-    #[pallet::without_storage_info] // no MaxEncodedLen for <T as frame_system::Config>::Index
     pub struct Pallet<T>(_);
 
     // The pallet's dispatchable functions.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #[pallet::call_index(0)]
         #[pallet::weight(<T as Config>::WeightInfo::create_lock())]
         #[transactional]
         pub fn create_lock(
@@ -284,6 +286,7 @@ pub mod pallet {
             Self::deposit_for(&who, amount, unlock_height)
         }
 
+        #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::increase_amount())]
         #[transactional]
         pub fn increase_amount(origin: OriginFor<T>, #[pallet::compact] amount: BalanceOf<T>) -> DispatchResult {
@@ -303,6 +306,7 @@ pub mod pallet {
             Self::deposit_for(&who, amount, Zero::zero()).into()
         }
 
+        #[pallet::call_index(2)]
         #[pallet::weight(<T as Config>::WeightInfo::increase_unlock_height())]
         #[transactional]
         pub fn increase_unlock_height(origin: OriginFor<T>, unlock_height: T::BlockNumber) -> DispatchResult {
@@ -330,6 +334,7 @@ pub mod pallet {
             Self::deposit_for(&who, Zero::zero(), unlock_height)
         }
 
+        #[pallet::call_index(3)]
         #[pallet::weight(<T as Config>::WeightInfo::withdraw())]
         #[transactional]
         pub fn withdraw(origin: OriginFor<T>) -> DispatchResult {
@@ -337,7 +342,8 @@ pub mod pallet {
             Self::remove_lock(&who)
         }
 
-        #[pallet::weight(0)]
+        #[pallet::call_index(4)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_account_limit())]
         #[transactional]
         pub fn set_account_limit(
             origin: OriginFor<T>,
@@ -350,12 +356,28 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::weight(0)]
+        #[pallet::call_index(5)]
+        #[pallet::weight(<T as Config>::WeightInfo::withdraw())]
         #[transactional]
         pub fn set_account_block(origin: OriginFor<T>, who: T::AccountId) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             <Blocks<T>>::insert(&who, true);
             Ok(().into())
+        }
+
+        /// Update the stake amount for a user.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - Sender of the transaction.
+        /// * `target_user` - The account ID of the user whose stake amount needs to be updated.
+        #[pallet::call_index(6)]
+        #[pallet::weight(<T as Config>::WeightInfo::update_user_stake())]
+        #[transactional]
+        pub fn update_user_stake(origin: OriginFor<T>, target_user: T::AccountId) -> DispatchResult {
+            ensure_signed(origin)?;
+            // call `deposit_for` for re calculation of stake amount
+            Self::deposit_for(&target_user, Zero::zero(), Zero::zero())
         }
     }
 }
@@ -462,6 +484,7 @@ impl<T: Config> Pallet<T> {
         <UserPointHistory<T>>::insert(who, user_epoch, u_new);
     }
 
+    /// amount of kint/intr that use can lock, taking into consideration the Limits.
     fn get_free_balance(who: &T::AccountId) -> BalanceOf<T> {
         let free_balance = T::Currency::free_balance(who);
         // prevent blocked accounts from minting
@@ -479,6 +502,12 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    pub fn free_stakable(who: &T::AccountId) -> BalanceOf<T> {
+        let total_stakable = Self::get_free_balance(who);
+        let used = <Locked<T>>::get(who).amount;
+        total_stakable.saturating_sub(used)
+    }
+
     fn deposit_for(who: &T::AccountId, amount: BalanceOf<T>, unlock_height: T::BlockNumber) -> DispatchResult {
         let old_locked = Self::locked_balance(who);
         let mut new_locked = old_locked.clone();
@@ -490,7 +519,7 @@ impl<T: Config> Pallet<T> {
         // total amount can't be less than the max period to prevent rounding errors
         ensure!(
             new_locked.amount >= T::BlockNumberToBalance::convert(T::MaxPeriod::get()),
-            Error::<T>::LockAmountTooLarge,
+            Error::<T>::LockAmountTooLow,
         );
 
         ensure!(
@@ -503,8 +532,8 @@ impl<T: Config> Pallet<T> {
         Self::checkpoint(who, old_locked, new_locked);
 
         // withdraw all stake and re-deposit escrow balance
-        T::EscrowRewards::withdraw_stake(who)?;
-        T::EscrowRewards::deposit_stake(who, Self::balance_at(who, None))?;
+        T::EscrowRewards::withdraw_all_stake(&(), who)?;
+        T::EscrowRewards::deposit_stake(&(), who, Self::balance_at(who, None))?;
 
         Self::deposit_event(Event::<T>::Deposit {
             who: who.clone(),
@@ -513,6 +542,15 @@ impl<T: Config> Pallet<T> {
         });
 
         Ok(())
+    }
+
+    /// RPC helper
+    pub fn round_height_and_deposit_for(
+        who: &T::AccountId,
+        amount: BalanceOf<T>,
+        unlock_height: T::BlockNumber,
+    ) -> DispatchResult {
+        Self::deposit_for(who, amount, Self::round_height(unlock_height))
     }
 
     fn remove_lock(who: &T::AccountId) -> DispatchResult {
@@ -524,12 +562,12 @@ impl<T: Config> Pallet<T> {
         ensure!(current_height >= old_locked.end, Error::<T>::LockNotExpired);
 
         // withdraw all stake
-        T::EscrowRewards::withdraw_stake(who)?;
+        T::EscrowRewards::withdraw_all_stake(&(), who)?;
 
         Self::checkpoint(who, old_locked, Default::default());
 
         T::Currency::remove_lock(LOCK_ID, &who);
-        <UserPointHistory<T>>::remove_prefix(who, None);
+        let _ = <UserPointHistory<T>>::clear_prefix(who, u32::max_value(), None);
 
         Self::deposit_event(Event::<T>::Withdraw {
             who: who.clone(),
@@ -539,6 +577,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// vKINT/vINTR balance at given height
     pub fn balance_at(who: &T::AccountId, height: Option<T::BlockNumber>) -> BalanceOf<T> {
         let height = height.unwrap_or(Self::current_height());
         let last_point = <UserPointHistory<T>>::get(who, <UserPointEpoch<T>>::get(who));
@@ -668,7 +707,15 @@ impl<T: Config> Currency<T::AccountId> for Pallet<T> {
         who: &T::AccountId,
         balance: Self::Balance,
     ) -> SignedImbalance<Self::Balance, Self::PositiveImbalance> {
-        T::Currency::make_free_balance_be(who, balance)
+        let now = Self::current_height();
+        let max_period = T::MaxPeriod::get();
+        let end_height = now.saturating_add(max_period);
+        <UserPointHistory<T>>::insert(
+            who,
+            <UserPointEpoch<T>>::get(who),
+            Point::new::<T::BlockNumberToBalance>(balance, now, end_height, max_period),
+        );
+        SignedImbalance::zero()
     }
 }
 

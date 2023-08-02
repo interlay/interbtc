@@ -5,6 +5,11 @@ use mocktopus::macros::mockable;
 pub(crate) mod security {
     use frame_support::dispatch::DispatchError;
 
+    #[cfg(feature = "runtime-benchmarks")]
+    pub fn set_active_block_number<T: crate::Config>(n: T::BlockNumber) {
+        <security::Pallet<T>>::set_active_block_number(n)
+    }
+
     pub fn active_block_number<T: crate::Config>() -> T::BlockNumber {
         <security::Pallet<T>>::active_block_number()
     }

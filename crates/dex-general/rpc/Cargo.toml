@@ -1,0 +1,25 @@
+[package]
+name = "dex-general-rpc"
+version = "0.4.4"
+authors = ["Zenlink Developers", "Interlay Ltd"]
+edition = "2021"
+license = "Apache 2.0"
+
+[dependencies]
+serde = { version = "1.0.119", features = ["derive"], optional = true }
+# alias "parity-scale-code" to "codec"
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false }
+
+jsonrpsee = { version = "0.16.2", features = ["server", "macros"] }
+
+# Substrate packages
+
+sp-blockchain = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.31" }
+sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.31" }
+sp-rpc = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.31" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.31" }
+
+# Local packages
+
+dex-general = { path = ".." }
+dex-general-rpc-runtime-api = { path = "./runtime-api" }

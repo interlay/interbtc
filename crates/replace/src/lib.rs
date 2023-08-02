@@ -5,7 +5,7 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(any(feature = "runtime-benchmarks", test))]
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
 mod default_weights;
@@ -27,12 +27,14 @@ use mocktopus::macros::mockable;
 
 use crate::types::{BalanceOf, ReplaceRequestExt, Version};
 pub use crate::types::{DefaultReplaceRequest, ReplaceRequest, ReplaceRequestStatus};
+use bitcoin::types::FullTransactionProof;
 use btc_relay::BtcAddress;
 use currency::Amount;
 pub use default_weights::WeightInfo;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
+    pallet_prelude::Weight,
     traits::Get,
     transactional,
 };
@@ -43,6 +45,31 @@ use types::DefaultVaultId;
 use vault_registry::{types::CurrencyId, CurrencySource};
 
 pub use pallet::*;
+
+/// Complexity:
+/// - `O(H + I + O + B)` where:
+///   - `H` is the number of hashes in the merkle tree
+///   - `I` is the number of transaction inputs
+///   - `O` is the number of transaction outputs
+///   - `B` is `transaction` size in bytes (length-fee-bounded)
+fn weight_for_execute_replace<T: Config>(proof: &FullTransactionProof) -> Weight {
+    {
+        let h = proof.user_tx_proof.merkle_proof.hashes.len() as u32;
+        let i = proof.user_tx_proof.transaction.inputs.len() as u32;
+        let o = proof.user_tx_proof.transaction.outputs.len() as u32;
+        let b = proof.user_tx_proof.tx_encoded_len;
+        <T as Config>::WeightInfo::execute_pending_replace(h, i, o, b)
+            .max(<T as Config>::WeightInfo::execute_cancelled_replace(h, i, o, b))
+    }
+    .saturating_add({
+        let h = proof.coinbase_proof.merkle_proof.hashes.len() as u32;
+        let i = proof.coinbase_proof.transaction.inputs.len() as u32;
+        let o = proof.coinbase_proof.transaction.outputs.len() as u32;
+        let b = proof.coinbase_proof.tx_encoded_len;
+        <T as Config>::WeightInfo::execute_pending_replace(h, i, o, b)
+            .max(<T as Config>::WeightInfo::execute_cancelled_replace(h, i, o, b))
+    })
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -64,7 +91,7 @@ pub mod pallet {
         + nomination::Config
     {
         /// The overarching event type.
-        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
@@ -101,6 +128,9 @@ pub mod pallet {
             new_vault_id: DefaultVaultId<T>,
             old_vault_id: DefaultVaultId<T>,
             griefing_collateral: BalanceOf<T>,
+        },
+        ReplacePeriodChange {
+            period: T::BlockNumber,
         },
     }
 
@@ -199,6 +229,7 @@ pub mod pallet {
         /// * `origin` - sender of the transaction
         /// * `amount` - amount of issued tokens
         /// * `griefing_collateral` - amount of collateral
+        #[pallet::call_index(0)]
         #[pallet::weight(<T as Config>::WeightInfo::request_replace())]
         #[transactional]
         pub fn request_replace(
@@ -216,6 +247,7 @@ pub mod pallet {
         /// # Arguments
         ///
         /// * `origin` - sender of the transaction: the old vault
+        #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::withdraw_replace())]
         #[transactional]
         pub fn withdraw_replace(
@@ -236,6 +268,7 @@ pub mod pallet {
         /// * `old_vault` - id of the old vault that we are (possibly partially) replacing
         /// * `collateral` - the collateral for replacement
         /// * `btc_address` - the address that old-vault should transfer the btc to
+        #[pallet::call_index(2)]
         #[pallet::weight(<T as Config>::WeightInfo::accept_replace())]
         #[transactional]
         pub fn accept_replace(
@@ -259,16 +292,17 @@ pub mod pallet {
         /// * `replace_id` - the ID of the replacement request
         /// * 'merkle_proof' - the merkle root of the block
         /// * `raw_tx` - the transaction id in bytes
-        #[pallet::weight(<T as Config>::WeightInfo::execute_replace())]
+        #[pallet::call_index(3)]
+        #[pallet::weight(weight_for_execute_replace::<T>(unchecked_transaction))]
         #[transactional]
         pub fn execute_replace(
             origin: OriginFor<T>,
             replace_id: H256,
-            merkle_proof: Vec<u8>,
-            raw_tx: Vec<u8>,
+            unchecked_transaction: FullTransactionProof,
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_signed(origin)?;
-            Self::_execute_replace(replace_id, merkle_proof, raw_tx)?;
+
+            Self::_execute_replace(replace_id, unchecked_transaction)?;
             Ok(().into())
         }
 
@@ -276,13 +310,14 @@ pub mod pallet {
         ///
         /// # Arguments
         ///
-        /// * `origin` - sender of the transaction: the new vault
+        /// * `origin` - sender of the transaction: anyone
         /// * `replace_id` - the ID of the replacement request
+        #[pallet::call_index(4)]
         #[pallet::weight(<T as Config>::WeightInfo::cancel_replace())]
         #[transactional]
         pub fn cancel_replace(origin: OriginFor<T>, replace_id: H256) -> DispatchResultWithPostInfo {
-            let new_vault = ensure_signed(origin)?;
-            Self::_cancel_replace(new_vault, replace_id)?;
+            let _ = ensure_signed(origin)?;
+            Self::_cancel_replace(replace_id)?;
             Ok(().into())
         }
 
@@ -294,11 +329,13 @@ pub mod pallet {
         /// * `period` - default period for new requests
         ///
         /// # Weight: `O(1)`
+        #[pallet::call_index(5)]
         #[pallet::weight(<T as Config>::WeightInfo::set_replace_period())]
         #[transactional]
         pub fn set_replace_period(origin: OriginFor<T>, period: T::BlockNumber) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             <ReplacePeriod<T>>::set(period);
+            Self::deposit_event(Event::ReplacePeriodChange { period });
             Ok(().into())
         }
     }
@@ -314,7 +351,7 @@ impl<T: Config> Pallet<T> {
         let amount_btc = Amount::new(amount_btc, vault_id.wrapped_currency());
 
         ensure!(
-            !ext::nomination::is_nominatable::<T>(&vault_id)?,
+            !ext::nomination::is_nominatable::<T>(&vault_id),
             Error::<T>::VaultHasEnabledNomination
         );
 
@@ -358,14 +395,7 @@ impl<T: Config> Pallet<T> {
         let amount = Amount::new(amount, vault_id.wrapped_currency());
         // decrease to-be-replaced tokens, so that the vault is free to use its issued tokens again.
         let (withdrawn_tokens, to_withdraw_collateral) =
-            ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&vault_id, &amount)?;
-
-        // release the used collateral
-        ext::vault_registry::transfer_funds(
-            CurrencySource::AvailableReplaceCollateral(vault_id.clone()),
-            CurrencySource::FreeBalance(vault_id.account_id.clone()),
-            &to_withdraw_collateral,
-        )?;
+            ext::vault_registry::withdraw_replace_request::<T>(&vault_id, &amount)?;
 
         if withdrawn_tokens.is_zero() {
             return Err(Error::<T>::NoPendingRequest.into());
@@ -417,10 +447,6 @@ impl<T: Config> Pallet<T> {
 
         // Check that new vault is not currently banned
         ext::vault_registry::ensure_not_banned::<T>(&new_vault_id)?;
-
-        // Add the new replace address to the vault's wallet,
-        // this should also verify that the vault exists
-        ext::vault_registry::insert_vault_deposit_address::<T>(new_vault_id.clone(), btc_address)?;
 
         // decrease old-vault's to-be-replaced tokens
         let (redeemable_tokens, griefing_collateral) =
@@ -476,7 +502,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn _execute_replace(replace_id: H256, raw_merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
+    fn _execute_replace(replace_id: H256, unchecked_transaction: FullTransactionProof) -> DispatchResult {
         // retrieve the replace request using the id parameter
         // we can still execute cancelled requests
         let replace = Self::get_open_or_cancelled_replace_request(&replace_id)?;
@@ -490,11 +516,8 @@ impl<T: Config> Pallet<T> {
         let old_vault_id = replace.old_vault;
 
         // check the transaction inclusion and validity
-        let transaction = ext::btc_relay::parse_transaction::<T>(&raw_tx)?;
-        let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
         ext::btc_relay::verify_and_validate_op_return_transaction::<T, _>(
-            merkle_proof,
-            transaction,
+            unchecked_transaction,
             replace.btc_address,
             replace.amount,
             replace_id,
@@ -541,7 +564,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn _cancel_replace(caller: T::AccountId, replace_id: H256) -> Result<(), DispatchError> {
+    fn _cancel_replace(replace_id: H256) -> Result<(), DispatchError> {
         // Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let replace = Self::get_open_replace_request(&replace_id)?;
 
@@ -561,9 +584,6 @@ impl<T: Config> Pallet<T> {
 
         let new_vault_id = replace.new_vault;
 
-        // only cancellable by new_vault
-        ensure!(caller == new_vault_id.account_id, Error::<T>::UnauthorizedVault);
-
         // decrease old-vault's to-be-redeemed tokens, and
         // decrease new-vault's to-be-issued tokens
         ext::vault_registry::cancel_replace_tokens::<T>(&replace.old_vault, &new_vault_id, &amount)?;
@@ -578,7 +598,7 @@ impl<T: Config> Pallet<T> {
         // if the new_vault locked additional collateral especially for this replace,
         // release it if it does not cause them to be undercollateralized
         if !ext::vault_registry::is_vault_liquidated::<T>(&new_vault_id)?
-            && ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(&new_vault_id, &collateral)?
+            && ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(&new_vault_id, Some(collateral.clone()))?
         {
             ext::vault_registry::force_withdraw_collateral::<T>(&new_vault_id, &collateral)?;
         }

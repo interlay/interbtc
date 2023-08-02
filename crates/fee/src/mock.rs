@@ -1,6 +1,10 @@
 use crate as fee;
 use crate::{Config, Error};
-use frame_support::{parameter_types, traits::Everything, PalletId};
+use frame_support::{
+    parameter_types,
+    traits::{ConstU32, Everything},
+    PalletId,
+};
 use mocktopus::mocking::clear_mocks;
 use orml_traits::parameter_type_with_key;
 use primitives::VaultId;
@@ -10,6 +14,7 @@ use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup, Zero},
+    DispatchError, FixedPointNumber,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -28,8 +33,9 @@ frame_support::construct_runtime!(
         // Tokens & Balances
         Tokens: orml_tokens::{Pallet, Storage, Config<T>, Event<T>},
 
-        Rewards: reward::{Pallet, Call, Storage, Event<T>},
-        Staking: staking::{Pallet, Storage, Event<T>},
+        CapacityRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        VaultRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
+        VaultStaking: staking::{Pallet, Storage, Event<T>},
 
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},
@@ -46,7 +52,6 @@ pub type Index = u64;
 pub type SignedFixedPoint = FixedI128;
 pub type SignedInner = i128;
 pub type UnsignedFixedPoint = FixedU128;
-pub type UnsignedInner = u128;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -58,8 +63,8 @@ impl frame_system::Config for Test {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = Index;
     type BlockNumber = BlockNumber;
     type Hash = H256;
@@ -67,7 +72,7 @@ impl frame_system::Config for Test {
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -94,28 +99,43 @@ parameter_type_with_key! {
 }
 
 impl orml_tokens::Config for Test {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type Balance = Balance;
     type Amount = RawAmount;
     type CurrencyId = CurrencyId;
     type WeightInfo = ();
     type ExistentialDeposits = ExistentialDeposits;
-    type OnDust = ();
+    type CurrencyHooks = ();
     type MaxLocks = MaxLocks;
     type DustRemovalWhitelist = Everything;
+    type MaxReserves = ConstU32<0>; // we don't use named reserves
+    type ReserveIdentifier = (); // we don't use named reserves
 }
 
-impl reward::Config for Test {
-    type Event = TestEvent;
+type CapacityRewardsInstance = reward::Instance1;
+
+impl reward::Config<CapacityRewardsInstance> for Test {
+    type RuntimeEvent = RuntimeEvent;
     type SignedFixedPoint = SignedFixedPoint;
-    type RewardId = VaultId<AccountId, CurrencyId>;
+    type PoolId = ();
+    type StakeId = CurrencyId;
     type CurrencyId = CurrencyId;
-    type GetNativeCurrencyId = GetNativeCurrencyId;
-    type GetWrappedCurrencyId = GetWrappedCurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
+}
+
+type VaultRewardsInstance = reward::Instance2;
+
+impl reward::Config<VaultRewardsInstance> for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type PoolId = CurrencyId;
+    type StakeId = VaultId<AccountId, CurrencyId>;
+    type CurrencyId = CurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
 }
 
 impl staking::Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
     type CurrencyId = CurrencyId;
@@ -134,7 +154,8 @@ impl pallet_timestamp::Config for Test {
 }
 
 impl security::Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
 }
 
 pub struct CurrencyConvert;
@@ -160,6 +181,24 @@ impl currency::Config for Test {
 
 parameter_types! {
     pub const FeePalletId: PalletId = PalletId(*b"mod/fees");
+    pub const MaxExpectedValue: UnsignedFixedPoint = UnsignedFixedPoint::from_inner(<UnsignedFixedPoint as FixedPointNumber>::DIV);
+}
+
+pub struct MockNomination;
+
+impl traits::NominationApi<VaultId<AccountId, CurrencyId>, currency::Amount<Test>> for MockNomination {
+    fn deposit_vault_collateral(
+        _vault_id: &VaultId<AccountId, CurrencyId>,
+        _amount: &currency::Amount<Test>,
+    ) -> Result<(), DispatchError> {
+        Ok(())
+    }
+    fn ensure_opted_in_to_nomination(_vault_id: &VaultId<AccountId, CurrencyId>) -> Result<(), DispatchError> {
+        Ok(())
+    }
+
+    #[cfg(any(feature = "runtime-benchmarks", test))]
+    fn opt_in_to_nomination(_vault_id: &VaultId<AccountId, CurrencyId>) {}
 }
 
 impl Config for Test {
@@ -167,14 +206,13 @@ impl Config for Test {
     type WeightInfo = ();
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
-    type UnsignedFixedPoint = UnsignedFixedPoint;
-    type UnsignedInner = UnsignedInner;
-    type VaultRewards = Rewards;
-    type VaultStaking = Staking;
+    type CapacityRewards = CapacityRewards;
+    type VaultRewards = VaultRewards;
+    type VaultStaking = VaultStaking;
     type OnSweep = ();
+    type MaxExpectedValue = MaxExpectedValue;
+    type NominationApi = MockNomination;
 }
-
-pub type TestEvent = Event;
 
 #[allow(dead_code)]
 pub type TestError = Error<Test>;

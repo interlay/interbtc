@@ -1,0 +1,16 @@
+[package]
+authors = ["Interlay Ltd"]
+edition = "2021"
+name = "escrow-rpc"
+version = '0.3.0'
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.1.5" }
+jsonrpsee = { version = "0.16.2", features = ["server", "macros"] }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+escrow-rpc-runtime-api = { path = "runtime-api" }
+
+[dependencies.oracle-rpc-runtime-api]
+path = '../../oracle/rpc/runtime-api'

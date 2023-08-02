@@ -1,26 +1,27 @@
 [package]
 authors = ["Interlay Ltd"]
 description = "Issue module"
-edition = "2018"
+edition = "2021"
 name = "issue"
 version = "1.2.0"
 
 [dependencies]
 serde = { version = "1.0.130", default-features = false, features = ['derive'], optional = true }
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
-scale-info = { version = "2.0.0", default-features = false, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false, features = ["derive", "max-encoded-len"] }
+scale-info = { version = "2.2.0", default-features = false, features = ["derive"] }
+log = { version = "0.4.14", default-features = false }
 
 # Substrate dependencies
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18", default-features = false }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18", default-features = false }
-sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18", default-features = false }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18", default-features = false }
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18", default-features = false, optional = true }
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false, optional = true }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 
 # Parachain dependencies
 bitcoin = { path = "../bitcoin", default-features = false }
@@ -30,25 +31,26 @@ fee = { path = "../fee", default-features = false }
 security = { path = "../security", default-features = false }
 currency = { path = "../currency", default-features = false }
 vault-registry = { path = "../vault-registry", default-features = false }
-refund = { path = "../refund", default-features = false }
+nomination = { path = "../nomination", default-features = false }
+traits = { path = '../traits', default-features = false }
 
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "2b5d4ce1d08fb54c0007c2055653892d2c93a92e", default-features = false, optional = true }
-orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "2b5d4ce1d08fb54c0007c2055653892d2c93a92e", default-features = false, optional = true }
+orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false, optional = true }
+orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false, optional = true }
 
 [dev-dependencies]
-mocktopus = "0.7.0"
-frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18" }
+mocktopus = "0.8.0"
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 
 # Parachain dependencies
 reward = { path = "../reward" }
 staking = { path = "../staking" }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "2b5d4ce1d08fb54c0007c2055653892d2c93a92e" }
-orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "2b5d4ce1d08fb54c0007c2055653892d2c93a92e" }
+orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404" }
+orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404" }
 
 [features]
 default = ["std"]
@@ -74,9 +76,9 @@ std = [
 	"security/std",
 	"currency/std",
 	"vault-registry/std",
-	"refund/std",
+	"nomination/std",
 
-    "primitives/std",
+	"primitives/std",
 
 	"orml-tokens/std",
 	"orml-traits/std",
@@ -86,6 +88,10 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 
+	"bitcoin/runtime-benchmarks",
+	"btc-relay/runtime-benchmarks",
+
 	"orml-tokens",
 	"orml-traits",
 ]
+try-runtime = [ "frame-support/try-runtime" ]

@@ -1,18 +1,16 @@
 [package]
 authors = ["Interlay Ltd"]
-edition = "2018"
-name = "module-vault-registry-rpc"
+edition = "2021"
+name = "vault-registry-rpc"
 version = '0.3.0'
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.0.0" }
-jsonrpc-core = "18.0.0"
-jsonrpc-core-client = "18.0.0"
-jsonrpc-derive = "18.0.0"
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18" }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18" }
-module-vault-registry-rpc-runtime-api = { path = "runtime-api" }
+codec = { package = "parity-scale-codec", version = "3.1.5" }
+jsonrpsee = { version = "0.16.2", features = ["server", "macros"] }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+vault-registry-rpc-runtime-api = { path = "runtime-api" }
 
-[dependencies.module-oracle-rpc-runtime-api]
+[dependencies.oracle-rpc-runtime-api]
 path = '../../oracle/rpc/runtime-api'

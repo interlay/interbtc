@@ -48,7 +48,7 @@
 					]
 				}
 			],
-			"chain": "rococo-local-2000"
+			"chain": "rococo-local-interlay-2000"
 		},
 		{
 			"bin": "/usr/local/bin/interbtc-parachain",

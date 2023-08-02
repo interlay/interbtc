@@ -5,9 +5,14 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_runtime::{traits::*, ArithmeticError};
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 
-pub mod types;
+use sp_runtime::{traits::*, ArithmeticError};
+use sp_std::convert::TryInto;
+
+mod default_weights;
+pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 mod mock;
@@ -21,21 +26,12 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-#[doc(inline)]
-pub use crate::types::{ErrorCode, StatusCode};
-
 use codec::Encode;
-use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
-    transactional,
-    weights::Weight,
-};
-use frame_system::ensure_root;
+use frame_support::{dispatch::DispatchError, weights::Weight};
+pub use pallet::*;
 use sha2::{Digest, Sha256};
 use sp_core::{H256, U256};
-use sp_std::{collections::btree_set::BTreeSet, prelude::*, vec};
-
-pub use pallet::*;
+use sp_std::vec;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -48,68 +44,30 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config {
         /// The overarching event type.
-        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+        /// Weight information for the extrinsics in this module.
+        type WeightInfo: WeightInfo;
     }
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        RecoverFromErrors {
-            new_status: StatusCode,
-            cleared_errors: Vec<ErrorCode>,
-        },
-        UpdateActiveBlock {
-            block_number: T::BlockNumber,
-        },
+        UpdateActiveBlock { block_number: T::BlockNumber },
+        Activated,
+        Deactivated,
     }
 
     #[pallet::error]
-    pub enum Error<T> {
-        /// Parachain is not running.
-        ParachainNotRunning,
-    }
+    pub enum Error<T> {}
 
     #[pallet::hooks]
     impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
         fn on_initialize(_n: T::BlockNumber) -> Weight {
             Self::increment_active_block();
-            // TODO: calculate weight
-            0
+            <T as Config>::WeightInfo::on_initialize()
         }
     }
-
-    #[pallet::genesis_config]
-    pub struct GenesisConfig {
-        pub initial_status: StatusCode,
-    }
-
-    #[cfg(feature = "std")]
-    impl Default for GenesisConfig {
-        fn default() -> Self {
-            Self {
-                initial_status: StatusCode::Error,
-            }
-        }
-    }
-
-    #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig {
-        fn build(&self) {
-            Pallet::<T>::set_status(self.initial_status);
-
-            Pallet::<T>::insert_error(ErrorCode::OracleOffline);
-        }
-    }
-
-    /// Integer/Enum defining the current state of the BTC-Parachain.
-    #[pallet::storage]
-    #[pallet::getter(fn parachain_status)]
-    pub type ParachainStatus<T: Config> = StorageValue<_, StatusCode, ValueQuery>;
-
-    /// Set of ErrorCodes, indicating the reason for an "Error" ParachainStatus.
-    #[pallet::storage]
-    #[pallet::getter(fn errors)]
-    pub type Errors<T: Config> = StorageValue<_, BTreeSet<ErrorCode>, ValueQuery>;
 
     /// Integer increment-only counter, used to prevent collisions when generating identifiers
     /// for e.g. issue, redeem or replace requests (for OP_RETURN field in Bitcoin).
@@ -125,59 +83,30 @@ pub mod pallet {
     #[pallet::getter(fn active_block_number)]
     pub type ActiveBlockCount<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
 
+    #[pallet::storage]
+    pub type IsDeactivated<T: Config> = StorageValue<_, bool, ValueQuery>;
+
     #[pallet::pallet]
-    #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
     // The pallet's dispatchable functions.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Set the parachain status code.
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - the dispatch origin of this call (must be _Root_)
-        /// * `status_code` - the status code to set
-        ///
-        /// # Weight: `O(1)`
-        #[pallet::weight(0)]
-        #[transactional]
-        pub fn set_parachain_status(origin: OriginFor<T>, status_code: StatusCode) -> DispatchResultWithPostInfo {
+        /// Activate or deactivate active block counting.
+        #[pallet::call_index(0)]
+        #[pallet::weight(T::WeightInfo::activate_counter())]
+        pub fn activate_counter(origin: OriginFor<T>, is_active: bool) -> DispatchResult {
             ensure_root(origin)?;
-            Self::set_status(status_code);
-            Ok(().into())
-        }
 
-        /// Insert a new parachain error.
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - the dispatch origin of this call (must be _Root_)
-        /// * `error_code` - the error code to insert
-        ///
-        /// # Weight: `O(1)`
-        #[pallet::weight(0)]
-        #[transactional]
-        pub fn insert_parachain_error(origin: OriginFor<T>, error_code: ErrorCode) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            Self::insert_error(error_code);
-            Ok(().into())
-        }
+            // IsDeactivated is negative so that we don't need migration
+            IsDeactivated::<T>::set(!is_active);
 
-        /// Remove a parachain error.
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - the dispatch origin of this call (must be _Root_)
-        /// * `error_code` - the error code to remove
-        ///
-        /// # Weight: `O(1)`
-        #[pallet::weight(0)]
-        #[transactional]
-        pub fn remove_parachain_error(origin: OriginFor<T>, error_code: ErrorCode) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            Self::remove_error(error_code);
-            Ok(().into())
+            if is_active {
+                Self::deposit_event(Event::Activated);
+            } else {
+                Self::deposit_event(Event::Deactivated);
+            }
+            Ok(())
         }
     }
 }
@@ -185,85 +114,9 @@ pub mod pallet {
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
-    /// Ensures the Parachain is RUNNING
-    pub fn ensure_parachain_status_running() -> DispatchResult {
-        if <ParachainStatus<T>>::get() == StatusCode::Running {
-            Ok(())
-        } else {
-            Err(Error::<T>::ParachainNotRunning.into())
-        }
-    }
-
-    /// Checks if the Parachain has Shutdown
-    pub fn is_parachain_shutdown() -> bool {
-        Self::parachain_status() == StatusCode::Shutdown
-    }
-
-    /// Checks if the Parachain has a OracleOffline Error state
-    pub fn is_parachain_error_oracle_offline() -> bool {
-        Self::parachain_status() == StatusCode::Error && <Errors<T>>::get().contains(&ErrorCode::OracleOffline)
-    }
-
-    /// Sets the given `StatusCode`.
-    ///
-    /// # Arguments
-    ///
-    /// * `status_code` - to set in storage.
-    pub fn set_status(status_code: StatusCode) {
-        <ParachainStatus<T>>::set(status_code);
-    }
-
-    /// Get the current set of `ErrorCode`.
-    pub fn get_errors() -> BTreeSet<ErrorCode> {
-        <Errors<T>>::get()
-    }
-
-    /// Inserts the given `ErrorCode`.
-    ///
-    /// # Arguments
-    ///
-    /// * `error_code` - the error to insert.
-    pub fn insert_error(error_code: ErrorCode) {
-        <Errors<T>>::mutate(|errors| {
-            errors.insert(error_code);
-        })
-    }
-
-    /// Removes the given `ErrorCode`.
-    ///
-    /// # Arguments
-    ///
-    /// * `error_code` - the error to remove.
-    pub fn remove_error(error_code: ErrorCode) {
-        <Errors<T>>::mutate(|errors| {
-            errors.remove(&error_code);
-        })
-    }
-
     pub fn parachain_block_expired(opentime: T::BlockNumber, period: T::BlockNumber) -> Result<bool, DispatchError> {
         let expiration_block = opentime.checked_add(&period).ok_or(ArithmeticError::Overflow)?;
         Ok(Self::active_block_number() > expiration_block)
-    }
-
-    fn recover_from_(error_codes: Vec<ErrorCode>) {
-        for error_code in error_codes.clone() {
-            Self::remove_error(error_code);
-        }
-
-        if Self::get_errors().is_empty() {
-            Self::set_status(StatusCode::Running);
-        }
-
-        Self::deposit_event(Event::RecoverFromErrors {
-            new_status: Self::parachain_status(),
-            cleared_errors: error_codes,
-        });
-    }
-
-    /// Recovers the BTC Parachain state from an `ORACLE_OFFLINE` error
-    /// and sets ParachainStatus to `RUNNING` if there are no other errors.
-    pub fn recover_from_oracle_offline() {
-        Self::recover_from_(vec![ErrorCode::OracleOffline])
     }
 
     /// Increment and return the `Nonce`.
@@ -276,13 +129,15 @@ impl<T: Config> Pallet<T> {
     }
 
     fn increment_active_block() {
-        if Self::parachain_status() == StatusCode::Running {
-            let height = <ActiveBlockCount<T>>::mutate(|n| {
-                *n = n.saturating_add(1u32.into());
-                *n
-            });
-            Self::deposit_event(Event::UpdateActiveBlock { block_number: height });
+        if IsDeactivated::<T>::get() {
+            return;
         }
+
+        let height = <ActiveBlockCount<T>>::mutate(|n| {
+            *n = n.saturating_add(1u32.into());
+            *n
+        });
+        Self::deposit_event(Event::UpdateActiveBlock { block_number: height });
     }
 
     /// Generates a 256-bit unique hash from an `AccountId` and the

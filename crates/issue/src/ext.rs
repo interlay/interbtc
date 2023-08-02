@@ -3,17 +3,16 @@ use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod btc_relay {
-    use bitcoin::types::{MerkleProof, Transaction, Value};
+    use bitcoin::types::{FullTransactionProof, Value};
     use btc_relay::BtcAddress;
     use frame_support::dispatch::DispatchError;
     use sp_std::convert::TryFrom;
 
     pub fn get_and_verify_issue_payment<T: crate::Config, V: TryFrom<Value>>(
-        merkle_proof: MerkleProof,
-        transaction: Transaction,
+        unchecked_transaction: FullTransactionProof,
         recipient_btc_address: BtcAddress,
-    ) -> Result<(BtcAddress, V), DispatchError> {
-        <btc_relay::Pallet<T>>::get_and_verify_issue_payment(merkle_proof, transaction, recipient_btc_address)
+    ) -> Result<V, DispatchError> {
+        <btc_relay::Pallet<T>>::get_and_verify_issue_payment(unchecked_transaction, recipient_btc_address)
     }
 
     pub fn get_best_block_height<T: crate::Config>() -> u32 {
@@ -22,14 +21,6 @@ pub(crate) mod btc_relay {
 
     pub fn is_fully_initialized<T: crate::Config>() -> Result<bool, DispatchError> {
         <btc_relay::Pallet<T>>::is_fully_initialized()
-    }
-
-    pub fn parse_transaction<T: btc_relay::Config>(raw_tx: &[u8]) -> Result<Transaction, DispatchError> {
-        <btc_relay::Pallet<T>>::parse_transaction(raw_tx)
-    }
-
-    pub fn parse_merkle_proof<T: btc_relay::Config>(raw_merkle_proof: &[u8]) -> Result<MerkleProof, DispatchError> {
-        <btc_relay::Pallet<T>>::parse_merkle_proof(raw_merkle_proof)
     }
 
     pub fn has_request_expired<T: crate::Config>(
@@ -75,6 +66,16 @@ pub(crate) mod vault_registry {
         amount: &Amount<T>,
     ) -> Result<(), DispatchError> {
         <vault_registry::Pallet<T>>::try_increase_to_be_issued_tokens(vault_id, amount)
+    }
+
+    pub fn ensure_accepting_new_issues<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<(), DispatchError> {
+        <vault_registry::Pallet<T>>::ensure_accepting_new_issues(vault_id)
+    }
+
+    pub fn get_issuable_tokens_from_vault<T: crate::Config>(
+        vault_id: &DefaultVaultId<T>,
+    ) -> Result<Amount<T>, DispatchError> {
+        <vault_registry::Pallet<T>>::get_issuable_tokens_from_vault(vault_id)
     }
 
     pub fn register_deposit_address<T: crate::Config>(
@@ -144,24 +145,5 @@ pub(crate) mod fee {
 
     pub fn distribute_rewards<T: crate::Config>(amount: &Amount<T>) -> DispatchResult {
         <fee::Pallet<T>>::distribute_rewards(amount)
-    }
-}
-
-#[cfg_attr(test, mockable)]
-pub(crate) mod refund {
-    use crate::DefaultVaultId;
-    use btc_relay::BtcAddress;
-    use currency::Amount;
-    use frame_support::dispatch::DispatchError;
-    use sp_core::H256;
-
-    pub fn request_refund<T: crate::Config>(
-        total_amount_btc: &Amount<T>,
-        vault_id: DefaultVaultId<T>,
-        issuer: T::AccountId,
-        btc_address: BtcAddress,
-        issue_id: H256,
-    ) -> Result<Option<H256>, DispatchError> {
-        <refund::Pallet<T>>::request_refund(total_amount_btc, vault_id, issuer, btc_address, issue_id)
     }
 }

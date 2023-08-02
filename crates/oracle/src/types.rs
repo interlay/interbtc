@@ -10,6 +10,4 @@ pub type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
 pub enum Version {
     /// Initial version.
     V0,
-    /// BtcAddress type with script format.
-    V1,
 }

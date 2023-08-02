@@ -1,0 +1,166 @@
+[package]
+authors = ["Interlay Ltd"]
+edition = "2021"
+name = 'runtime-common'
+version = "1.2.0"
+
+[package.metadata.docs.rs]
+targets = ['x86_64-unknown-linux-gnu']
+
+[dependencies]
+
+# Substrate dependencies
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false, optional = true }
+xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
+xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31", default-features = false }
+pallet-aura = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+
+# Cumulus dependencies
+parachain-info = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.31", default-features = false }
+
+# Parachain dependencies
+annuity = { path = "../../../crates/annuity", default-features = false }
+btc-relay = { path = "../../../crates/btc-relay", default-features = false }
+clients-info = { path = "../../../crates/clients-info", default-features = false }
+collator-selection = { path = "../../../crates/collator-selection", default-features = false }
+currency = { path = "../../../crates/currency", default-features = false }
+democracy = { path = "../../../crates/democracy", default-features = false }
+escrow = { path = "../../../crates/escrow", default-features = false }
+fee = { path = "../../../crates/fee", default-features = false }
+issue = { path = "../../../crates/issue", default-features = false }
+loans = { path = "../../../crates/loans", default-features = false }
+nomination = { path = "../../../crates/nomination", default-features = false }
+oracle = { path = "../../../crates/oracle", default-features = false }
+redeem = { path = "../../../crates/redeem", default-features = false }
+replace = { path = "../../../crates/replace", default-features = false }
+reward = { path = "../../../crates/reward", default-features = false }
+security = { path = "../../../crates/security", default-features = false }
+staking = { path = "../../../crates/staking", default-features = false }
+supply = { path = "../../../crates/supply", default-features = false }
+traits = { path = "../../../crates/traits", default-features = false }
+vault-registry = { path = "../../../crates/vault-registry", default-features = false }
+
+primitives = { package = "interbtc-primitives", path = "../../../primitives", default-features = false }
+
+# Orml dependencies
+orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0", default-features = false }
+orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0", default-features = false }
+orml-vesting = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0", default-features = false }
+orml-asset-registry = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0", default-features = false }
+
+orml-xtokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0", default-features = false }
+orml-xcm-support = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0", default-features = false }
+orml-unknown-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0", default-features = false }
+
+# Frontier dependencies
+pallet-base-fee = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
+pallet-ethereum = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
+pallet-evm = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
+pallet-evm-chain-id = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
+pallet-evm-precompile-modexp = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
+pallet-evm-precompile-sha3fips = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
+pallet-evm-precompile-simple = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
+
+# TODO: enable weak dependency activation when available
+# https://github.com/rust-lang/cargo/issues/8832
+# https://github.com/paritytech/substrate/issues/8161
+
+[features]
+default = ["std"]
+std = [
+  "sp-std/std",
+  "sp-runtime/std",
+  "sp-core/std",
+  "frame-support/std",
+  "frame-system/std",
+  "frame-benchmarking?/std",
+  "xcm/std",
+  "xcm-executor/std",
+  "pallet-aura/std",
+
+  "parachain-info/std",
+
+  "annuity/std",
+  "btc-relay/std",
+  "clients-info/std",
+  "currency/std",
+  "collator-selection/std",
+  "democracy/std",
+  "escrow/std",
+  "fee/std",
+  "issue/std",
+  "loans/std",
+  "nomination/std",
+  "oracle/std",
+  "redeem/std",
+  "replace/std",
+  "reward/std",
+  "security/std",
+  "staking/std",
+  "supply/std",
+  "traits/std",
+  "vault-registry/std",
+
+  "primitives/std",
+
+  "orml-tokens/std",
+  "orml-traits/std",
+  "orml-vesting/std",
+  "orml-asset-registry/std",
+
+  "orml-xtokens/std",
+  "orml-xcm-support/std",
+  "orml-unknown-tokens/std",
+
+  "pallet-base-fee/std",
+  "pallet-ethereum/std",
+  "pallet-evm/std",
+  "pallet-evm-chain-id/std",
+	"pallet-evm-precompile-modexp/std",
+	"pallet-evm-precompile-sha3fips/std",
+	"pallet-evm-precompile-simple/std",
+]
+try-runtime = [
+  "frame-support/try-runtime",
+  "frame-system/try-runtime",
+
+  "annuity/try-runtime",
+  "btc-relay/try-runtime",
+  "clients-info/try-runtime",
+  "currency/try-runtime",
+  "democracy/try-runtime",
+  "escrow/try-runtime",
+  "fee/try-runtime",
+  "issue/try-runtime",
+  "loans/try-runtime",
+  "nomination/try-runtime",
+  "oracle/try-runtime",
+  "redeem/try-runtime",
+  "replace/try-runtime",
+  "reward/try-runtime",
+  "security/try-runtime",
+  "staking/try-runtime",
+  "supply/try-runtime",
+  "vault-registry/try-runtime",
+
+  "orml-tokens/try-runtime",
+  "orml-vesting/try-runtime",
+  "orml-asset-registry/try-runtime",
+  "orml-xtokens/try-runtime",
+  "orml-unknown-tokens/try-runtime",
+
+  "pallet-base-fee/try-runtime",
+  "pallet-ethereum/try-runtime",
+  "pallet-evm/try-runtime",
+  "pallet-evm-chain-id/try-runtime",
+]
+runtime-benchmarks = [
+  "frame-benchmarking",
+  "frame-support/runtime-benchmarks",
+  "frame-system/runtime-benchmarks",
+]

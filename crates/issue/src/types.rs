@@ -1,6 +1,5 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use currency::Amount;
-use frame_support::traits::Get;
 pub use primitives::issue::{IssueRequest, IssueRequestStatus};
 use primitives::VaultId;
 use scale_info::TypeInfo;
@@ -19,9 +18,11 @@ pub enum Version {
     V2,
     /// ActiveBlockNumber, btc_height
     V3,
+    /// Removed refund
+    V4,
 }
 
-pub(crate) type BalanceOf<T> = <T as vault_registry::Config>::Balance;
+pub(crate) type BalanceOf<T> = <T as currency::Config>::Balance;
 
 pub(crate) type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, CurrencyId<T>>;
 
@@ -46,6 +47,6 @@ impl<T: Config> IssueRequestExt<T> for DefaultIssueRequest<T> {
         Amount::new(self.fee, self.vault.wrapped_currency())
     }
     fn griefing_collateral(&self) -> Amount<T> {
-        Amount::new(self.griefing_collateral, T::GetGriefingCollateralCurrencyId::get())
+        Amount::new(self.griefing_collateral, self.griefing_currency)
     }
 }

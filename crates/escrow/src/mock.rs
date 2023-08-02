@@ -1,6 +1,11 @@
 use crate as escrow;
 use crate::{Config, Error};
-use frame_support::{parameter_types, traits::Everything};
+use frame_support::{
+    parameter_types,
+    traits::{ConstU32, Everything},
+};
+pub use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*};
+use sp_arithmetic::FixedI128;
 use sp_core::H256;
 use sp_runtime::{
     generic::Header as GenericHeader,
@@ -21,6 +26,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
+        Rewards: reward::{Pallet, Call, Storage, Event<T>},
         Escrow: escrow::{Pallet, Call, Storage, Event<T>},
     }
 );
@@ -29,6 +35,7 @@ pub type AccountId = u64;
 pub type Balance = u128;
 pub type BlockNumber = u128;
 pub type Index = u64;
+pub type SignedFixedPoint = FixedI128;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -40,8 +47,8 @@ impl frame_system::Config for Test {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = Index;
     type BlockNumber = BlockNumber;
     type Hash = H256;
@@ -49,7 +56,7 @@ impl frame_system::Config for Test {
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -59,7 +66,7 @@ impl frame_system::Config for Test {
     type SystemWeightInfo = ();
     type SS58Prefix = SS58Prefix;
     type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
+    type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
@@ -69,13 +76,26 @@ parameter_types! {
 impl pallet_balances::Config for Test {
     type Balance = Balance;
     type DustRemoval = ();
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = ();
     type MaxLocks = ();
     type MaxReserves = ();
     type ReserveIdentifier = [u8; 8];
+    type HoldIdentifier = ();
+    type FreezeIdentifier = ();
+    type MaxFreezes = ();
+    type MaxHolds = ();
+}
+
+impl reward::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type PoolId = ();
+    type StakeId = AccountId;
+    type CurrencyId = CurrencyId;
+    type MaxRewardCurrencies = ConstU32<1>;
 }
 
 parameter_types! {
@@ -84,27 +104,24 @@ parameter_types! {
 }
 
 impl Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type BlockNumberToBalance = Identity;
     type Currency = Balances;
     type Span = Span;
     type MaxPeriod = MaxPeriod;
-    type EscrowRewards = ();
+    type EscrowRewards = Rewards;
     type WeightInfo = ();
 }
 
-pub type TestEvent = Event;
 pub type TestError = Error<Test>;
 
 pub const ALICE: AccountId = 1;
 pub const BOB: AccountId = 2;
 
 pub struct ExtBuilder;
-
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
         let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-
         storage.into()
     }
 }

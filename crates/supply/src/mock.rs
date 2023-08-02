@@ -4,13 +4,12 @@ use frame_support::{
     traits::{Everything, GenesisBuild},
     PalletId,
 };
-pub use primitives::CurrencyId;
-use primitives::UnsignedFixedPoint;
+pub use primitives::{CurrencyId, UnsignedFixedPoint};
 use sp_core::H256;
+pub use sp_runtime::FixedPointNumber;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
-    FixedPointNumber,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -44,8 +43,8 @@ impl frame_system::Config for Test {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = Index;
     type BlockNumber = BlockNumber;
     type Hash = H256;
@@ -53,7 +52,7 @@ impl frame_system::Config for Test {
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -73,13 +72,17 @@ parameter_types! {
 impl pallet_balances::Config for Test {
     type Balance = Balance;
     type DustRemoval = ();
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = ();
     type MaxLocks = ();
     type MaxReserves = ();
     type ReserveIdentifier = [u8; 8];
+    type HoldIdentifier = ();
+    type FreezeIdentifier = ();
+    type MaxFreezes = ();
+    type MaxHolds = ();
 }
 
 pub const MILLISECS_PER_BLOCK: u64 = 12000;
@@ -103,18 +106,13 @@ impl OnInflation<AccountId> for MockOnInflation {
 
 impl Config for Test {
     type SupplyPalletId = SupplyPalletId;
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type Currency = Balances;
     type InflationPeriod = InflationPeriod;
     type OnInflation = MockOnInflation;
+    type WeightInfo = ();
 }
-
-pub type TestEvent = Event;
-// pub type TestError = Error<Test>;
-
-// pub const ALICE: AccountId = 1;
-// pub const BOB: AccountId = 2;
 
 pub struct ExtBuilder;
 

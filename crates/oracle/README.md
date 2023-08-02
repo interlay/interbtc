@@ -38,8 +38,10 @@ You should implement it's trait like so:
 ```rust
 /// Used for test_module
 impl oracle::Config for Runtime {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
+    type OnExchangeRateChange = ();
     type WeightInfo = ();
+    type MaxNameLength = ConstU32<255>;
 }
 ```
 

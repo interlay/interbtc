@@ -2,14 +2,16 @@
 
 /// Money matters.
 pub mod currency {
+    use primitives::TokenSymbol;
     pub use primitives::{Balance, CurrencyId, CurrencyId::Token, DOT, IBTC, INTR};
 
-    pub const NATIVE_CURRENCY_ID: CurrencyId = Token(INTR);
+    pub const NATIVE_TOKEN_ID: TokenSymbol = INTR;
+    pub const NATIVE_CURRENCY_ID: CurrencyId = Token(NATIVE_TOKEN_ID);
     pub const PARENT_CURRENCY_ID: CurrencyId = Token(DOT);
     pub const WRAPPED_CURRENCY_ID: CurrencyId = Token(IBTC);
 
     // https://github.com/paritytech/polkadot/blob/c4ee9d463adccfa3bf436433e3e26d0de5a4abbc/runtime/polkadot/src/constants.rs#L18
-    pub const UNITS: Balance = NATIVE_CURRENCY_ID.one();
+    pub const UNITS: Balance = NATIVE_TOKEN_ID.one();
     pub const DOLLARS: Balance = UNITS; // 10_000_000_000
     pub const CENTS: Balance = DOLLARS / 100; // 100_000_000
     pub const MILLICENTS: Balance = CENTS / 1_000; // 100_000

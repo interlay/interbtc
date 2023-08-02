@@ -3,7 +3,7 @@ use crate::{
     *,
 };
 
-use bitcoin::types::{MerkleProof, Transaction};
+use bitcoin::merkle::PartialTransactionProof;
 use btc_relay::BtcAddress;
 use currency::Amount;
 use frame_support::{assert_err, assert_ok};
@@ -12,17 +12,8 @@ use sp_core::H256;
 
 type Event = crate::Event<Test>;
 
-fn dummy_merkle_proof() -> MerkleProof {
-    MerkleProof {
-        block_header: Default::default(),
-        transactions_count: 0,
-        flag_bits: vec![],
-        hashes: vec![],
-    }
-}
-
 macro_rules! assert_event_matches {
-    ($( $pattern:pat )|+ $( if $guard: expr )? $(,)?) => {
+    ($( $pattern:pat_param )|+ $( if $guard: expr )? $(,)?) => {
 
         assert!(System::events().iter().any(|a| {
             match a.event {
@@ -40,7 +31,7 @@ fn test_request() -> ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>
         accept_time: 1,
         amount: 10,
         griefing_collateral: 0,
-        btc_address: BtcAddress::default(),
+        btc_address: BtcAddress::random(),
         collateral: 20,
         btc_height: 0,
         status: ReplaceRequestStatus::Pending,
@@ -52,6 +43,21 @@ fn griefing(amount: u128) -> Amount<Test> {
 }
 fn wrapped(amount: u128) -> Amount<Test> {
     Amount::new(amount, DEFAULT_WRAPPED_CURRENCY)
+}
+
+fn get_some_unchecked_transaction() -> FullTransactionProof {
+    FullTransactionProof {
+        user_tx_proof: PartialTransactionProof {
+            transaction: Default::default(),
+            tx_encoded_len: u32::MAX,
+            merkle_proof: Default::default(),
+        },
+        coinbase_proof: PartialTransactionProof {
+            transaction: Default::default(),
+            tx_encoded_len: u32::MAX,
+            merkle_proof: Default::default(),
+        },
+    }
 }
 
 mod request_replace_tests {
@@ -124,7 +130,6 @@ mod accept_replace_tests {
 
     fn setup_mocks() {
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
-        ext::vault_registry::insert_vault_deposit_address::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::decrease_to_be_replaced_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok((wrapped(5), griefing(10)))));
         ext::vault_registry::try_deposit_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
@@ -137,20 +142,15 @@ mod accept_replace_tests {
     fn test_accept_replace_succeeds() {
         run_test(|| {
             setup_mocks();
-            assert_ok!(Replace::_accept_replace(
-                OLD_VAULT,
-                NEW_VAULT,
-                5,
-                10,
-                BtcAddress::default()
-            ));
+            let btc_address = BtcAddress::random();
+            assert_ok!(Replace::_accept_replace(OLD_VAULT, NEW_VAULT, 5, 10, btc_address));
             assert_event_matches!(Event::AcceptReplace{
                 replace_id: _,
                 old_vault_id: OLD_VAULT,
                 new_vault_id: NEW_VAULT,
                 amount: 5,
                 collateral: 10,
-                btc_address: addr} if addr == BtcAddress::default());
+                btc_address: addr} if addr == btc_address);
         })
     }
 
@@ -162,20 +162,16 @@ mod accept_replace_tests {
             ext::vault_registry::decrease_to_be_replaced_tokens::<Test>
                 .mock_safe(|_, _| MockResult::Return(Ok((wrapped(4), griefing(8)))));
 
-            assert_ok!(Replace::_accept_replace(
-                OLD_VAULT,
-                NEW_VAULT,
-                5,
-                10,
-                BtcAddress::default()
-            ));
+            let btc_address = BtcAddress::random();
+
+            assert_ok!(Replace::_accept_replace(OLD_VAULT, NEW_VAULT, 5, 10, btc_address));
             assert_event_matches!(Event::AcceptReplace{
                 replace_id: _, 
                 old_vault_id: OLD_VAULT, 
                 new_vault_id: NEW_VAULT, 
                 amount: 4, 
                 collateral: 8,
-                btc_address: addr} if addr == BtcAddress::default());
+                btc_address: addr} if addr == btc_address);
         })
     }
 
@@ -186,7 +182,7 @@ mod accept_replace_tests {
             ext::vault_registry::decrease_to_be_replaced_tokens::<Test>
                 .mock_safe(|_, _| MockResult::Return(Ok((wrapped(1), griefing(10)))));
             assert_err!(
-                Replace::_accept_replace(OLD_VAULT, NEW_VAULT, 5, 10, BtcAddress::default()),
+                Replace::_accept_replace(OLD_VAULT, NEW_VAULT, 5, 10, BtcAddress::random()),
                 TestError::AmountBelowDustAmount
             );
         })
@@ -208,10 +204,8 @@ mod execute_replace_test {
 
         Replace::replace_period.mock_safe(|| MockResult::Return(20));
         ext::btc_relay::has_request_expired::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(false)));
-        ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
-        ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(Transaction::default())));
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
-            .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
+            .mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
         ext::vault_registry::replace_tokens::<Test>.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
         Amount::<Test>::unlock_on.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::transfer_funds::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
@@ -224,7 +218,10 @@ mod execute_replace_test {
     fn test_execute_replace_succeeds() {
         run_test(|| {
             setup_mocks();
-            assert_ok!(Replace::_execute_replace(H256::zero(), Vec::new(), Vec::new()));
+            assert_ok!(Replace::_execute_replace(
+                H256::zero(),
+                get_some_unchecked_transaction()
+            ));
             assert_event_matches!(Event::ExecuteReplace {
                 replace_id: _,
                 old_vault_id: OLD_VAULT,
@@ -246,7 +243,10 @@ mod execute_replace_test {
                 replace
             });
 
-            assert_ok!(Replace::_execute_replace(H256::zero(), Vec::new(), Vec::new()));
+            assert_ok!(Replace::_execute_replace(
+                H256::zero(),
+                get_some_unchecked_transaction()
+            ));
             assert_event_matches!(Event::ExecuteReplace {
                 replace_id: _,
                 old_vault_id: OLD_VAULT,
@@ -279,25 +279,13 @@ mod cancel_replace_tests {
     fn test_cancel_replace_succeeds() {
         run_test(|| {
             setup_mocks();
-            assert_ok!(Replace::_cancel_replace(NEW_VAULT.account_id, H256::zero(),));
+            assert_ok!(Replace::_cancel_replace(H256::zero(),));
             assert_event_matches!(Event::CancelReplace {
                 replace_id: _,
                 new_vault_id: NEW_VAULT,
                 old_vault_id: OLD_VAULT,
                 griefing_collateral: _
             });
-        })
-    }
-
-    #[test]
-    fn test_cancel_replace_invalid_caller_fails() {
-        run_test(|| {
-            setup_mocks();
-
-            assert_err!(
-                Replace::_cancel_replace(OLD_VAULT.account_id, H256::zero(),),
-                TestError::UnauthorizedVault
-            );
         })
     }
 }

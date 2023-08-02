@@ -1,0 +1,21 @@
+[package]
+name = "dex-stable-rpc-runtime-api"
+version = "0.1.0"
+authors = ["Zenlink Developers", "Interlay Ltd"]
+edition = "2021"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.31" }
+
+dex-stable = { path = '../..', default-features = false }
+
+[features]
+default = ["std"]
+std = [
+    "codec/std",
+    "sp-api/std",
+    'sp-std/std',
+    "dex-stable/std",
+]

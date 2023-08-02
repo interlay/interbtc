@@ -1,6 +1,10 @@
 use crate as staking;
 use crate::{Config, Error};
-use frame_support::{parameter_types, traits::Everything};
+use frame_support::{
+    parameter_types,
+    traits::{ConstU32, Everything},
+};
+use orml_traits::parameter_type_with_key;
 pub use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*};
 use primitives::{VaultCurrencyPair, VaultId};
 use sp_arithmetic::FixedI128;
@@ -22,6 +26,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
         Staking: staking::{Pallet, Call, Storage, Event<T>},
+        Tokens: orml_tokens::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -41,8 +46,8 @@ impl frame_system::Config for Test {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = Index;
     type BlockNumber = BlockNumber;
     type Hash = H256;
@@ -50,7 +55,7 @@ impl frame_system::Config for Test {
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -68,14 +73,37 @@ parameter_types! {
 }
 
 impl Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type SignedInner = SignedInner;
     type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
 }
 
-pub type TestEvent = Event;
+pub type Balance = u128;
+pub type RawAmount = i128;
+parameter_types! {
+    pub const MaxLocks: u32 = 50;
+}
+parameter_type_with_key! {
+    pub ExistentialDeposits: |_currency_id: CurrencyId| -> Balance {
+        0
+    };
+}
+impl orml_tokens::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type Balance = Balance;
+    type Amount = RawAmount;
+    type CurrencyId = CurrencyId;
+    type WeightInfo = ();
+    type ExistentialDeposits = ExistentialDeposits;
+    type CurrencyHooks = ();
+    type MaxLocks = MaxLocks;
+    type DustRemovalWhitelist = Everything;
+    type MaxReserves = ConstU32<0>; // we don't use named reserves
+    type ReserveIdentifier = (); // we don't use named reserves
+}
+
 pub type TestError = Error<Test>;
 
 pub const VAULT: VaultId<AccountId, CurrencyId> = VaultId {

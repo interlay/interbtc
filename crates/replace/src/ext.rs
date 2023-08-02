@@ -3,22 +3,20 @@ use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod btc_relay {
-    use bitcoin::types::{MerkleProof, Transaction, Value};
+    use bitcoin::types::{FullTransactionProof, Value};
     use btc_relay::BtcAddress;
     use frame_support::dispatch::DispatchError;
     use sp_core::H256;
     use sp_std::convert::TryInto;
 
     pub fn verify_and_validate_op_return_transaction<T: crate::Config, V: TryInto<Value>>(
-        merkle_proof: MerkleProof,
-        transaction: Transaction,
+        unchecked_transaction: FullTransactionProof,
         recipient_btc_address: BtcAddress,
         expected_btc: V,
         op_return_id: H256,
     ) -> Result<(), DispatchError> {
         <btc_relay::Pallet<T>>::verify_and_validate_op_return_transaction(
-            merkle_proof,
-            transaction,
+            unchecked_transaction,
             recipient_btc_address,
             expected_btc,
             op_return_id,
@@ -27,14 +25,6 @@ pub(crate) mod btc_relay {
 
     pub fn get_best_block_height<T: crate::Config>() -> u32 {
         <btc_relay::Pallet<T>>::get_best_block_height()
-    }
-
-    pub fn parse_transaction<T: btc_relay::Config>(raw_tx: &[u8]) -> Result<Transaction, DispatchError> {
-        <btc_relay::Pallet<T>>::parse_transaction(raw_tx)
-    }
-
-    pub fn parse_merkle_proof<T: btc_relay::Config>(raw_merkle_proof: &[u8]) -> Result<MerkleProof, DispatchError> {
-        <btc_relay::Pallet<T>>::parse_merkle_proof(raw_merkle_proof)
     }
 
     pub fn has_request_expired<T: crate::Config>(
@@ -49,7 +39,6 @@ pub(crate) mod btc_relay {
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
     use crate::DefaultVaultId;
-    use btc_relay::BtcAddress;
     use currency::Amount;
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use vault_registry::types::CurrencySource;
@@ -94,13 +83,6 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::_ensure_not_banned(vault_id)
     }
 
-    pub fn insert_vault_deposit_address<T: crate::Config>(
-        vault_id: DefaultVaultId<T>,
-        btc_address: BtcAddress,
-    ) -> DispatchResult {
-        <vault_registry::Pallet<T>>::insert_vault_deposit_address(vault_id, btc_address)
-    }
-
     pub fn try_increase_to_be_issued_tokens<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
         amount: &Amount<T>,
@@ -128,6 +110,13 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::decrease_to_be_replaced_tokens(vault_id, tokens)
     }
 
+    pub fn withdraw_replace_request<T: crate::Config>(
+        vault_id: &DefaultVaultId<T>,
+        amount: &Amount<T>,
+    ) -> Result<(Amount<T>, Amount<T>), DispatchError> {
+        <vault_registry::Pallet<T>>::withdraw_replace_request(vault_id, amount)
+    }
+
     pub fn try_deposit_collateral<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
         amount: &Amount<T>,
@@ -144,7 +133,7 @@ pub(crate) mod vault_registry {
 
     pub fn is_allowed_to_withdraw_collateral<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
-        amount: &Amount<T>,
+        amount: Option<Amount<T>>,
     ) -> Result<bool, DispatchError> {
         <vault_registry::Pallet<T>>::is_allowed_to_withdraw_collateral(vault_id, amount)
     }
@@ -184,9 +173,8 @@ pub(crate) mod fee {
 #[cfg_attr(test, mockable)]
 pub(crate) mod nomination {
     use crate::DefaultVaultId;
-    use sp_runtime::DispatchError;
 
-    pub fn is_nominatable<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<bool, DispatchError> {
+    pub fn is_nominatable<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> bool {
         <nomination::Pallet<T>>::is_opted_in(vault_id)
     }
 }

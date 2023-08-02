@@ -114,6 +114,7 @@ To run benchmarks for a particular module (e.g. `issue`):
 cd ./parachain
 cargo run --features runtime-benchmarks --release -- \
   benchmark \
+  pallet \
   --chain dev \
   --execution=wasm \
   --wasm-execution=compiled \

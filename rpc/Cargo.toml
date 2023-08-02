@@ -1,35 +1,53 @@
 [package]
 authors = ["Interlay Ltd"]
-edition = "2018"
+edition = "2021"
 name = "interbtc-rpc"
 version = "1.2.0"
 
 [dependencies]
-jsonrpc-core = "18.0.0"
+futures = "0.3.21"
+jsonrpsee = { version = "0.16.2", features = ["server", "macros"] }
 
 # Parachain dependencies
-module-btc-relay-rpc = { path = "../crates/btc-relay/rpc" }
-module-oracle-rpc = { path = "../crates/oracle/rpc" }
-module-relay-rpc = { path = "../crates/relay/rpc" }
-module-vault-registry-rpc = { path = "../crates/vault-registry/rpc" }
-module-issue-rpc = { path = "../crates/issue/rpc" }
-module-redeem-rpc = { path = "../crates/redeem/rpc" }
-module-replace-rpc = { path = "../crates/replace/rpc" }
-module-refund-rpc = { path = "../crates/refund/rpc" }
+btc-relay-rpc = { path = "../crates/btc-relay/rpc" }
+oracle-rpc = { path = "../crates/oracle/rpc" }
+vault-registry-rpc = { path = "../crates/vault-registry/rpc" }
+issue-rpc = { path = "../crates/issue/rpc" }
+redeem-rpc = { path = "../crates/redeem/rpc" }
+replace-rpc = { path = "../crates/replace/rpc" }
+escrow-rpc = { path = "../crates/escrow/rpc" }
+reward-rpc = { path = "../crates/reward/rpc" }
+loans-rpc = { path = "../crates/loans/rpc" }
+dex-general-rpc = { path = "../crates/dex-general/rpc" }
+dex-stable-rpc = { path = "../crates/dex-stable/rpc" }
 
 vault-registry = { path = "../crates/vault-registry" }
 primitives = { package = "interbtc-primitives", path = "../primitives" }
 
 # Substrate dependencies
-sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18" }
-sc-rpc-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18" }
-sc-transaction-pool-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18" }
-sc-consensus-manual-seal = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18" }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18" }
-sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18" }
-sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18" }
+sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+sc-rpc-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+sc-transaction-pool-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+sc-consensus-manual-seal = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 
-pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18" }
-substrate-frame-rpc-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.18" }
+pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+substrate-frame-rpc-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+
+# Ethereum
+sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+sc-network = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+sc-network-sync = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+sc-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+
+fc-db = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42" }
+fc-mapping-sync = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42" }
+fc-rpc = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42" }
+fc-rpc-core = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42" }
+fc-storage = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42" }
+fp-rpc = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42" }

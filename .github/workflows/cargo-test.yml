@@ -11,28 +11,52 @@ jobs:
     runs-on: [self-hosted, linux]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - run: git fetch --prune --unshallow
       - name: Install System Dependencies
         run: |
             sudo apt-get update && sudo apt-get install -y \
-            cmake pkg-config libssl-dev git clang curl libc6-dev
-      - uses: actions-rs/toolchain@v1
+            cmake pkg-config libssl-dev git clang curl libc6-dev protobuf-compiler
+      - name: Set variables
+        run: |
+            echo "TOOLCHAIN=$(rustup show active-toolchain | cut -d " " -f1)" >> $GITHUB_ENV
+      - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: nightly-2021-10-12
-      - run: rustup component add rustfmt
-      - name: fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
-      - name: check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --release --workspace
-      - name: test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --release --workspace
+          toolchain: ${{ env.TOOLCHAIN }}
+          components: rustfmt
+      - name: cargo fmt
+        run: |
+          cargo fmt --all -- --check
+      - name: cargo check
+        run: |
+          cargo check --release --workspace
+      - name: cargo try-runtime check
+        run: |
+          cargo check --release --workspace --features try-runtime
+      - name: cargo test all except interlay
+        run: |
+          cargo test --release --workspace --features runtime-benchmarks
+      - name: cargo test interlay
+        run: |
+          cargo test --release -p parachain-tests --features with-interlay-runtime
+      - name: cargo build
+        run: |
+          cargo build --bin interbtc-parachain --release --features runtime-benchmarks
+      - name: benchmarks
+        run: |
+          ./target/release/interbtc-parachain benchmark pallet \
+            --pallet '*' \
+            --extrinsic '*' \
+            --execution=wasm \
+            --wasm-execution=compiled \
+            --steps 2 --repeat 1 \
+            --template .deploy/runtime-weight-template.hbs \
+            --chain interlay-dev --output parachain/runtime/interlay/src/weights/ 
+          ./target/release/interbtc-parachain benchmark pallet \
+            --pallet '*' \
+            --extrinsic '*' \
+            --execution=wasm \
+            --wasm-execution=compiled \
+            --steps 2 --repeat 1 \
+            --template .deploy/runtime-weight-template.hbs \
+            --chain kintsugi-dev --output parachain/runtime/kintsugi/src/weights/ 

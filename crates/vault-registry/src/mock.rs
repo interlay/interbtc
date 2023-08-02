@@ -1,22 +1,25 @@
 use crate as vault_registry;
 use crate::{Config, Error};
+use currency::CurrencyConversion;
 use frame_support::{
     parameter_types,
-    traits::{Everything, GenesisBuild},
+    traits::{ConstU32, Everything, GenesisBuild},
     PalletId,
 };
+use frame_system::EnsureRoot;
 use mocktopus::{macros::mockable, mocking::clear_mocks};
 use orml_traits::parameter_type_with_key;
 pub use primitives::{CurrencyId, CurrencyId::Token, TokenSymbol::*};
-use primitives::{VaultCurrencyPair, VaultId};
+use primitives::{Rate, VaultCurrencyPair, VaultId};
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
     testing::{Header, TestXt},
     traits::{BlakeTwo256, IdentityLookup, One, Zero},
+    DispatchError,
 };
 
-pub(crate) type Extrinsic = TestXt<Call, ()>;
+pub(crate) type Extrinsic = TestXt<RuntimeCall, ()>;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -33,15 +36,17 @@ frame_support::construct_runtime!(
         // Tokens & Balances
         Tokens: orml_tokens::{Pallet, Storage, Config<T>, Event<T>},
 
-        Rewards: reward::{Pallet, Call, Storage, Event<T>},
+        CapacityRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        VaultRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
+        VaultStaking: staking::{Pallet, Storage, Event<T>},
 
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
         Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Staking: staking::{Pallet, Storage, Event<T>},
         Fee: fee::{Pallet, Call, Config<T>, Storage},
         Currency: currency::{Pallet},
+        Loans: loans::{Pallet, Storage, Call, Event<T>, Config},
     }
 );
 
@@ -65,8 +70,8 @@ impl frame_system::Config for Test {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = Index;
     type BlockNumber = BlockNumber;
     type Hash = H256;
@@ -74,7 +79,7 @@ impl frame_system::Config for Test {
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -88,6 +93,7 @@ impl frame_system::Config for Test {
 }
 
 pub const DEFAULT_COLLATERAL_CURRENCY: CurrencyId = Token(DOT);
+pub const WORST_CASE_COLLATERAL_CURRENCY: CurrencyId = CurrencyId::LendToken(1);
 pub const DEFAULT_NATIVE_CURRENCY: CurrencyId = Token(INTR);
 pub const DEFAULT_WRAPPED_CURRENCY: CurrencyId = Token(IBTC);
 
@@ -95,6 +101,24 @@ pub const DEFAULT_CURRENCY_PAIR: VaultCurrencyPair<CurrencyId> = VaultCurrencyPa
     collateral: DEFAULT_COLLATERAL_CURRENCY,
     wrapped: DEFAULT_WRAPPED_CURRENCY,
 };
+
+pub const WORST_CASE_CURRENCY_PAIR: VaultCurrencyPair<CurrencyId> = VaultCurrencyPair {
+    collateral: WORST_CASE_COLLATERAL_CURRENCY,
+    wrapped: DEFAULT_WRAPPED_CURRENCY,
+};
+
+pub const DEFAULT_MAX_EXCHANGE_RATE: u128 = 1_000_000_000_000_000_000; // 1
+pub const DEFAULT_MIN_EXCHANGE_RATE: u128 = 20_000_000_000_000_000; // 0.02
+
+pub fn vault_id(account_id: AccountId) -> VaultId<AccountId, CurrencyId> {
+    VaultId {
+        account_id,
+        currencies: VaultCurrencyPair {
+            collateral: DEFAULT_COLLATERAL_CURRENCY,
+            wrapped: DEFAULT_WRAPPED_CURRENCY,
+        },
+    }
+}
 
 parameter_types! {
     pub const GetCollateralCurrencyId: CurrencyId = DEFAULT_COLLATERAL_CURRENCY;
@@ -110,24 +134,47 @@ parameter_type_with_key! {
 }
 
 impl orml_tokens::Config for Test {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type Balance = Balance;
     type Amount = RawAmount;
     type CurrencyId = CurrencyId;
     type WeightInfo = ();
     type ExistentialDeposits = ExistentialDeposits;
-    type OnDust = ();
+    type CurrencyHooks = ();
     type MaxLocks = MaxLocks;
     type DustRemovalWhitelist = Everything;
+    type MaxReserves = ConstU32<0>; // we don't use named reserves
+    type ReserveIdentifier = (); // we don't use named reserves
 }
 
-impl reward::Config for Test {
-    type Event = TestEvent;
+pub(crate) type CapacityRewardsInstance = reward::Instance1;
+
+impl reward::Config<CapacityRewardsInstance> for Test {
+    type RuntimeEvent = RuntimeEvent;
     type SignedFixedPoint = SignedFixedPoint;
-    type RewardId = VaultId<AccountId, CurrencyId>;
+    type PoolId = ();
+    type StakeId = CurrencyId;
+    type CurrencyId = CurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
+}
+
+pub(crate) type VaultRewardsInstance = reward::Instance2;
+
+impl reward::Config<VaultRewardsInstance> for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type PoolId = CurrencyId;
+    type StakeId = VaultId<AccountId, CurrencyId>;
+    type CurrencyId = CurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
+}
+
+impl staking::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type SignedInner = SignedInner;
     type CurrencyId = CurrencyId;
     type GetNativeCurrencyId = GetNativeCurrencyId;
-    type GetWrappedCurrencyId = GetWrappedCurrencyId;
 }
 
 parameter_types! {
@@ -142,18 +189,26 @@ impl pallet_timestamp::Config for Test {
 }
 
 impl oracle::Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
+    type OnExchangeRateChange = vault_registry::PoolManager<Test>;
     type WeightInfo = ();
+    type MaxNameLength = ConstU32<255>;
 }
 
-pub struct CurrencyConvert;
-impl currency::CurrencyConversion<currency::Amount<Test>, CurrencyId> for CurrencyConvert {
-    fn convert(
-        amount: &currency::Amount<Test>,
-        to: CurrencyId,
-    ) -> Result<currency::Amount<Test>, sp_runtime::DispatchError> {
-        convert_to(to, amount.clone())
-    }
+parameter_types! {
+    pub const LoansPalletId: PalletId = PalletId(*b"par/loan");
+}
+
+impl loans::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type PalletId = LoansPalletId;
+    type ReserveOrigin = EnsureRoot<AccountId>;
+    type UpdateOrigin = EnsureRoot<AccountId>;
+    type WeightInfo = ();
+    type UnixTime = Timestamp;
+    type RewardAssetId = GetNativeCurrencyId;
+    type ReferenceAssetId = GetWrappedCurrencyId;
+    type OnExchangeRateChange = ();
 }
 
 #[cfg_attr(test, mockable)]
@@ -161,7 +216,7 @@ pub fn convert_to(
     to: CurrencyId,
     amount: currency::Amount<Test>,
 ) -> Result<currency::Amount<Test>, sp_runtime::DispatchError> {
-    <oracle::Pallet<Test>>::convert(&amount, to)
+    currency::CurrencyConvert::<Test, Oracle, Loans>::convert(&amount, to)
 }
 
 impl currency::Config for Test {
@@ -172,11 +227,12 @@ impl currency::Config for Test {
     type GetNativeCurrencyId = GetNativeCurrencyId;
     type GetRelayChainCurrencyId = GetCollateralCurrencyId;
     type GetWrappedCurrencyId = GetWrappedCurrencyId;
-    type CurrencyConversion = CurrencyConvert;
+    type CurrencyConversion = currency::CurrencyConvert<Test, Oracle, Loans>;
 }
 
 parameter_types! {
     pub const FeePalletId: PalletId = PalletId(*b"mod/fees");
+    pub const MaxExpectedValue: UnsignedFixedPoint = UnsignedFixedPoint::from_inner(<UnsignedFixedPoint as FixedPointNumber>::DIV);
 }
 
 impl fee::Config for Test {
@@ -184,48 +240,64 @@ impl fee::Config for Test {
     type WeightInfo = ();
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
-    type UnsignedFixedPoint = UnsignedFixedPoint;
-    type UnsignedInner = Balance;
-    type VaultRewards = Rewards;
-    type VaultStaking = Staking;
+    type CapacityRewards = CapacityRewards;
+    type VaultRewards = VaultRewards;
+    type VaultStaking = VaultStaking;
     type OnSweep = ();
+    type MaxExpectedValue = MaxExpectedValue;
+    type NominationApi = MockDeposit;
 }
 
 parameter_types! {
     pub const VaultPalletId: PalletId = PalletId(*b"mod/vreg");
 }
 
+pub struct MockDeposit;
+
+impl traits::NominationApi<VaultId<AccountId, CurrencyId>, currency::Amount<Test>> for MockDeposit {
+    fn deposit_vault_collateral(
+        vault_id: &VaultId<AccountId, CurrencyId>,
+        amount: &currency::Amount<Test>,
+    ) -> Result<(), DispatchError> {
+        // ensure the vault is active
+        let _vault = VaultRegistry::get_active_rich_vault_from_id(vault_id)?;
+
+        // Deposit `amount` of stake into the vault staking pool
+        <vault_registry::PoolManager<Test>>::deposit_collateral(vault_id, &vault_id.account_id, amount)?;
+        amount.lock_on(&vault_id.account_id)?;
+        VaultRegistry::try_increase_total_backing_collateral(&vault_id.currencies, &amount)?;
+
+        Ok(())
+    }
+    fn ensure_opted_in_to_nomination(vault_id: &VaultId<AccountId, CurrencyId>) -> Result<(), DispatchError> {
+        Ok(())
+    }
+    #[cfg(any(feature = "runtime-benchmarks", test))]
+    fn opt_in_to_nomination(_vault_id: &VaultId<AccountId, CurrencyId>) {}
+}
+
 impl Config for Test {
     type PalletId = VaultPalletId;
-    type Event = TestEvent;
-    type Balance = Balance;
+    type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
 where
-    Call: From<C>,
+    RuntimeCall: From<C>,
 {
-    type OverarchingCall = Call;
+    type OverarchingCall = RuntimeCall;
     type Extrinsic = Extrinsic;
 }
 
 impl security::Config for Test {
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
 }
 
-impl staking::Config for Test {
-    type Event = TestEvent;
-    type SignedFixedPoint = SignedFixedPoint;
-    type SignedInner = SignedInner;
-    type CurrencyId = CurrencyId;
-    type GetNativeCurrencyId = GetNativeCurrencyId;
-}
-
-pub type TestEvent = Event;
+pub type TestEvent = RuntimeEvent;
 pub type TestError = Error<Test>;
-pub type CurrencyError = currency::Error<Test>;
 pub type TokensError = orml_tokens::Error<Test>;
 
 pub struct ExtBuilder;
@@ -262,14 +334,35 @@ impl ExtBuilder {
 
         conf.assimilate_storage(&mut storage).unwrap();
 
+        GenesisBuild::<Test>::assimilate_storage(
+            &loans::GenesisConfig {
+                max_exchange_rate: Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE),
+                min_exchange_rate: Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE),
+            },
+            &mut storage,
+        )
+        .unwrap();
+
         // Parameters to be set in tests
         vault_registry::GenesisConfig::<Test> {
-            minimum_collateral_vault: vec![(DEFAULT_COLLATERAL_CURRENCY, 0)],
+            minimum_collateral_vault: vec![(DEFAULT_COLLATERAL_CURRENCY, 0), (WORST_CASE_COLLATERAL_CURRENCY, 0)],
             punishment_delay: 0,
-            system_collateral_ceiling: vec![(DEFAULT_CURRENCY_PAIR, 1_000_000_000_000)],
-            secure_collateral_threshold: vec![(DEFAULT_CURRENCY_PAIR, UnsignedFixedPoint::one())],
-            premium_redeem_threshold: vec![(DEFAULT_CURRENCY_PAIR, UnsignedFixedPoint::one())],
-            liquidation_collateral_threshold: vec![(DEFAULT_CURRENCY_PAIR, UnsignedFixedPoint::one())],
+            system_collateral_ceiling: vec![
+                (DEFAULT_CURRENCY_PAIR, 1_000_000_000_000),
+                (WORST_CASE_CURRENCY_PAIR, 1_000_000_000_000),
+            ],
+            secure_collateral_threshold: vec![
+                (DEFAULT_CURRENCY_PAIR, UnsignedFixedPoint::one()),
+                (WORST_CASE_CURRENCY_PAIR, UnsignedFixedPoint::one()),
+            ],
+            premium_redeem_threshold: vec![
+                (DEFAULT_CURRENCY_PAIR, UnsignedFixedPoint::one()),
+                (WORST_CASE_CURRENCY_PAIR, UnsignedFixedPoint::one()),
+            ],
+            liquidation_collateral_threshold: vec![
+                (DEFAULT_CURRENCY_PAIR, UnsignedFixedPoint::one()),
+                (WORST_CASE_CURRENCY_PAIR, UnsignedFixedPoint::one()),
+            ],
         }
         .assimilate_storage(&mut storage)
         .unwrap();

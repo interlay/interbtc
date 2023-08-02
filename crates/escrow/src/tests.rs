@@ -1,21 +1,22 @@
 /// Tests for Escrow
 use crate::mock::*;
-use crate::{Limits, Point};
+use crate::{Event, Limits, Point};
 use frame_support::{
     assert_err, assert_ok,
     traits::{Currency, ReservableCurrency},
 };
+use reward::RewardsApi;
 use sp_runtime::traits::Identity;
 
 fn create_lock(origin: AccountId, amount: Balance, end_time: BlockNumber) {
     <Balances as Currency<AccountId>>::make_free_balance_be(&origin, amount);
-    assert_ok!(Escrow::create_lock(Origin::signed(origin), amount, end_time));
+    assert_ok!(Escrow::create_lock(RuntimeOrigin::signed(origin), amount, end_time));
 }
 
 fn extend_lock(origin: AccountId, amount: Balance) {
     let free_balance = <Balances as Currency<AccountId>>::free_balance(&origin);
     <Balances as Currency<AccountId>>::make_free_balance_be(&origin, free_balance + amount);
-    assert_ok!(Escrow::increase_amount(Origin::signed(origin), amount));
+    assert_ok!(Escrow::increase_amount(RuntimeOrigin::signed(origin), amount));
 }
 
 #[test]
@@ -47,11 +48,14 @@ fn should_withdraw_after_expiry() {
         assert_eq!(Escrow::balance_at(&ALICE, Some(end_time)), 0);
 
         // cannot withdraw before expiry
-        assert_err!(Escrow::withdraw(Origin::signed(ALICE)), TestError::LockNotExpired);
+        assert_err!(
+            Escrow::withdraw(RuntimeOrigin::signed(ALICE)),
+            TestError::LockNotExpired
+        );
 
         // advance system and remove lock
         System::set_block_number(end_time);
-        assert_ok!(Escrow::withdraw(Origin::signed(ALICE)));
+        assert_ok!(Escrow::withdraw(RuntimeOrigin::signed(ALICE)));
     })
 }
 
@@ -64,7 +68,7 @@ fn should_increase_amount_locked() {
 
         // lock MUST exist first
         assert_err!(
-            Escrow::increase_amount(Origin::signed(ALICE), amount),
+            Escrow::increase_amount(RuntimeOrigin::signed(ALICE), amount),
             TestError::LockNotFound
         );
 
@@ -84,7 +88,7 @@ fn should_increase_unlock_height() {
 
         // lock MUST exist first
         assert_err!(
-            Escrow::increase_unlock_height(Origin::signed(ALICE), amount),
+            Escrow::increase_unlock_height(RuntimeOrigin::signed(ALICE), amount),
             TestError::LockHasExpired
         );
 
@@ -95,7 +99,7 @@ fn should_increase_unlock_height() {
         assert_eq!(Escrow::balance_at(&ALICE, Some(half_time)), amount / 2);
 
         assert_ok!(Escrow::increase_unlock_height(
-            Origin::signed(ALICE),
+            RuntimeOrigin::signed(ALICE),
             half_time + max_time
         ));
 
@@ -104,7 +108,7 @@ fn should_increase_unlock_height() {
 }
 
 #[test]
-fn should_calculate_total_supply() {
+fn should_calculate_total_supply_and_locked() {
     run_test(|| {
         let end_time_1 = 100;
         let amount_1 = 1000;
@@ -125,7 +129,7 @@ fn should_calculate_total_supply() {
 }
 
 #[test]
-fn should_calculate_total_supply_after_withdraw() {
+fn should_calculate_total_supply_and_locked_after_withdraw() {
     run_test(|| {
         let end_time_1 = 100;
         let amount_1 = 1000;
@@ -141,7 +145,7 @@ fn should_calculate_total_supply_after_withdraw() {
 
         System::set_block_number(end_time_1);
         assert_eq!(Escrow::balance_at(&ALICE, None), 0);
-        assert_ok!(Escrow::withdraw(Origin::signed(ALICE)));
+        assert_ok!(Escrow::withdraw(RuntimeOrigin::signed(ALICE)));
 
         assert_eq!(Escrow::balance_at(&BOB, None), 800);
         assert_eq!(Escrow::total_supply(None), 800);
@@ -189,10 +193,29 @@ fn should_get_free_balance() {
     run_test(|| {
         limit_account(ALICE, 1000, 0, 100);
         assert_eq!(Escrow::get_free_balance(&ALICE), 0);
+        System::set_block_number(10);
+        assert_eq!(Escrow::get_free_balance(&ALICE), 100);
         System::set_block_number(100);
         assert_eq!(Escrow::get_free_balance(&ALICE), 1000);
         <Balances as Currency<AccountId>>::make_free_balance_be(&BOB, 2000);
         assert_eq!(Escrow::get_free_balance(&BOB), 2000);
+    })
+}
+
+#[test]
+fn test_free_stakable() {
+    run_test(|| {
+        limit_account(ALICE, 100_000, 0, 100);
+        System::set_block_number(10);
+        assert_eq!(Escrow::get_free_balance(&ALICE), 10_000);
+
+        assert_ok!(Escrow::create_lock(RuntimeOrigin::signed(ALICE), 7_000, 100),);
+        let available = Escrow::free_stakable(&ALICE);
+        assert_err!(
+            Escrow::increase_amount(RuntimeOrigin::signed(ALICE), available + 1),
+            TestError::InsufficientFunds
+        );
+        assert_ok!(Escrow::increase_amount(RuntimeOrigin::signed(ALICE), available));
     })
 }
 
@@ -204,8 +227,8 @@ fn should_not_allow_amount_smaller_than_max_period() {
 
         <Balances as Currency<AccountId>>::make_free_balance_be(&ALICE, amount);
         assert_err!(
-            Escrow::create_lock(Origin::signed(ALICE), amount, end_time),
-            TestError::LockAmountTooLarge
+            Escrow::create_lock(RuntimeOrigin::signed(ALICE), amount, end_time),
+            TestError::LockAmountTooLow
         );
     })
 }
@@ -219,4 +242,57 @@ fn deposit_below_max_height_truncates_to_zero() {
             0
         );
     })
+}
+
+#[test]
+fn should_update_stake() {
+    run_test(|| {
+        let start_time = System::block_number();
+        let max_time = start_time + MaxPeriod::get();
+        let end_time = max_time;
+        let amount = 1000;
+
+        create_lock(BOB, amount, end_time);
+
+        // initialize rewards
+        let rewards_currency = Token(INTR);
+        assert_ok!(<Rewards as RewardsApi<(), AccountId, Balance>>::distribute_reward(
+            &(),
+            rewards_currency,
+            1000
+        ));
+
+        let bob_initial_stake_balance: Balance = <Rewards>::get_stake(&(), &BOB).unwrap();
+        assert_eq!(bob_initial_stake_balance, 1000_u128.into());
+
+        let bob_initial_rewards = <Rewards>::compute_reward(&(), &BOB, rewards_currency).unwrap();
+        assert_eq!(bob_initial_rewards, 1000.into());
+
+        let total_rewards_before = <Rewards>::get_total_rewards(rewards_currency).unwrap();
+        assert_eq!(total_rewards_before, 1000.into());
+
+        System::set_block_number(50);
+
+        assert_ok!(Escrow::update_user_stake(RuntimeOrigin::signed(ALICE), BOB));
+
+        let bob_final_stake_balance: Balance = <Rewards>::get_stake(&(), &BOB).unwrap();
+        assert_eq!(bob_final_stake_balance, 500_u128.into());
+
+        // reward doesn't change
+        let bob_final_rewards = <Rewards>::compute_reward(&(), &BOB, rewards_currency).unwrap();
+        assert_eq!(bob_final_rewards, 1000.into());
+
+        // total rewards doesn't change
+        let total_rewards_after = <Rewards>::get_total_rewards(rewards_currency).unwrap();
+        assert_eq!(total_rewards_after, 1000.into());
+
+        System::assert_last_event(
+            Event::Deposit {
+                who: BOB,
+                amount: 0_u128.into(),
+                unlock_height: 0_u64.into(),
+            }
+            .into(),
+        );
+    });
 }

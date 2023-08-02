@@ -1,6 +1,10 @@
 use crate::{self as annuity, BlockRewardProvider, Config};
-use frame_support::{parameter_types, traits::Everything, PalletId};
-pub use primitives::CurrencyId;
+use frame_support::{
+    parameter_types,
+    traits::{ConstU32, Everything},
+    PalletId,
+};
+pub use primitives::{CurrencyId, CurrencyId::Token, SignedFixedPoint, TokenSymbol::*};
 use sp_core::H256;
 use sp_runtime::{
     generic::Header as GenericHeader,
@@ -22,6 +26,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
+        Rewards: reward::{Pallet, Call, Storage, Event<T>},
         Annuity: annuity::{Pallet, Call, Storage, Event<T>},
     }
 );
@@ -41,8 +46,8 @@ impl frame_system::Config for Test {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = Index;
     type BlockNumber = BlockNumber;
     type Hash = H256;
@@ -50,7 +55,7 @@ impl frame_system::Config for Test {
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -60,7 +65,7 @@ impl frame_system::Config for Test {
     type SystemWeightInfo = ();
     type SS58Prefix = SS58Prefix;
     type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
+    type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
@@ -70,16 +75,33 @@ parameter_types! {
 impl pallet_balances::Config for Test {
     type Balance = Balance;
     type DustRemoval = ();
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = ();
     type MaxLocks = ();
     type MaxReserves = ();
     type ReserveIdentifier = [u8; 8];
+    type HoldIdentifier = ();
+    type FreezeIdentifier = ();
+    type MaxFreezes = ();
+    type MaxHolds = ();
 }
 
-pub const TOTAL_REWARDS: Balance = 10_000_000;
+impl reward::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type PoolId = ();
+    type StakeId = AccountId;
+    type CurrencyId = CurrencyId;
+    type MaxRewardCurrencies = ConstU32<10>;
+}
+
+pub const fn unit(amount: Balance) -> Balance {
+    amount * 10u128.pow(12)
+}
+
+pub const TOTAL_REWARDS: Balance = unit(10_000_000);
 const VAULT_REWARDS: Balance = TOTAL_REWARDS / 100 * 30;
 
 pub const YEAR_1_REWARDS: Balance = VAULT_REWARDS / 100 * 40;
@@ -87,41 +109,40 @@ pub const YEAR_2_REWARDS: Balance = VAULT_REWARDS / 100 * 30;
 pub const YEAR_3_REWARDS: Balance = VAULT_REWARDS / 100 * 20;
 pub const YEAR_4_REWARDS: Balance = VAULT_REWARDS / 100 * 10;
 
+pub const NATIVE_CURRENCY_ID: CurrencyId = Token(INTR);
+
 pub struct MockBlockRewardProvider;
 
 impl BlockRewardProvider<AccountId> for MockBlockRewardProvider {
     type Currency = Balances;
-    fn deposit_stake(_: &AccountId, _: Balance) -> DispatchResult {
-        Ok(())
+    #[cfg(any(feature = "runtime-benchmarks", test))]
+    fn deposit_stake(who: &AccountId, amount: Balance) -> DispatchResult {
+        <Rewards as reward::RewardsApi<(), AccountId, Balance>>::deposit_stake(&(), who, amount)
     }
-    fn distribute_block_reward(_: &AccountId, _: Balance) -> DispatchResult {
-        Ok(())
+    fn distribute_block_reward(_: &AccountId, amount: Balance) -> DispatchResult {
+        <Rewards as reward::RewardsApi<(), AccountId, Balance>>::distribute_reward(&(), NATIVE_CURRENCY_ID, amount)
     }
-    fn withdraw_reward(_: &AccountId) -> Result<Balance, DispatchError> {
-        Ok(0)
+    fn withdraw_reward(who: &AccountId) -> Result<Balance, DispatchError> {
+        <Rewards as reward::RewardsApi<(), AccountId, Balance>>::withdraw_reward(&(), who, NATIVE_CURRENCY_ID)
     }
 }
 
 parameter_types! {
     pub const AnnuityPalletId: PalletId = PalletId(*b"mod/annu");
     pub const EmissionPeriod: BlockNumber = 100;
+    pub const TotalWrapped: Balance = 100000000; // 1 BTC
 }
 
 impl Config for Test {
     type AnnuityPalletId = AnnuityPalletId;
-    type Event = TestEvent;
+    type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type BlockRewardProvider = MockBlockRewardProvider;
     type BlockNumberToBalance = Identity;
     type EmissionPeriod = EmissionPeriod;
+    type TotalWrapped = TotalWrapped;
     type WeightInfo = ();
 }
-
-pub type TestEvent = Event;
-// pub type TestError = Error<Test>;
-
-// pub const ALICE: AccountId = 1;
-// pub const BOB: AccountId = 2;
 
 pub struct ExtBuilder;
 
