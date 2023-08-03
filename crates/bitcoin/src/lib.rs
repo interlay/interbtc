@@ -45,6 +45,9 @@ pub mod formatter;
 #[cfg(any(feature = "parser", test))]
 pub mod parser;
 
+#[cfg(feature = "bitcoin-types-compat")]
+pub mod compat;
+
 pub mod utils;
 
 pub mod pow;

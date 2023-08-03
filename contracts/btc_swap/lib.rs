@@ -1,7 +1,15 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
-use bitcoin::types::{FullTransactionProof, MerkleProof, Transaction};
+use bitcoin::{
+    compat::ConvertFromInterlayBitcoin,
+    types::{FullTransactionProof, Transaction},
+};
+use brc21::{Brc21, Brc21Operation};
 use ink::{env::Environment, prelude::vec::Vec};
+    use ord::Inscription;
+
+mod brc21;
+mod ord;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
@@ -127,6 +135,49 @@ mod btc_swap {
             assert!(transferred_sats >= order.min_satoshis);
 
             self.env().transfer(caller, order.plancks).unwrap();
+        }
+
+        #[ink(message)]
+        pub fn brc21_test(&mut self, interlay_tx: Transaction) {
+            let tx = interlay_tx.to_rust_bitcoin().unwrap();
+            let has_taproot_outputs = tx.output.iter().any(|x| x.script_pubkey.is_v1_p2tr());
+            if has_taproot_outputs {
+                self.env().transfer(self.env().caller(), 1).unwrap();
+            } else {
+                self.env().transfer(self.env().caller(), 2).unwrap();
+            }
+
+            let inscriptions = Inscription::from_transaction(&tx);
+
+            let body_bytes = inscriptions[0].clone().inscription.into_body().unwrap();
+            let parsed: Brc21 = serde_json::from_slice(&body_bytes).unwrap();
+
+            match parsed {
+                Brc21 {
+                    op: Brc21Operation::Transfer { amt },
+                    tick,
+                } => {
+                    todo!()
+                }
+                Brc21 {
+                    op: Brc21Operation::Mint { amt, src },
+                    tick,
+                } => {
+                    todo!()
+                }
+                Brc21 {
+                    op: Brc21Operation::Redeem { acc, amt, dest },
+                    tick,
+                } => {
+                    todo!()
+                }
+                Brc21 {
+                    op: Brc21Operation::Deploy { id, max, src },
+                    tick,
+                } => {
+                    todo!()
+                }
+            }
         }
     }
 }
