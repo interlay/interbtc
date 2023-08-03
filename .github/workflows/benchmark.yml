@@ -37,8 +37,9 @@ jobs:
         id: command
         with:
           result-encoding: string
+          # /run_benchmarks CHAIN_NAME [PALLET_NAME]
           script: |
-            const [cmd, ...args] = context.payload.comment.body.split(" ") # /run_benchmarks CHAIN_NAME [PALLET_NAME]
+            const [cmd, ...args] = context.payload.comment.body.split(" ")
             const [runtime, pallet] = args
             return `bash ./scripts/benchmark.sh -r ${runtime ?? "*"} -p ${pallet ?? "*"}`
       - uses: actions/github-script@v6
