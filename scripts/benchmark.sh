@@ -26,8 +26,6 @@ if [ -z "${pallet}" ]; then
 fi
 
 path=${runtime%-*}
-set -o xtrace
-ls ./
 
 cargo run \
   --bin interbtc-parachain \
@@ -40,7 +38,7 @@ cargo run \
   --chain "${runtime}" \
   --execution=wasm \
   --wasm-execution=compiled \
-  --steps 2 \
-  --repeat 1 \
+  --steps 50 \
+  --repeat 10 \
   --output "parachain/runtime/${path}/src/weights/" \
   --template .deploy/runtime-weight-template.hbs
