@@ -21,6 +21,10 @@ while getopts ":r:p:" opt; do
   esac
 done
 
+if [ -z "${pallet}" ]; then
+  pallet='*'
+fi
+
 cargo run \
   --bin interbtc-parachain \
   --features runtime-benchmarks \
