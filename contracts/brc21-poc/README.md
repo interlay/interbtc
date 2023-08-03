@@ -54,3 +54,111 @@ cargo test
 ```bash
 cargo test --features e2e-tests
 ```
+
+### Ordinals
+
+Follow the instructions at [the Ordinals Project](https://docs.ordinals.com/guides/inscriptions.html#ordinal-inscription-guide).
+
+Make sure that `bitcoind` and `ord` is in your `$PATH`.
+
+#### Run Bitcoin regtest
+
+Open a new terminal window and leave it running.
+
+```bash
+bitcoind -regtest -txindex -fallbackfee=0.0001
+```
+
+#### Inscriptions
+
+**Create the wallet**
+
+```bash
+ord --regtest wallet create
+```
+
+Returns a new seed phrase like:
+
+```bash
+{
+  "mnemonic": "error season truly unknown trouble letter fame subway host defense brief flavor",
+  "passphrase": ""
+}
+```
+
+**Receive funds**
+
+```bash
+ord --regtest wallet receive
+```
+
+Returns a new address:
+
+```bash
+{
+  "address": "bcrt1pap5f6reexewxfu9fk522tcrczmqwklxv2rc7fvtlfs6mzp4vp3zqfeq6cf"
+}
+```
+
+Mint funds to the address:
+
+```bash
+bitcoin-cli -regtest generatetoaddress 101 bcrt1pap5f6reexewxfu9fk522tcrczmqwklxv2rc7fvtlfs6mzp4vp3zqfeq6cf
+```
+
+You can see the transactions sent to the wallet with:
+
+```bash
+ord --regtest wallet transactions
+```
+
+By minting 101 transactions, the funds become immediately spendable.
+
+**Create an inscription**
+
+Create a file with a content like and store it in `mint`:
+
+```json
+{
+    "p": "brc-21",
+    "op": "mint",
+    "tick": "INTR",
+    "amt": "100",
+    "src": "INTERLAY"
+}
+```
+
+Inscribe the mint operation:
+
+```bash
+ord --regtest wallet inscribe --fee-rate 1 mint
+```
+
+This should return the `commit`, `inscription`, and `reveal`:
+
+```json
+{
+  "commit": "f88e0f04afd7cb096d6ce40aed2d561a4364c99895e331c1639990a134daabf8",
+  "inscription": "fd99046915eed3ede4ab92dc19456ea9f264b5068bba1b3fd36d4231253fd012i0",
+  "reveal": "fd99046915eed3ede4ab92dc19456ea9f264b5068bba1b3fd36d4231253fd012",
+  "fees": 315
+}
+```
+
+Mint a couple of blocks to include the inscription:
+
+```bash
+bitcoin-cli -regtest generatetoaddress 5 bcrt1pap5f6reexewxfu9fk522tcrczmqwklxv2rc7fvtlfs6mzp4vp3zqfeq6cf
+```
+
+#### Inscription Explorer
+
+Open a new terminal window and leave it running.
+
+```bash
+ord --regtest server
+```
+
+Open a browser and navigate to http://localhost:80
+
+You should now see the inscription that was made.
