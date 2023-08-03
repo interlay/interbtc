@@ -29,3 +29,28 @@ Indexers now accept the Bitcoin-minted BRC21 as minted
 See the full protocol at https://interlay-labs.gitbook.io/brc-21/
 
 ## Getting started
+
+### Contracts
+
+#### Build
+
+```bash
+cd brc21
+cargo contract build
+```
+
+#### Test
+
+From inside the `brc21` directory.
+
+**Run unit tests**
+
+```bash
+cargo test
+```
+
+**Run integration tests**
+
+```bash
+cargo test --features e2e-tests
+```

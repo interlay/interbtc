@@ -125,20 +125,127 @@ mod brc21 {
         /// Imports all the definitions from the outer scope so we can use them here.
         use super::*;
 
-        /// We test if the default constructor does its job.
-        #[ink::test]
-        fn default_works() {
-            let brc21 = Brc21::default();
-            assert_eq!(brc21.get(), false);
+        // Define event types used by this contract
+        type Event = <Brc21 as ::ink::reflect::ContractEventBase>::Type;
+
+        const DEFAULT_TICKER: &str = "INTR"; 
+
+        fn decode_event (event: &ink::env::test::EmittedEvent) -> Event {
+            <Event as scale::Decode>::decode(&mut &event.data[..])
+                .expect("encountered invalid contract event data")
         }
 
-        /// We test a simple use case of our contract.
+        /// Helper function to for mint event tests
+        fn assert_mint_event(
+            event: &ink::env::test::EmittedEvent,
+            ticker: &str,
+            amount: u128,
+            account: AccountId,
+        ) {
+            let decoded_event = decode_event(event);
+            match decoded_event {
+                Event::Mint(mint) => {
+                    assert_eq!(mint.ticker, ticker);
+                    assert_eq!(mint.amount, amount);
+                    assert_eq!(mint.account, account);
+                },
+                _ => panic!("Expected Mint event"),
+            }
+        }
+
+        /// Helper function to for redeem event tests
+        fn assert_redeem_event(
+            event: &ink::env::test::EmittedEvent,
+            ticker: &str,
+            amount: u128,
+            account: AccountId,
+        ) {
+            let decoded_event = decode_event(event);
+            match decoded_event {
+                Event::Redeem(redeem) => {
+                    assert_eq!(redeem.ticker, ticker);
+                    assert_eq!(redeem.amount, amount);
+                    assert_eq!(redeem.account, account);
+                },
+                _ => panic!("Expected Redeem event"),
+            }
+        }
+
+        /// Test if the default constructor does its job.
         #[ink::test]
-        fn it_works() {
-            let mut brc21 = Brc21::new(false);
-            assert_eq!(brc21.get(), false);
-            brc21.flip();
-            assert_eq!(brc21.get(), true);
+        fn new_works() {
+            let brc21 = Brc21::new(DEFAULT_TICKER.to_string());
+            assert_eq!(brc21.get_ticker(), DEFAULT_TICKER);
+            assert_eq!(brc21.get_locked(), 0);
+        }
+
+        /// Test if minting works
+        #[ink::test]
+        fn mint_works() {
+            let mut brc21 = Brc21::new(DEFAULT_TICKER.to_string());
+
+            // Load the default accounts
+            let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
+
+            // Alice mints 100 coins
+            // Default caller is the Alice account 0x01
+            brc21.mint(100);
+            assert_eq!(brc21.get_locked(), 100);
+
+            // Check that the event was emitted
+            let emitted_events = ink::env::test::recorded_events().collect::<Vec<_>>();
+            assert_eq!(emitted_events.len(), 1);
+            assert_mint_event(
+                &emitted_events[0], 
+                DEFAULT_TICKER, 
+                100, 
+                AccountId::from([0x01; 32]) // Alice
+            );
+
+            // Bob mints 50 coins
+            ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.bob);
+            brc21.mint(50);
+            assert_eq!(brc21.get_locked(), 150);
+
+            // Check that the event was emitted
+            let emitted_events = ink::env::test::recorded_events().collect::<Vec<_>>();
+            assert_eq!(emitted_events.len(), 2);
+            assert_mint_event(
+                &emitted_events[1], 
+                DEFAULT_TICKER, 
+                50, 
+                AccountId::from([0x02; 32]) // Bob
+            );
+        }
+
+        /// Test if redeeming works
+        #[ink::test]
+        fn redeem_works() {
+            let mut brc21 = Brc21::new(DEFAULT_TICKER.to_string());
+
+            // Load the default accounts
+            let accounts = ink::env::test::default_accounts::<ink::env::DefaultEnvironment>();
+
+            // Alice mints 100 coins
+            // Default caller is the Alice account 0x01
+            brc21.mint(100);
+            assert_eq!(brc21.get_locked(), 100);
+
+            // Bob redeems 50 coins
+            ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.bob);
+            brc21.redeem(accounts.bob, 50);
+            assert_eq!(brc21.get_locked(), 50);
+
+            // Check that the event was emitted
+            let emitted_events = ink::env::test::recorded_events().collect::<Vec<_>>();
+            assert_eq!(emitted_events.len(), 2);
+            assert_redeem_event(
+                &emitted_events[1], 
+                DEFAULT_TICKER, 
+                50, 
+                AccountId::from([0x02; 32]) // Bob
+            );
+
         }
     }
 
