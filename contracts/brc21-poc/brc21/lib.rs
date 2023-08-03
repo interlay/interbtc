@@ -14,6 +14,8 @@
 /// 2. Proof BRC21 redeem to this contract and unlock tokens
 #[ink::contract]
 mod brc21 {
+    use ink::prelude::string::String;
+
     #[ink(event)]
     pub struct Mint {
         /// Token ticker
@@ -22,11 +24,11 @@ mod brc21 {
         amount: u128,
         /// Account that minted the tokens
         #[ink(topic)]
-        account: AccountId,
-        /// Bitcoin inscription transaction id
+        account: AccountId
+        // Bitcoin inscription transaction id
         // TODO: add to event
         // #[ink(topic)]
-        // inscription_tx_id: Vec<u8>,
+        // inscription_tx_id: Vec<u8>
     }
 
     #[ink(event)]
@@ -37,11 +39,11 @@ mod brc21 {
         amount: u128,
         /// Account that redeemed the tokens
         #[ink(topic)]
-        account: AccountId,
-        /// Bitcoin redeem transaction id
+        account: AccountId
+        // Bitcoin redeem transaction id
         // TODO: add to event
         // #[ink(topic)]
-        // redeem_tx_id: Vec<u8>,
+        // redeem_tx_id: Vec<u8>
     }
 
     #[ink(storage)]
@@ -57,7 +59,7 @@ mod brc21 {
         #[ink(constructor, payable)]
         pub fn new(ticker: String) -> Self {
             let locked = 0;
-            Self { ticker, locks }
+            Self { ticker, locked }
         }
 
         /// Returns the token ticker
@@ -99,7 +101,7 @@ mod brc21 {
         /// TODO: add the inscription parsing
         /// TODO: add the BTC relay arguments
         #[ink(message, payable)]
-        pub fn (&mut self, account: AccountId, amount: u128) {
+        pub fn redeem(&mut self, account: AccountId, amount: u128) {
             assert!(self.locked >= amount, "not enough locked tokens");
 
             // TODO: assert all the stuff
