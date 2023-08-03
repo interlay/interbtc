@@ -1,57 +1,67 @@
 use crate::*;
-
-use serde::Deserializer;
+use ink::prelude::{string::String, vec::Vec};
+use serde::{Deserialize, Deserializer};
 use serde_json::Value;
-use serde::Deserialize;
+
 fn deserialize_quoted_integer<'de, D: Deserializer<'de>>(deserializer: D) -> Result<u64, D::Error> {
     match Value::deserialize(deserializer)? {
-        Value::String(s) => {
-            serde_json::from_str::<u64>(&s).map_err(|_| serde::de::Error::custom("wrong type"))
-        }
+        Value::String(s) => serde_json::from_str::<u64>(&s).map_err(|_| serde::de::Error::custom("wrong type")),
         _ => Err(serde::de::Error::custom("wrong type")),
     }
 }
 
-#[derive(serde::Deserialize, Debug, PartialEq)]
-#[serde(tag="p", rename = "brc-21")]
-pub struct Brc21<'a> {
+#[derive(serde::Deserialize, Debug, PartialEq, Clone)]
+#[serde(tag = "p", rename = "brc-21")]
+pub struct Brc21Inscription {
     #[serde(flatten)]
-    pub op: Brc21Operation<'a>,
-    pub tick: &'a str,
+    pub op: Brc21Operation,
+    pub tick: String,
 }
 
-#[derive(serde::Deserialize, Debug, PartialEq)]
-#[serde(tag="op")]
+#[derive(serde::Deserialize, Debug, PartialEq, Clone)]
+#[serde(tag = "op")]
 #[serde(rename_all = "camelCase")]
-pub enum Brc21Operation<'a> {
+pub enum Brc21Operation {
     Deploy {
         #[serde(deserialize_with = "deserialize_quoted_integer")]
         max: u64,
-        src: &'a str,
-        id: &'a str,
+        src: String,
+        id: String,
     },
     Mint {
         #[serde(deserialize_with = "deserialize_quoted_integer")]
-        amt: u64,
-        src: &'a str,
+        #[serde(rename = "amt")]
+        amount: u64,
+        src: String,
     },
-    Transfer{
+    Transfer {
         #[serde(deserialize_with = "deserialize_quoted_integer")]
         amt: u64,
     },
     Redeem {
         #[serde(deserialize_with = "deserialize_quoted_integer")]
-        amt: u64,
-        dest:&'a str,
-        acc: &'a str,
-    }
+        #[serde(rename = "amt")]
+        amount: u64,
+        dest: String,
+        acc: String,
+    },
+}
+
+pub fn get_brc21_inscriptions(tx: &bitcoin::compat::rust_bitcoin::Transaction) -> Vec<Brc21Inscription> {
+    Inscription::from_transaction(&tx)
+        .into_iter()
+        .filter_map(|inscription| {
+            let body_bytes = inscription.inscription.into_body().unwrap();
+            serde_json::from_slice::<Brc21Inscription>(&body_bytes).ok()
+        })
+        .collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bitcoin::parser::parse_transaction;
     use crate::ord::Inscription;
+    use bitcoin::parser::parse_transaction;
 
     #[test]
     fn test_inscription() {
@@ -63,7 +73,7 @@ mod tests {
         let rust_bitcoin_transaction = interlay_transaction.to_rust_bitcoin().unwrap();
         let inscriptions = Inscription::from_transaction(&rust_bitcoin_transaction);
         let expected = "{ \n  \"p\": \"brc-20\",\n  \"op\": \"deploy\",\n  \"tick\": \"ordi\",\n  \"max\": \"21000000\",\n  \"lim\": \"1000\"\n}";
-        
+
         assert_eq!(inscriptions.len(), 1);
         let body_bytes = inscriptions[0].clone().inscription.into_body().unwrap();
         let body = std::str::from_utf8(&body_bytes).unwrap();
@@ -73,10 +83,10 @@ mod tests {
     #[test]
     fn test_parse_transfer() {
         let s = r#"{"p": "brc-21", "a": "12", "tick": "ticker", "op": "transfer", "amt": "25"}"#;
-        let parsed: Brc21 = serde_json::from_str(s).unwrap();
-        let expected = Brc21{
+        let parsed: Brc21Inscription = serde_json::from_str(s).unwrap();
+        let expected = Brc21Inscription {
             op: Brc21Operation::Transfer { amt: 25 },
-            tick: "ticker"
+            tick: "ticker".to_owned(),
         };
         assert_eq!(parsed, expected);
     }
@@ -84,10 +94,14 @@ mod tests {
     #[test]
     fn test_parse_redeem() {
         let s = r#"{"p": "brc-21", "a": "12", "tick": "ticker", "op": "redeem", "acc": "someAccount", "amt": "10", "dest": "someDest"}"#;
-        let parsed: Brc21 = serde_json::from_str(s).unwrap();
-        let expected = Brc21{
-            op: Brc21Operation::Redeem { acc: "someAccount", amt: 10, dest: "someDest" },
-            tick: "ticker"
+        let parsed: Brc21Inscription = serde_json::from_str(s).unwrap();
+        let expected = Brc21Inscription {
+            op: Brc21Operation::Redeem {
+                acc: "someAccount".to_owned(),
+                amount: 10,
+                dest: "someDest".to_owned(),
+            },
+            tick: "ticker".to_owned(),
         };
         assert_eq!(parsed, expected);
     }
@@ -95,10 +109,13 @@ mod tests {
     #[test]
     fn test_parse_mint() {
         let s = r#"{"p": "brc-21", "a": "12", "tick": "ticker", "op": "mint", "src": "someSource", "amt": "10"}"#;
-        let parsed: Brc21 = serde_json::from_str(s).unwrap();
-        let expected = Brc21{
-            op: Brc21Operation::Mint { amt: 10, src: "someSource" },
-            tick: "ticker"
+        let parsed: Brc21Inscription = serde_json::from_str(s).unwrap();
+        let expected = Brc21Inscription {
+            op: Brc21Operation::Mint {
+                amount: 10,
+                src: "someSource".to_owned(),
+            },
+            tick: "ticker".to_owned(),
         };
         assert_eq!(parsed, expected);
     }
@@ -106,10 +123,14 @@ mod tests {
     #[test]
     fn test_parse_deploy() {
         let s = r#"{"p": "brc-21", "a": "12", "tick": "ticker", "op": "deploy","id":"myId", "src": "someSource", "max": "10"}"#;
-        let parsed: Brc21 = serde_json::from_str(s).unwrap();
-        let expected = Brc21{
-            op: Brc21Operation::Deploy { id: "myId", max: 10, src: "someSource" },
-            tick: "ticker"
+        let parsed: Brc21Inscription = serde_json::from_str(s).unwrap();
+        let expected = Brc21Inscription {
+            op: Brc21Operation::Deploy {
+                id: "myId".to_owned(),
+                max: 10,
+                src: "someSource".to_owned(),
+            },
+            tick: "ticker".to_owned(),
         };
         assert_eq!(parsed, expected);
     }

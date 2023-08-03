@@ -238,6 +238,16 @@ impl ChainExtension<Runtime> for BtcRelayExtension {
                 env.write(&sats.encode(), false, None)
                     .map_err(|_| DispatchError::Other("ChainExtension failed"))?;
             }
+            1102 => {
+                let mut env = env.buf_in_buf_out();
+
+                let unchecked_proof: FullTransactionProof = env.read_as_unbounded(env.in_len())?;
+
+                let result = btc_relay::Pallet::<Runtime>::_verify_transaction_inclusion(unchecked_proof, None).is_ok();
+
+                env.write(&result.encode(), false, None)
+                    .map_err(|_| DispatchError::Other("ChainExtension failed"))?;
+            }
             _ => return Err(DispatchError::Other("Unimplemented func_id")),
         }
         Ok(RetVal::Converging(0))
