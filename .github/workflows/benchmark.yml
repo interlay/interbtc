@@ -41,7 +41,7 @@ jobs:
           script: |
             const [cmd, ...args] = context.payload.comment.body.split(" ")
             const [runtime, pallet] = args
-            return `bash ./scripts/benchmark.sh -r ${runtime ?? \''*'\'} -p ${pallet ?? \''*'\'}`
+            return `bash ./scripts/benchmark.sh -r ${runtime ?? "\\''*'\\'"} -p ${pallet ?? "\\''*'\\'"}`
       - uses: actions/github-script@v6
         name: Post comment
         id: comment
