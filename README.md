@@ -152,6 +152,16 @@ cargo run --release --bin interbtc-parachain -- --dev
 
 To connect with a local relay-chain follow [these instructions](docs/rococo.md).
 
+### Development node
+
+Running a development can be achieved without compiling the node with docker and `instant-seal`. Replace the release version with one of the available tags:
+
+```shell
+docker run --network=host interlayhq/interbtc:RELEASE_TAG --dev --instant-seal
+#  Example
+docker run --network=host interlayhq/interbtc:1.25.0-rc5 --dev --instant-seal
+```
+
 #### Test Coverage
 
 Test coverage reports available under [docs/testcoverage.html](https://github.com/interlay/interbtc/blob/master/docs/testcoverage.html)
