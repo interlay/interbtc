@@ -12,7 +12,7 @@ enum Operation {
 }
 
 #[derive(Serialize, Deserialize)]
-struct Brc21 {
+pub struct Brc21 {
     protocol: String,
     operation: Operation,
     ticker: String,
@@ -23,7 +23,7 @@ struct Brc21 {
 }
 
 impl Brc21 {
-    fn new_mint(ticker: &str, amount: u128, source: &str) -> Self {
+    pub fn new_mint(ticker: &str, amount: u128, source: &str) -> Self {
         Brc21 {
             protocol: PROTOCOL.to_string(),
             operation: Operation::Mint,
@@ -35,7 +35,7 @@ impl Brc21 {
         }
     }
 
-    fn new_transfer(ticker: &str, amount: u128) -> Self {
+    pub fn new_transfer(ticker: &str, amount: u128) -> Self {
         Brc21 {
             protocol: PROTOCOL.to_string(),
             operation: Operation::Transfer,
@@ -47,7 +47,7 @@ impl Brc21 {
         }
     }
 
-    fn new_redeem(ticker: &str, amount: u128, dest: &str, acc: &str) -> Self {
+    pub fn new_redeem(ticker: &str, amount: u128, dest: &str, acc: &str) -> Self {
         Brc21 {
             protocol: PROTOCOL.to_string(),
             operation: Operation::Redeem,
@@ -59,15 +59,15 @@ impl Brc21 {
         }
     }
 
-    fn to_json(&self) -> String {
+    pub fn to_json(&self) -> String {
         serde_json::to_string(self).unwrap()
     }
 
-    fn from_json(json: &str) -> Self {
+    pub fn from_json(json: &str) -> Self {
         serde_json::from_str(json).unwrap()
     }
 
-    fn write_to_file(&self, filename: &str) {
+    pub fn write_to_file(&self, filename: &str) {
         let mut file = OpenOptions::new()
             .write(true)
             .create(true)
@@ -77,7 +77,7 @@ impl Brc21 {
         file.write_all(json.as_bytes()).unwrap();
     }
 
-    fn read_from_file(filename: &str) -> Self {
+    pub fn read_from_file(filename: &str) -> Self {
         let mut file = File::open(filename).unwrap();
         let mut json = String::new();
         file.read_to_string(&mut json).unwrap();

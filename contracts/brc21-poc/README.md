@@ -116,7 +116,7 @@ By minting 101 transactions, the funds become immediately spendable.
 
 **Create an inscription**
 
-Create a file with a content like and store it in `mint`:
+Create a file with a content like the below and store it in `mint.json`:
 
 ```json
 {
@@ -131,7 +131,7 @@ Create a file with a content like and store it in `mint`:
 Inscribe the mint operation:
 
 ```bash
-ord --regtest wallet inscribe --fee-rate 1 mint
+ord --regtest wallet inscribe --fee-rate 1 mint.json
 ```
 
 This should return the `commit`, `inscription`, and `reveal`:

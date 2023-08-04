@@ -1,37 +1,43 @@
-use serde_json::Value;
-use std::process::Command;
+mod rpc;
+mod brc21;
+
+use rpc::{
+    ord_wallet_create,
+    ord_wallet_receive,
+    ord_wallet_inscribe,
+    ord_wallet_send,
+    cli_generate_to_address
+};
+use rpc::Inscription;
+use brc21::Brc21;
+
+const TOKEN: &str = "INTR";
+const SOURCE: &str = "INTERLAY";
+
 
 fn main() {
     // Create an Ord wallet
     println!("Creating wallet...");
-    let output = Command::new("ord")
-        .arg("--regtest")
-        .arg("wallet")
-        .arg("create")
-        .output()
-        .expect("Failed to execute command");
-    println!("{}", String::from_utf8_lossy(&output.stdout));
+    ord_wallet_create();
 
     // Get an address to receive funds
     println!("Getting address...");
-    let address = get_ord_ddress();
+    let address = ord_wallet_receive();
     println!("{}", address);
 
     // Mint funds to the address
     println!("Minting funds...");
-    generate_to_address(&address, 10);
+    cli_generate_to_address(&address, 101);
 
     // Inscribe a mint transaction for a BRC21
     println!("Inscribing mint transaction...");
-    let fee_rate = "1.0"; // Replace with your desired fee rate
-    let output = Command::new("ord")
-        .arg("--regtest")
-        .arg("wallet")
-        .arg("inscribe")
-        .arg("--fee-rate")
-        .arg(fee_rate)
-        .arg(token)
-        .output()
-        .expect("Failed to execute command");
-    println!("{}", String::from_utf8_lossy(&output.stdout));
+    let brc21 = Brc21::new_mint(
+        TOKEN,
+        200,
+        SOURCE
+    );
+    let inscription = ord_wallet_inscribe(brc21);
+    println!("{}", inscription.to_string());
+    // Genreate blocks to complete mint
+    cli_generate_to_address(&address, 5);
 }
