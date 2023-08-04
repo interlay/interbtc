@@ -1,5 +1,4 @@
-use crate::{BaseCallFilter, NativeCurrency, Runtime, RuntimeCall, RuntimeEvent, Timestamp, Weight};
-use bitcoin::types::{MerkleProof, Transaction};
+use crate::{NativeCurrency, Runtime, RuntimeCall, RuntimeEvent, Timestamp, Weight};
 use btc_relay::FullTransactionProof;
 use codec::{Decode, Encode};
 use frame_support::{
@@ -36,7 +35,7 @@ impl Convert<Weight, Balance> for DummyWeightPrice {
 // contracts
 parameter_types! {
     pub const DeletionQueueDepth: u32 = 10;
-    pub const DeletionWeightLimit: Weight = Weight::from_ref_time(100000000 as u64);
+    pub const DeletionWeightLimit: Weight = Weight::from_parts(100000000, 0);
     pub const DepositPerByte: Balance = 1;
     pub const DepositPerItem: Balance = 1;
     pub const MaxCodeLen: u32 = 123 * 1024;
