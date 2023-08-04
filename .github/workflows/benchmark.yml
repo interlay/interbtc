@@ -10,7 +10,7 @@ permissions:
 jobs:
   benchmark:
     name: Benchmark
-    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/run_benchmarks') }}
+    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/benchmark') }}
     runs-on: [self-hosted, linux]
     steps:
       - uses: actions/github-script@v6
@@ -37,7 +37,7 @@ jobs:
         id: command
         with:
           result-encoding: string
-          # /run_benchmarks CHAIN_NAME [PALLET_NAME]
+          # /benchmark CHAIN_NAME [PALLET_NAME]
           script: |
             const [cmd, ...args] = context.payload.comment.body.split(" ")
             const [runtime, pallet] = args
@@ -71,10 +71,12 @@ jobs:
       - name: Run benchmarks
         run: ${{steps.command.outputs.result}} > ${{runner.temp}}/out.txt
       - name: Commit new weights
-        uses: stefanzweifel/git-auto-commit-action@v4
-        with:
-            commit_message: Automated weights
-
+        run: |
+          git config user.email "contact@interlay.io"
+          git config user.name "Interlay Bot"
+          git add .
+          git commit -m '${{github.event.comment.body}}' --allow-empty
+          git push origin HEAD:${{ fromJson(steps.issue.outputs.result).ref }}
       - uses: actions/github-script@v6
         name: Update comment
         with:
