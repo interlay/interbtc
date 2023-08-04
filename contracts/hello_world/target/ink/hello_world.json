@@ -1,8 +1,8 @@
 {
   "source": {
-    "hash": "0x85e028c03d0dd823d30df53fef774f704759280f6b8c9a5dd53d9c7df13d3256",
+    "hash": "0x0f466d0c332258ce41c0b4aaaba4f1708671da275c8fbe395dc81b1fdfedc662",
     "language": "ink! 4.2.1",
-    "compiler": "rustc 1.68.0-nightly",
+    "compiler": "rustc 1.69.0-nightly",
     "build_info": {
       "build_mode": "Release",
       "cargo_contract_version": "3.0.1",
@@ -17,7 +17,7 @@
     "name": "hello_world",
     "version": "0.1.0",
     "authors": [
-      "[your_name] <[your_email]>"
+      "Interlay Ltd"
     ]
   },
   "spec": {

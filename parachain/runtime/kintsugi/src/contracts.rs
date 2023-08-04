@@ -39,7 +39,7 @@ parameter_types! {
     pub const DeletionWeightLimit: Weight = Weight::from_ref_time(100000000 as u64);
     pub const DepositPerByte: Balance = 1;
     pub const DepositPerItem: Balance = 1;
-    pub const MaxCodeLen: u32 = 123 * 1024;
+    pub const MaxCodeLen: u32 = 1024 * 1024;
     pub const MaxStorageKeyLen: u32 = 128;
     pub const UnsafeUnstableInterface: bool = false;
     pub const MaxDebugBufferLen: u32 = 2 * 1024 * 1024;
