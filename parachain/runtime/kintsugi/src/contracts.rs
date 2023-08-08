@@ -38,11 +38,14 @@ parameter_types! {
     pub const DeletionWeightLimit: Weight = Weight::from_parts(100000000, 0);
     pub const DepositPerByte: Balance = 1;
     pub const DepositPerItem: Balance = 1;
-    pub const MaxCodeLen: u32 = 123 * 1024;
+     // can't increase much beyond 400k unless we decrease max call stack height
+    pub const MaxCodeLen: u32 = 400_000;
     pub const MaxStorageKeyLen: u32 = 128;
     pub const UnsafeUnstableInterface: bool = false;
     pub const MaxDebugBufferLen: u32 = 2 * 1024 * 1024;
     pub const DefaultDepositLimit: Balance = 1_000_000_000_000;
+    // address 943dd009e661df00c8a21661ce6b89d4
+    pub storage EnableContracts: bool = false;
 }
 
 pub struct NativeCurrencyWithEd;
@@ -265,7 +268,7 @@ impl pallet_contracts::Config for Runtime {
     type WeightInfo = ();
     type ChainExtension = BtcRelayExtension;
     type Schedule = DefaultSchedule;
-    type CallStack = [pallet_contracts::Frame<Self>; 5];
+    type CallStack = [pallet_contracts::Frame<Self>; 1];
     type DepositPerByte = DepositPerByte;
     type DepositPerItem = DepositPerItem;
     type DefaultDepositLimit = DefaultDepositLimit;

@@ -28,6 +28,7 @@ use frame_system::{
 use loans::{OnSlashHook, PostDeposit, PostTransfer, PreDeposit, PreTransfer};
 use orml_asset_registry::SequentialId;
 use orml_traits::{currency::MutationHooks, parameter_type_with_key};
+use pallet_contracts_primitives::ContractResult;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use sp_api::impl_runtime_apis;
 use sp_core::{OpaqueMetadata, H256};
@@ -2156,6 +2157,133 @@ impl_runtime_apis! {
             )
         }
     }
+
+    impl pallet_contracts::ContractsApi<Block, AccountId, Balance, BlockNumber, Hash> for Runtime {
+        fn call(
+            origin: AccountId,
+            dest: AccountId,
+            value: Balance,
+            gas_limit: Option<Weight>,
+            storage_deposit_limit: Option<Balance>,
+            input_data: Vec<u8>,
+        ) -> pallet_contracts_primitives::ContractExecResult<Balance> {
+            if !contracts::EnableContracts::get() {
+                return ContractResult {
+                    gas_consumed: Default::default(),
+                    gas_required: Default::default(),
+                    storage_deposit: Default::default(),
+                    debug_message: Default::default(),
+                    result: Err(sp_runtime::DispatchError::Other("pallet_contracts is disabled")),
+                };
+            }
+
+            let gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
+            Contracts::bare_call(
+                origin,
+                dest,
+                value,
+                gas_limit,
+                storage_deposit_limit,
+                input_data,
+                true,
+                pallet_contracts::Determinism::Enforced,
+            )
+        }
+
+        fn instantiate(
+            origin: AccountId,
+            value: Balance,
+            gas_limit: Option<Weight>,
+            storage_deposit_limit: Option<Balance>,
+            code: pallet_contracts_primitives::Code<Hash>,
+            data: Vec<u8>,
+            salt: Vec<u8>,
+        ) -> pallet_contracts_primitives::ContractInstantiateResult<AccountId, Balance> {
+            if !contracts::EnableContracts::get() {
+                return ContractResult {
+                    gas_consumed: Default::default(),
+                    gas_required: Default::default(),
+                    storage_deposit: Default::default(),
+                    debug_message: Default::default(),
+                    result: Err(sp_runtime::DispatchError::Other("pallet_contracts is disabled")),
+                };
+            }
+
+            let gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
+            Contracts::bare_instantiate(
+                origin,
+                value,
+                gas_limit,
+                storage_deposit_limit,
+                code,
+                data,
+                salt,
+                true,
+            )
+        }
+
+        fn upload_code(
+            origin: AccountId,
+            code: Vec<u8>,
+            storage_deposit_limit: Option<Balance>,
+            determinism: pallet_contracts::Determinism,
+        ) -> pallet_contracts_primitives::CodeUploadResult<Hash, Balance>
+        {
+            if !contracts::EnableContracts::get() {
+                return Err(sp_runtime::DispatchError::Other("pallet_contracts is disabled"));
+            }
+            Contracts::bare_upload_code(origin, code, storage_deposit_limit, determinism)
+        }
+
+        fn get_storage(
+            address: AccountId,
+            key: Vec<u8>,
+        ) -> pallet_contracts_primitives::GetStorageResult {
+            Contracts::get_storage(address, key)
+        }
+    }
+
+    // todo: enable this once we add contracts benchmarking
+//     #[cfg(feature = "runtime-benchmarks")]
+//     impl frame_benchmarking::Benchmark<Block> for Runtime {
+//         fn benchmark_metadata(extra: bool) -> (
+//             Vec<frame_benchmarking::BenchmarkList>,
+//             Vec<frame_support::traits::StorageInfo>,
+//         ) {
+//             use frame_benchmarking::{baseline, Benchmarking, BenchmarkList};
+//             use frame_support::traits::StorageInfoTrait;
+//             use frame_system_benchmarking::Pallet as SystemBench;
+//             use baseline::Pallet as BaselineBench;
+//
+//             let mut list = Vec::<BenchmarkList>::new();
+//             list_benchmarks!(list, extra);
+//
+//             let storage_info = AllPalletsWithSystem::storage_info();
+//
+//             (list, storage_info)
+//         }
+//
+//         fn dispatch_benchmark(
+//             config: frame_benchmarking::BenchmarkConfig
+//         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+//             use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch, TrackedStorageKey};
+//             use frame_system_benchmarking::Pallet as SystemBench;
+//             use baseline::Pallet as BaselineBench;
+//
+//             impl frame_system_benchmarking::Config for Runtime {}
+//             impl baseline::Config for Runtime {}
+//
+//             use frame_support::traits::WhitelistedStorageKeys;
+//             let whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();
+//
+//             let mut batches = Vec::<BenchmarkBatch>::new();
+//             let params = (&config, &whitelist);
+//             add_benchmarks!(params, batches);
+//
+//             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
+//             Ok(batches)
+//         }
+//     }
 }
 
 struct CheckInherents;
