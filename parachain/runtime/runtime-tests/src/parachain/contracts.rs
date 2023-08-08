@@ -30,6 +30,9 @@ mod relay {
 fn test_basic_contract() {
     // not sure this case would ever be used, best we have a test for it anyway..
     ExtBuilder::build().execute_with(|| {
+        let key = kintsugi_runtime_parachain::contracts::EnableContracts::key();
+        let hex = hex::encode(key);
+        println!("key = {hex}");
         // note: current working directory is diffent when you run this test, vs when you debug it.
         // However, the `PWD` env variable is (surprisingly) set to the workspace root in both cases.
         // So, we use a path relative to PWD
