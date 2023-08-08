@@ -1324,13 +1324,7 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (
-        orml_asset_registry::Migration<Runtime>,
-        orml_unknown_tokens::Migration<Runtime>,
-        dex::SetLoansExchangeRates,
-        issue::migration::v1::Migration<Runtime>,
-        evm::SetEvmChainId<Runtime>,
-    ),
+    (evm::SetEvmChainId<Runtime>,),
 >;
 
 impl fp_self_contained::SelfContainedCall for RuntimeCall {
