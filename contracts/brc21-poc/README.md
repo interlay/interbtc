@@ -69,7 +69,19 @@ Open a new terminal window and leave it running.
 bitcoind -regtest -txindex -fallbackfee=0.0001
 ```
 
-#### Inscriptions
+#### Inscriptions (through script)
+
+Go to the `scripts` directory and run either `./mine-inscription mint` or `./mine-inscription redeem`:
+```bash
+cd scripts
+./mine-inscription mint
+```
+
+The script needs the `BITCOIN_RPC_PASSWORD` and `BITCOIN_RPC_USER` environment variables set, and furthermore needs `ord`, `bitcoin-cli` and `modified-vault` to be in `$PATH`. The `modified-vault` can be obtained by compiling the vault binary from this branch: https://github.com/interlay/interbtc-clients/pull/510 and renaming it `modified-vault`.
+
+The script will output a bunch of text, finishing with `full proof: <long-hex-string>`. When interacting with the contract through contracts-ui, this is the argument to pass to the `mint` or `redeem` functions. Make sure to prepend the string with `0x`.
+
+#### Inscriptions (MANUAL)
 
 **Create the wallet**
 

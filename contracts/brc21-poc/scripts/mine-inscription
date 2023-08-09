@@ -1,0 +1,28 @@
+if [[ -z "${BITCOIN_RPC_PASSWORD}" ]]; then
+  echo "please set BITCOIN_RPC_PASSWORD"
+  exit 1
+fi
+
+if [[ -z "${BITCOIN_RPC_USER}" ]]; then
+  echo "please set BITCOIN_RPC_USER"
+  exit 1
+fi
+
+if [[ "$1" != "mint" && "$1" != "redeem" ]]; then 
+    echo "please provide either 'mint' or 'redeem' as the first argument"
+    exit 1
+fi
+
+address=`ord --regtest --bitcoin-rpc-pass $BITCOIN_RPC_PASSWORD --bitcoin-rpc-user $BITCOIN_RPC_USER wallet receive | jq -r '.address'`
+
+echo "address = $address"
+
+
+txid=`ord --regtest --bitcoin-rpc-pass $BITCOIN_RPC_PASSWORD --bitcoin-rpc-user $BITCOIN_RPC_USER wallet inscribe --fee-rate 1 ${1}.json | jq -r '.reveal'`
+
+# parachain needs 50 confirmations
+bitcoin-cli -regtest -rpcuser=$BITCOIN_RPC_USER -rpcpassword=${BITCOIN_RPC_PASSWORD} generatetoaddress 101 $address > /dev/null
+
+echo "Minted inscription, txid $txid"
+
+modified-vault get-proof --num-confirmations 1 --bitcoin-rpc-user=$BITCOIN_RPC_USER --bitcoin-rpc-pass=${BITCOIN_RPC_PASSWORD} --bitcoin-rpc-url http://localhost:18443 --txid $txid
