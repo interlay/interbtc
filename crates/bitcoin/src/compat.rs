@@ -65,6 +65,8 @@ macro_rules! impl_bidirectional_bitcoin_conversion {
 // there also exists rust_bitcoin::Script but we can't convert to that since it's unsized
 impl_bitcoin_conversion!(crate::Script, rust_bitcoin::ScriptBuf);
 
+impl_to_interlay_bitcoin_conversion!(crate::types::H256Le, rust_bitcoin::Txid);
+
 // Transcation conversions
 impl_bidirectional_bitcoin_conversion!(crate::types::Transaction, rust_bitcoin::Transaction);
 
