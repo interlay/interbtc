@@ -42,6 +42,15 @@ impl Script {
             }
         }
 
+        // If the most significant byte is >= 0x80 and the value is positive, push a
+        // new zero-byte to make the significant byte < 0x80 again.
+        // See https://github.com/bitcoin/bitcoin/blob/b565485c24c0feacae559a7f6f7b83d7516ca58d/src/script/script.h#L360-L373
+        if let Some(x) = height_bytes.last() {
+            if (x & 0x80) != 0 {
+                height_bytes.push(0);
+            }
+        }
+
         // note: formatting the height_bytes vec automatically prepends the length of the vec, so no need
         // to append it manually
         script.append(height_bytes);
@@ -147,6 +156,16 @@ impl std::convert::TryFrom<&str> for Script {
 #[test]
 fn test_script_height() {
     assert_eq!(Script::height(7).bytes, vec![1, 7]);
+    // 2^7 boundary
+    assert_eq!(Script::height(127).bytes, vec![1, 127]);
+    assert_eq!(Script::height(128).bytes, vec![2, 128, 0]);
+    // 2^8 boundary
+    assert_eq!(Script::height(255).bytes, vec![2, 0xff, 0x00]);
     assert_eq!(Script::height(256).bytes, vec![2, 0x00, 0x01]);
+    // 2^15 boundary
+    assert_eq!(Script::height(32767).bytes, vec![2, 0xff, 0x7f]);
+    assert_eq!(Script::height(32768).bytes, vec![3, 0x00, 0x80, 0x00]);
+    // 2^16 boundary
+    assert_eq!(Script::height(65535).bytes, vec![3, 0xff, 0xff, 0x00]);
     assert_eq!(Script::height(65536).bytes, vec![3, 0x00, 0x00, 0x01]);
 }
