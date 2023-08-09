@@ -13,9 +13,8 @@ scale = { package = "parity-scale-codec", version = "3", default-features = fals
 scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
 
 bitcoin = { path = "../../../crates/bitcoin", default-features = false, features = ["bitcoin-types-compat"] }
-serde = { version = "1.0.136",default-features = false, features = ["derive"] }
-serde_json = { version = "1.0.71", default-features = false, features = ["alloc"]}
 hex = { version = "0.4.2", default-features = false }
+lite-json = { version = "0.2.0", default-features = false, defaults = ["no_std"] }
 
 [dev-dependencies]
 ink_e2e = "4.2.0"
