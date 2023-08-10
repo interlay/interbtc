@@ -203,22 +203,19 @@ where
         + sp_api::CallApiAt<Block>,
     C::Api: sp_consensus_aura::AuraApi<Block, AuraId>,
 {
-    match client.runtime_version_at(client.usage_info().chain.best_hash) {
-        Ok(x)
-            if x.spec_name.starts_with("kintsugi")
-                && client.usage_info().chain.genesis_hash == KINTSUGI_GENESIS_HASH
-                && client.usage_info().chain.best_number < 1983993 =>
-        {
-            // the kintsugi runtime was misconfigured at genesis to use a slot duration of 6s
-            // which stalled collators when we upgraded to polkadot-v0.9.16 and subsequently
-            // broke mainnet when we introduced the aura timestamp hook, collators should only
-            // switch when syncing after the (failed) 1.20.0 upgrade
-            SlotDuration::from_millis(6000)
-        }
+    if client.usage_info().chain.genesis_hash == KINTSUGI_GENESIS_HASH
+        && client.usage_info().chain.best_number < 1983993
+    {
+        // the kintsugi runtime was misconfigured at genesis to use a slot duration of 6s
+        // which stalled collators when we upgraded to polkadot-v0.9.16 and subsequently
+        // broke mainnet when we introduced the aura timestamp hook, collators should only
+        // switch when syncing after the (failed) 1.20.0 upgrade
+        SlotDuration::from_millis(6000)
+    } else {
         // this is pallet_timestamp::MinimumPeriod * 2 at the current height
         // on kintsugi we increased MinimumPeriod from 3_000 to 6_000 at 16_593
         // but the interlay runtime has always used 6_000
-        _ => sc_consensus_aura::slot_duration(&*client).unwrap(),
+        sc_consensus_aura::slot_duration(&*client).unwrap()
     }
 }
 
