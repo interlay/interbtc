@@ -33,8 +33,8 @@ use substrate_prometheus_endpoint::Registry;
 
 // Frontier imports
 use crate::eth::{
-    new_eth_deps, new_frontier_partial, open_frontier_backend, spawn_frontier_tasks, BlockImport as EthBlockImport,
-    EthCompatRuntimeApiCollection, EthConfiguration, FrontierBackend, FrontierPartialComponents,
+    new_eth_deps, new_frontier_partial, open_frontier_backend, spawn_frontier_tasks, EthCompatRuntimeApiCollection,
+    EthConfiguration, FrontierBackend, FrontierPartialComponents,
 };
 
 macro_rules! new_runtime_executor {
@@ -313,7 +313,7 @@ where
     let import_queue = if instant_seal {
         // instant sealing
         sc_consensus_manual_seal::import_queue(
-            Box::new(EthBlockImport::new(client.clone(), client.clone())),
+            Box::new(client.clone()),
             &task_manager.spawn_essential_handle(),
             registry,
         )
@@ -322,10 +322,7 @@ where
 
         cumulus_client_consensus_aura::import_queue::<AuraPair, _, _, _, _, _>(
             cumulus_client_consensus_aura::ImportQueueParams {
-                block_import: EthBlockImport::new(
-                    ParachainBlockImport::new(client.clone(), backend.clone()),
-                    client.clone(),
-                ),
+                block_import: ParachainBlockImport::new(client.clone(), backend.clone()),
                 client: client.clone(),
                 create_inherent_data_providers: move |_parent: sp_core::H256, _| async move {
                     let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
@@ -398,7 +395,7 @@ where
     CT: fp_rpc::ConvertTransaction<<Block as BlockT>::Extrinsic> + Clone + Default + Send + Sync + 'static,
     BIC: FnOnce(
         Arc<FullClient<RuntimeApi, Executor>>,
-        EthBlockImport<Block, ParachainBlockImport<RuntimeApi, Executor>, FullClient<RuntimeApi, Executor>>,
+        ParachainBlockImport<RuntimeApi, Executor>,
         Option<&Registry>,
         Option<TelemetryHandle>,
         &TaskManager,
@@ -544,10 +541,7 @@ where
     if validator {
         let parachain_consensus = build_consensus(
             client.clone(),
-            EthBlockImport::new(
-                ParachainBlockImport::new(client.clone(), backend.clone()),
-                client.clone(),
-            ),
+            ParachainBlockImport::new(client.clone(), backend.clone()),
             prometheus_registry.as_ref(),
             telemetry.as_ref().map(|t| t.handle()),
             &task_manager,
@@ -760,7 +754,7 @@ where
         let client_for_cidp = client.clone();
 
         let authorship_future = sc_consensus_manual_seal::run_manual_seal(sc_consensus_manual_seal::ManualSealParams {
-            block_import: EthBlockImport::new(client.clone(), client.clone()),
+            block_import: client.clone(),
             env: proposer_factory,
             client: client.clone(),
             pool: transaction_pool.clone(),
