@@ -189,6 +189,12 @@ type MaybeFullSelectChain = Option<LongestChain<FullBackend, Block>>;
 type ParachainBlockImport<RuntimeApi, ExecutorDispatch> =
     TParachainBlockImport<Block, Arc<FullClient<RuntimeApi, ExecutorDispatch>>, FullBackend>;
 
+// 0x9af9a64e6e4da8e3073901c3ff0cc4c3aad9563786d89daf6ad820b6e14a0b8b
+const KINTSUGI_GENESIS_HASH: H256 = H256([
+    154, 249, 166, 78, 110, 77, 168, 227, 7, 57, 1, 195, 255, 12, 196, 195, 170, 217, 86, 55, 134, 216, 157, 175, 106,
+    216, 32, 182, 225, 74, 11, 139,
+]);
+
 fn import_slot_duration<C>(client: &C) -> SlotDuration
 where
     C: sc_client_api::backend::AuxStore
@@ -198,7 +204,11 @@ where
     C::Api: sp_consensus_aura::AuraApi<Block, AuraId>,
 {
     match client.runtime_version_at(client.usage_info().chain.best_hash) {
-        Ok(x) if x.spec_name.starts_with("kintsugi") && client.usage_info().chain.best_number < 1983993 => {
+        Ok(x)
+            if x.spec_name.starts_with("kintsugi")
+                && client.usage_info().chain.genesis_hash == KINTSUGI_GENESIS_HASH
+                && client.usage_info().chain.best_number < 1983993 =>
+        {
             // the kintsugi runtime was misconfigured at genesis to use a slot duration of 6s
             // which stalled collators when we upgraded to polkadot-v0.9.16 and subsequently
             // broke mainnet when we introduced the aura timestamp hook, collators should only
