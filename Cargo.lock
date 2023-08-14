@@ -4805,7 +4805,6 @@ dependencies = [
  "polkadot-service",
  "redeem-rpc-runtime-api",
  "regex",
- "replace-rpc-runtime-api",
  "reward-rpc-runtime-api",
  "runtime-common",
  "sc-basic-authorship",
@@ -4885,7 +4884,6 @@ dependencies = [
  "oracle-rpc",
  "pallet-transaction-payment-rpc",
  "redeem-rpc",
- "replace-rpc",
  "reward-rpc",
  "sc-client-api",
  "sc-consensus-manual-seal",
@@ -5011,8 +5009,6 @@ dependencies = [
  "polkadot-parachain",
  "redeem",
  "redeem-rpc-runtime-api",
- "replace",
- "replace-rpc-runtime-api",
  "reward",
  "reward-rpc-runtime-api",
  "runtime-common",
@@ -5437,8 +5433,6 @@ dependencies = [
  "polkadot-parachain",
  "redeem",
  "redeem-rpc-runtime-api",
- "replace",
- "replace-rpc-runtime-api",
  "reward",
  "reward-rpc-runtime-api",
  "runtime-common",
@@ -8734,8 +8728,6 @@ dependencies = [
  "rand 0.8.5",
  "redeem",
  "redeem-rpc-runtime-api",
- "replace",
- "replace-rpc-runtime-api",
  "reward",
  "reward-rpc-runtime-api",
  "runtime-common",
@@ -10904,6 +10896,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "interbtc-primitives",
+ "issue",
  "loans",
  "mocktopus",
  "nomination",
@@ -11063,60 +11056,6 @@ dependencies = [
  "libc",
  "mach",
  "winapi",
-]
-
-[[package]]
-name = "replace"
-version = "1.2.0"
-dependencies = [
- "bitcoin",
- "btc-relay",
- "currency",
- "fee",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "interbtc-primitives",
- "mocktopus",
- "nomination",
- "oracle",
- "orml-tokens",
- "orml-traits",
- "pallet-timestamp",
- "parity-scale-codec",
- "reward",
- "scale-info",
- "security",
- "serde",
- "sp-arithmetic",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
- "staking",
- "vault-registry",
-]
-
-[[package]]
-name = "replace-rpc"
-version = "1.2.0"
-dependencies = [
- "jsonrpsee",
- "parity-scale-codec",
- "replace-rpc-runtime-api",
- "sp-api",
- "sp-blockchain",
- "sp-runtime",
-]
-
-[[package]]
-name = "replace-rpc-runtime-api"
-version = "1.2.0"
-dependencies = [
- "frame-support",
- "parity-scale-codec",
- "sp-api",
- "sp-std",
 ]
 
 [[package]]
@@ -11449,7 +11388,6 @@ dependencies = [
  "pallet-evm-precompile-simple",
  "parachain-info",
  "redeem",
- "replace",
  "reward",
  "security",
  "sp-core",

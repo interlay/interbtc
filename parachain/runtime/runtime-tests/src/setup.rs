@@ -155,13 +155,6 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
-        replace::GenesisConfig::<Runtime> {
-            replace_period: 10,
-            replace_btc_dust_value: 2,
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
-
         fee::GenesisConfig::<Runtime> {
             issue_fee: FixedU128::checked_from_rational(15, 10000).unwrap(), // 0.15%
             issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%

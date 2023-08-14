@@ -97,7 +97,6 @@ multi-transaction-payment = { path = "../../../crates/multi-transaction-payment"
 nomination = { path = "../../../crates/nomination", default-features = false }
 oracle = { path = "../../../crates/oracle", default-features = false }
 redeem = { path = "../../../crates/redeem", default-features = false }
-replace = { path = "../../../crates/replace", default-features = false }
 reward = { path = "../../../crates/reward", default-features = false }
 security = { path = "../../../crates/security", default-features = false }
 staking = { path = "../../../crates/staking", default-features = false }
@@ -117,7 +116,6 @@ issue-rpc-runtime-api = { path = "../../../crates/issue/rpc/runtime-api", defaul
 loans-rpc-runtime-api = { path = "../../../crates/loans/rpc/runtime-api", default-features = false }
 oracle-rpc-runtime-api = { path = "../../../crates/oracle/rpc/runtime-api", default-features = false }
 redeem-rpc-runtime-api = { path = "../../../crates/redeem/rpc/runtime-api", default-features = false }
-replace-rpc-runtime-api = { path = "../../../crates/replace/rpc/runtime-api", default-features = false }
 reward-rpc-runtime-api = { path = "../../../crates/reward/rpc/runtime-api", default-features = false }
 vault-registry-rpc-runtime-api = { path = "../../../crates/vault-registry/rpc/runtime-api", default-features = false }
 
@@ -235,7 +233,6 @@ std = [
   "nomination/std",
   "oracle/std",
   "redeem/std",
-  "replace/std",
   "reward/std",
   "security/std",
   "staking/std",
@@ -255,7 +252,6 @@ std = [
   "loans-rpc-runtime-api/std",
   "oracle-rpc-runtime-api/std",
   "redeem-rpc-runtime-api/std",
-  "replace-rpc-runtime-api/std",
   "reward-rpc-runtime-api/std",
   "vault-registry-rpc-runtime-api/std",
 
@@ -315,7 +311,6 @@ runtime-benchmarks = [
   "nomination/runtime-benchmarks",
   "oracle/runtime-benchmarks",
   "redeem/runtime-benchmarks",
-  "replace/runtime-benchmarks",
   "security/runtime-benchmarks",
   "supply/runtime-benchmarks",
   "traits/runtime-benchmarks",
@@ -376,7 +371,6 @@ try-runtime = [
   "nomination/try-runtime",
   "oracle/try-runtime",
   "redeem/try-runtime",
-  "replace/try-runtime",
   "reward/try-runtime",
   "security/try-runtime",
   "staking/try-runtime",

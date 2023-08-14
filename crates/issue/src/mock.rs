@@ -286,7 +286,15 @@ pub const VAULT: VaultId<AccountId, CurrencyId> = VaultId {
         wrapped: DEFAULT_WRAPPED_CURRENCY,
     },
 };
+pub const OLD_VAULT: VaultId<AccountId, CurrencyId> = VaultId {
+    account_id: 4,
+    currencies: VaultCurrencyPair {
+        collateral: DEFAULT_COLLATERAL_CURRENCY,
+        wrapped: DEFAULT_WRAPPED_CURRENCY,
+    },
+};
 
+pub const OLD_VAULT_BALANCE: u128 = 1_000_000;
 pub const ALICE_BALANCE: u128 = 1_000_000;
 pub const BOB_BALANCE: u128 = 1_000_000;
 
@@ -345,6 +353,7 @@ impl ExtBuilder {
                     vec![
                         (USER, currency_id, ALICE_BALANCE),
                         (VAULT.account_id, currency_id, BOB_BALANCE),
+                        (OLD_VAULT.account_id, currency_id, OLD_VAULT_BALANCE),
                     ]
                 })
                 .collect(),

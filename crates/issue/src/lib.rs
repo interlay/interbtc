@@ -32,12 +32,13 @@ pub mod types;
 pub use crate::types::{DefaultIssueRequest, IssueRequest, IssueRequestStatus};
 
 use crate::types::{BalanceOf, DefaultVaultId, Version};
-use bitcoin::{merkle::PartialTransactionProof, types::FullTransactionProof};
+use bitcoin::{merkle::PartialTransactionProof, types::FullTransactionProof, Address};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
 use frame_support::{dispatch::DispatchError, ensure, pallet_prelude::Weight, traits::Get, transactional, PalletId};
 use frame_system::{ensure_root, ensure_signed};
 pub use pallet::*;
+use primitives::AccountOrVault;
 use sp_core::H256;
 use sp_runtime::traits::{AccountIdConversion, Convert, Saturating};
 use sp_std::vec::Vec;
@@ -75,6 +76,7 @@ pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
+    use primitives::AccountOrVault;
 
     /// ## Configuration
     /// The pallet's configuration trait.
@@ -153,6 +155,8 @@ pub mod pallet {
         InvalidExecutor,
         /// Issue amount is too small.
         AmountBelowDustAmount,
+        /// Replace request can't be executed as issue request.
+        ReplaceRequestCannotBeExecutedAsIssue,
     }
 
     /// Users create issue requests to issue tokens. This mapping provides access
@@ -232,7 +236,7 @@ pub mod pallet {
             vault_id: DefaultVaultId<T>,
             griefing_currency: CurrencyId<T>,
         ) -> DispatchResultWithPostInfo {
-            let requester = ensure_signed(origin)?;
+            let requester = AccountOrVault::Account(ensure_signed(origin)?);
             Self::_request_issue(requester, amount, vault_id, griefing_currency)?;
             Ok(().into())
         }
@@ -301,13 +305,75 @@ impl<T: Config> Pallet<T> {
         T::TreasuryPalletId::get().into_account_truncating()
     }
 
+    // Function to cancel an issue request and slash collateral
+    pub fn cancel_issue_request_and_slash_collateral(issue_id: &H256) -> Result<BalanceOf<T>, DispatchError> {
+        // Get the issue request using the provided issue_id
+        let issue = Self::get_issue_request_from_id(issue_id)?;
+
+        // Retrieve the amount of griefing collateral from the issue
+        let griefing_collateral = issue.griefing_collateral();
+
+        // Transfer griefing collateral from the requester's account to the vault's account
+        ext::vault_registry::transfer_funds::<T>(
+            CurrencySource::UserGriefing(issue.requester.get_account().clone()),
+            CurrencySource::FreeBalance(issue.vault.account_id),
+            &griefing_collateral,
+        )?;
+
+        // Set the status of the issue request to 'Cancelled'
+        Self::set_issue_status(issue_id.clone(), IssueRequestStatus::Cancelled);
+
+        // Emit an event to indicate the cancellation of the issue request
+        Self::deposit_event(Event::CancelIssue {
+            issue_id: issue_id.clone(),
+            requester: issue.requester.get_account().clone(),
+            griefing_collateral: griefing_collateral.amount(),
+        });
+
+        // Return the amount of griefing collateral that was slashed
+        Ok(griefing_collateral.amount())
+    }
+
+    // Function to retrieve the vault ID associated with a given issue ID
+    pub fn get_vault_from_id_from_issue_id(issue_id: &H256) -> Result<DefaultVaultId<T>, DispatchError> {
+        // Retrieve the issue request using the provided issue_id
+        let issue_request = Self::get_issue_request_from_id(issue_id)?;
+
+        // Extract and return the associated vault ID from the issue request
+        Ok(issue_request.vault)
+    }
+
+    // Function to complete a vault issue process
+    pub fn _complete_vault_issue(issue_id: H256) -> Result<(), DispatchError> {
+        // Retrieve the issue request using the provided issue_id
+        let issue = Self::get_issue_request_from_id(&issue_id)?;
+
+        // Calculate the total amount including both issue amount and fee
+        let total = issue.amount().checked_add(&issue.fee())?;
+
+        // Decrease the to-be-issued tokens and increase the issued tokens for the new vault
+        ext::vault_registry::issue_tokens::<T>(&issue.vault, &total)?;
+
+        // Distribute rewards based on the issue fee
+        ext::fee::distribute_rewards::<T>(&issue.fee())?;
+
+        // Release the locked griefing collateral to the requester's account
+        let griefing_collateral: Amount<T> = issue.griefing_collateral();
+        griefing_collateral.unlock_on(&issue.requester.get_account())?;
+
+        // Set the issue status to 'Completed'
+        Self::set_issue_status(issue_id, IssueRequestStatus::Completed);
+
+        Ok(())
+    }
+
     /// Requests CBA issuance, returns unique tracking ID.
-    fn _request_issue(
-        requester: T::AccountId,
+    pub fn _request_issue(
+        requester: AccountOrVault<T::AccountId, T::CurrencyId>,
         amount_requested: BalanceOf<T>,
         vault_id: DefaultVaultId<T>,
         griefing_currency: CurrencyId<T>,
-    ) -> Result<H256, DispatchError> {
+    ) -> Result<(H256, Address), DispatchError> {
         let amount_requested = Amount::new(amount_requested, vault_id.wrapped_currency());
 
         ensure!(
@@ -329,7 +395,7 @@ impl<T: Config> Pallet<T> {
         // calculate griefing collateral based on the total amount of tokens to be issued
         let amount_collateral = amount_requested.convert_to(griefing_currency)?;
         let griefing_collateral = ext::fee::get_issue_griefing_collateral::<T>(&amount_collateral)?;
-        griefing_collateral.lock_on(&requester)?;
+        griefing_collateral.lock_on(requester.get_account())?;
 
         // only continue if the payment is above the dust value
         ensure!(
@@ -343,14 +409,14 @@ impl<T: Config> Pallet<T> {
         // calculate the amount of tokens that will be transferred to the user upon execution
         let amount_user = amount_requested.checked_sub(&fee)?;
 
-        let issue_id = ext::security::get_secure_id::<T>(&requester);
+        let issue_id = ext::security::get_secure_id::<T>(&requester.get_account());
         let btc_address = ext::vault_registry::register_deposit_address::<T>(&vault_id, issue_id)?;
         let btc_public_key = ext::vault_registry::get_bitcoin_public_key::<T>(&vault_id.account_id)?;
 
         let request = IssueRequest {
             vault: vault_id,
             opentime: ext::security::active_block_number::<T>(),
-            requester,
+            requester: requester.clone(),
             btc_address,
             btc_public_key,
             amount: amount_user.amount(),
@@ -365,7 +431,7 @@ impl<T: Config> Pallet<T> {
 
         Self::deposit_event(Event::RequestIssue {
             issue_id,
-            requester: request.requester,
+            requester: request.requester.get_account().clone(),
             amount: request.amount,
             fee: request.fee,
             griefing_collateral: request.griefing_collateral,
@@ -374,7 +440,7 @@ impl<T: Config> Pallet<T> {
             vault_address: request.btc_address,
             vault_public_key: request.btc_public_key,
         });
-        Ok(issue_id)
+        Ok((issue_id, btc_address))
     }
 
     /// Completes CBA issuance, removing request from storage and minting token.
@@ -384,6 +450,13 @@ impl<T: Config> Pallet<T> {
         unchecked_transaction: FullTransactionProof,
     ) -> Result<(), DispatchError> {
         let mut issue = Self::get_issue_request_from_id(&issue_id)?;
+
+        // ensure that issue is not part of replace request
+        ensure!(
+            !issue.requester.is_vault_account(),
+            Error::<T>::ReplaceRequestCannotBeExecutedAsIssue
+        );
+
         // allow anyone to complete issue request
         let requester = issue.requester.clone();
 
@@ -405,7 +478,7 @@ impl<T: Config> Pallet<T> {
                 ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&issue.vault, &amount_transferred)?;
 
                 if amount_transferred.lt(&expected_total_amount)? {
-                    ensure!(requester == executor, Error::<T>::InvalidExecutor);
+                    ensure!(requester.get_account() == &executor, Error::<T>::InvalidExecutor);
                 }
                 if amount_transferred.ne(&expected_total_amount)? {
                     // griefing collateral and to_be_issued already decreased in cancel
@@ -416,7 +489,7 @@ impl<T: Config> Pallet<T> {
             IssueRequestStatus::Pending => {
                 let to_release_griefing_collateral = if amount_transferred.lt(&expected_total_amount)? {
                     // only the requester of the issue can execute payments with insufficient amounts
-                    ensure!(requester == executor, Error::<T>::InvalidExecutor);
+                    ensure!(requester.get_account() == &executor, Error::<T>::InvalidExecutor);
                     Self::decrease_issue_amount(&issue_id, &mut issue, amount_transferred, expected_total_amount)?
                 } else {
                     if amount_transferred.gt(&expected_total_amount)?
@@ -432,7 +505,7 @@ impl<T: Config> Pallet<T> {
                     issue.griefing_collateral()
                 };
 
-                to_release_griefing_collateral.unlock_on(&requester)?;
+                to_release_griefing_collateral.unlock_on(requester.get_account())?;
             }
         }
 
@@ -443,7 +516,7 @@ impl<T: Config> Pallet<T> {
         ext::vault_registry::issue_tokens::<T>(&issue.vault, &total)?;
 
         // mint issued tokens
-        issue_amount.mint_to(&requester)?;
+        issue_amount.mint_to(requester.get_account())?;
 
         // mint wrapped fees
         issue_fee.mint_to(&ext::fee::fee_pool_account_id::<T>())?;
@@ -455,7 +528,7 @@ impl<T: Config> Pallet<T> {
 
         Self::deposit_event(Event::ExecuteIssue {
             issue_id,
-            requester,
+            requester: requester.get_account().clone(),
             vault_id: issue.vault,
             amount: total.amount(),
             fee: issue.fee,
@@ -472,7 +545,7 @@ impl<T: Config> Pallet<T> {
             if ext::btc_relay::has_request_expired::<T>(issue.opentime, issue.btc_height, issue_period)? {
                 // anyone can cancel the issue request once expired
                 issue.griefing_collateral()
-            } else if issue.requester == requester {
+            } else if issue.requester.get_account() == &requester {
                 // slash/release griefing collateral proportionally to the time elapsed
                 // NOTE: if global issue period increases requester will get more griefing collateral
                 let blocks_elapsed = ext::security::active_block_number::<T>().saturating_sub(issue.opentime);
@@ -505,12 +578,12 @@ impl<T: Config> Pallet<T> {
 
         if ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
             // return slashed griefing collateral if the vault is liquidated
-            to_be_slashed_collateral.unlock_on(&issue.requester)?;
+            to_be_slashed_collateral.unlock_on(issue.requester.get_account())?;
         } else {
             // otherwise give slashed griefing collateral to the treasury
             // since the vault may have purposely blocked minting
             ext::vault_registry::transfer_funds::<T>(
-                CurrencySource::UserGriefing(issue.requester.clone()),
+                CurrencySource::UserGriefing(issue.requester.get_account().clone()),
                 CurrencySource::FreeBalance(Self::treasury_account_id()),
                 &to_be_slashed_collateral,
             )?;
@@ -548,7 +621,7 @@ impl<T: Config> Pallet<T> {
         )?;
         let slashed_collateral = issue.griefing_collateral().checked_sub(&to_release_collateral)?;
         ext::vault_registry::transfer_funds::<T>(
-            CurrencySource::UserGriefing(issue.requester.clone()),
+            CurrencySource::UserGriefing(issue.requester.get_account().clone()),
             CurrencySource::FreeBalance(Self::treasury_account_id()),
             &slashed_collateral,
         )?;
@@ -588,7 +661,7 @@ impl<T: Config> Pallet<T> {
     /// * `account_id` - user account id
     pub fn get_issue_requests_for_account(account_id: T::AccountId) -> Vec<H256> {
         <IssueRequests<T>>::iter()
-            .filter(|(_, request)| request.requester == account_id)
+            .filter(|(_, request)| request.requester.get_account() == &account_id)
             .map(|(key, _)| key)
             .collect()
     }
@@ -657,7 +730,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn insert_issue_request(key: &H256, value: &DefaultIssueRequest<T>) {
+    pub fn insert_issue_request(key: &H256, value: &DefaultIssueRequest<T>) {
         <IssueRequests<T>>::insert(key, value)
     }
 

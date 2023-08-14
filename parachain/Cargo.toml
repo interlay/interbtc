@@ -42,7 +42,6 @@ escrow-rpc-runtime-api = { path = "../crates/escrow/rpc/runtime-api" }
 reward-rpc-runtime-api = { path = "../crates/reward/rpc/runtime-api" }
 issue-rpc-runtime-api = { path = "../crates/issue/rpc/runtime-api" }
 redeem-rpc-runtime-api = { path = "../crates/redeem/rpc/runtime-api" }
-replace-rpc-runtime-api = { path = "../crates/replace/rpc/runtime-api" }
 loans-rpc-runtime-api = { path = "../crates/loans/rpc/runtime-api" }
 dex-general-rpc-runtime-api = { path = "../crates/dex-general/rpc/runtime-api" }
 dex-stable-rpc-runtime-api = { path = "../crates/dex-stable/rpc/runtime-api" }

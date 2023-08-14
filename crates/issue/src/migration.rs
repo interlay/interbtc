@@ -87,7 +87,7 @@ pub mod v1 {
                     griefing_collateral: old.griefing_collateral,
                     amount: old.amount,
                     fee: old.fee,
-                    requester: old.requester,
+                    requester: AccountOrVault::Account(old.requester),
                     btc_address: old.btc_address,
                     btc_public_key: old.btc_public_key,
                     btc_height: old.btc_height,
@@ -148,7 +148,7 @@ mod test {
             v1::Migration::<T>::on_runtime_upgrade();
 
             let new = crate::IssueRequests::<T>::get(key).unwrap();
-            assert!(old.requester == new.requester);
+            assert!(old.requester == new.requester.get_account().clone());
             assert!(old.vault == new.vault);
             assert!(old.btc_address == new.btc_address);
             assert!(old.amount == new.amount);

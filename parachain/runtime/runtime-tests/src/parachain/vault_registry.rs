@@ -306,7 +306,6 @@ mod withdraw_collateral_test {
 fn integration_test_vault_registry_undercollateralization_liquidation() {
     test_with(|vault_id| {
         let currency_id = vault_id.collateral_currency();
-        let vault_data = default_vault_state(&vault_id);
         liquidate_vault(&vault_id);
 
         assert_eq!(
@@ -324,19 +323,12 @@ fn integration_test_vault_registry_undercollateralization_liquidation() {
                 liquidation_vault.issued = vault_id.wrapped(DEFAULT_VAULT_ISSUED.amount());
                 liquidation_vault.to_be_redeemed = vault_id.wrapped(DEFAULT_VAULT_TO_BE_REDEEMED.amount());
 
-                vault.griefing_collateral -= DEFAULT_VAULT_REPLACE_COLLATERAL;
-                vault.replace_collateral -= DEFAULT_VAULT_REPLACE_COLLATERAL;
-                vault.to_be_replaced = vault_id.wrapped(0);
                 vault.issued = vault_id.wrapped(0);
                 vault.to_be_issued = vault_id.wrapped(0);
                 vault.backing_collateral = Amount::new(0, currency_id);
                 vault.liquidated_collateral =
                     default_vault_backing_collateral(currency_id) - liquidation_vault.collateral;
                 vault.status = VaultStatus::Liquidated;
-                *vault
-                    .free_balance
-                    .get_mut(&vault_data.replace_collateral.currency())
-                    .unwrap() += vault_data.replace_collateral;
             })
         );
     });
@@ -415,8 +407,6 @@ fn integration_test_vault_registry_liquidation_recovery_fails() {
 fn default_liquidation_recovery_vault(vault_id: &VaultId) -> CoreVaultData {
     let mut vault_data = default_vault_state(&vault_id);
     vault_data.to_be_redeemed = vault_id.wrapped(0);
-    vault_data.to_be_replaced = vault_id.wrapped(0);
-    vault_data.replace_collateral = vault_data.replace_collateral.with_amount(|_| 0);
     vault_data
 }
 

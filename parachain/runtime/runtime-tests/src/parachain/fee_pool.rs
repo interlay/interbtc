@@ -558,21 +558,7 @@ impl ConcreteAction {
             ConcreteAction::FailRedeem { vault_id, amount } => {
                 expire_bans();
 
-                let free_balance_before = CurrencySource::FreeBalance(vault_id.account_id.clone())
-                    .current_balance(DEFAULT_GRIEFING_CURRENCY)
-                    .unwrap();
                 let redeem_id = setup_cancelable_redeem(USER, &vault_id, *amount);
-                let free_balance_after = CurrencySource::FreeBalance(vault_id.account_id.clone())
-                    .current_balance(DEFAULT_GRIEFING_CURRENCY)
-                    .unwrap();
-
-                VaultRegistryPallet::transfer_funds(
-                    CurrencySource::FreeBalance(vault_id.account_id.clone()),
-                    CurrencySource::AvailableReplaceCollateral(vault_id.clone()),
-                    &(free_balance_after - free_balance_before),
-                )
-                .unwrap();
-
                 let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
                 let amount_without_fee_collateral =
                     redeem.amount_without_fee_as_collateral(vault_id.collateral_currency());

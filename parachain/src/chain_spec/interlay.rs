@@ -229,10 +229,6 @@ pub fn interlay_genesis(
             redeem_period: interlay_runtime::DAYS * 2,
             redeem_btc_dust_value: DEFAULT_DUST_VALUE,
         },
-        replace: interlay_runtime::ReplaceConfig {
-            replace_period: interlay_runtime::DAYS * 2,
-            replace_btc_dust_value: DEFAULT_DUST_VALUE,
-        },
         vault_registry: interlay_runtime::VaultRegistryConfig {
             minimum_collateral_vault: vec![(Token(DOT), 30 * DOT.one())],
             punishment_delay: interlay_runtime::DAYS,

@@ -146,6 +146,7 @@ mod expiry_test {
 }
 
 mod request_issue_tests {
+    use primitives::AccountOrVault;
     use sp_runtime::traits::CheckedMul;
 
     use super::{assert_eq, *};
@@ -254,8 +255,7 @@ mod request_issue_tests {
 
             // give the vault a lot of griefing collateral, to check that this isn't available for backing new tokens
             let vault_id = vault_id;
-            let mut vault_data = CoreVaultData::vault(vault_id.clone());
-            vault_data.griefing_collateral += griefing(1000000);
+            let vault_data = CoreVaultData::vault(vault_id.clone());
             CoreVaultData::force_to(&vault_id, vault_data);
 
             assert_noop!(
@@ -327,8 +327,7 @@ mod request_issue_tests {
 
             // give the vault a lot of griefing collateral, to check that this isn't available for backing new tokens
             let vault_id = vault_id;
-            let mut vault_data = CoreVaultData::vault(vault_id.clone());
-            vault_data.griefing_collateral += griefing(1000000);
+            let vault_data = CoreVaultData::vault(vault_id.clone());
             CoreVaultData::force_to(&vault_id, vault_data);
 
             assert_noop!(
@@ -418,7 +417,7 @@ mod request_issue_tests {
                 griefing_currency: DEFAULT_GRIEFING_CURRENCY,
                 amount: (amount_btc - expected_fee).amount(),
                 fee: expected_fee.amount(),
-                requester: account_of(USER),
+                requester: AccountOrVault::Account(account_of(USER)),
                 btc_address: expected_btc_address,
                 btc_public_key: expected_public_key,
                 btc_height: expected_height,
@@ -901,7 +900,7 @@ mod execute_cancelled_issue_tests {
 
             ExecuteIssueBuilder::new(issue_id)
                 .with_amount(sent_amount)
-                .with_submitter(issue.requester.clone(), None)
+                .with_submitter(issue.requester.get_account().clone(), None)
                 .execute()
                 .unwrap();
 

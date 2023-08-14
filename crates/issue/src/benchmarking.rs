@@ -128,7 +128,7 @@ fn setup_issue<T: crate::Config>(
 
     let issue_id = H256::zero();
     let issue_request = IssueRequest {
-        requester: origin.clone(),
+        requester: AccountOrVault::Account(origin.clone()),
         vault: vault_id.clone(),
         btc_address: vault_btc_address,
         amount: value.amount(),

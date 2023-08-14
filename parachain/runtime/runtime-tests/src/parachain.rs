@@ -12,5 +12,4 @@ mod loans;
 mod multisig;
 mod nomination;
 mod redeem;
-mod replace;
 mod vault_registry;

@@ -445,29 +445,6 @@ fn integration_test_nominated_collateral_cannot_exceed_nomination_limit() {
 fn integration_test_nominated_collateral_prevents_replace_requests() {
     test_with_nomination_enabled_and_vault_opted_in(|vault_id| {
         assert_nominate_collateral(&vault_id, account_of(USER), default_nomination(&vault_id));
-        assert_noop!(
-            RuntimeCall::Replace(ReplaceCall::request_replace {
-                currency_pair: vault_id.currencies.clone(),
-                amount: 0,
-            })
-            .dispatch(origin_of(vault_id.account_id.clone())),
-            ReplaceError::VaultHasEnabledNomination
-        );
-    });
-}
-
-#[test]
-fn integration_test_vaults_with_zero_nomination_cannot_request_replacement() {
-    test_with_nomination_enabled_and_vault_opted_in(|vault_id| {
-        let amount = DEFAULT_VAULT_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED - DEFAULT_VAULT_TO_BE_REPLACED;
-        assert_noop!(
-            RuntimeCall::Replace(ReplaceCall::request_replace {
-                currency_pair: vault_id.currencies.clone(),
-                amount: amount.amount(),
-            })
-            .dispatch(origin_of(vault_id.account_id.clone())),
-            ReplaceError::VaultHasEnabledNomination
-        );
     });
 }
 

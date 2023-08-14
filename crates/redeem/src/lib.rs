@@ -51,6 +51,7 @@ use vault_registry::{
 };
 
 pub use pallet::*;
+use primitives::{AccountOrVault, VaultId};
 
 /// Complexity:
 /// - `O(H + I + O + B)` where:
@@ -78,13 +79,15 @@ pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
-    use primitives::VaultId;
+    use primitives::{AccountOrVault, VaultId};
     use vault_registry::types::DefaultVaultCurrencyPair;
 
     /// ## Configuration
     /// The pallet's configuration trait.
     #[pallet::config]
-    pub trait Config: frame_system::Config + vault_registry::Config + btc_relay::Config + fee::Config {
+    pub trait Config:
+        frame_system::Config + vault_registry::Config + btc_relay::Config + fee::Config + issue::Config
+    {
         /// The overarching event type.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -124,6 +127,14 @@ pub mod pallet {
             slashed_amount: BalanceOf<T>,
             status: RedeemRequestStatus,
         },
+        CancelReplace {
+            redeem_id: H256,
+            issue_id: H256,
+            old_vault: DefaultVaultId<T>,
+            new_vault: DefaultVaultId<T>,
+            slashed_amount: BalanceOf<T>,
+            status: RedeemRequestStatus,
+        },
         MintTokensForReimbursedRedeem {
             redeem_id: H256,
             vault_id: DefaultVaultId<T>,
@@ -159,6 +170,8 @@ pub mod pallet {
         TryIntoIntError,
         /// Redeem amount is too small.
         AmountBelowDustAmount,
+        /// Invalid Cancel request.
+        InvalidCancelRequest,
     }
 
     /// The time difference in number of blocks between a redeem request is created and required completion time by a
@@ -180,6 +193,11 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn redeem_btc_dust_value)]
     pub(super) type RedeemBtcDustValue<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
+    /// This mapping provides an access from a unique hash redeemId to a issueId hash
+    #[pallet::storage]
+    #[pallet::getter(fn redeem_issue_requests)]
+    pub(super) type Requests<T: Config> = StorageMap<_, Blake2_128Concat, H256, H256, OptionQuery>;
 
     /// the expected size in bytes of the redeem bitcoin transfer
     #[pallet::storage]
@@ -250,8 +268,8 @@ pub mod pallet {
             btc_address: BtcAddress,
             vault_id: DefaultVaultId<T>,
         ) -> DispatchResultWithPostInfo {
-            let redeemer = ensure_signed(origin)?;
-            Self::_request_redeem(redeemer, amount_wrapped, btc_address, vault_id)?;
+            let redeemer = AccountOrVault::Account(ensure_signed(origin)?);
+            Self::_request_redeem(redeemer, amount_wrapped, btc_address, vault_id, None)?;
             Ok(().into())
         }
 
@@ -385,6 +403,43 @@ pub mod pallet {
 
             Ok(().into())
         }
+
+        /// Request a replace operation for a vault
+        ///
+        /// ## Parameters
+        ///
+        /// - `origin`: The origin from which the request is made, typically the vault owner.
+        /// - `currency_pair`: The trading pair associated with the collateral and backing assets.
+        /// - `amount`: The amount of backed asset to be replaced.
+        /// - `new_vault_id`: The identifier of the new vault that will replace the existing vault.
+        /// - `griefing_currency`: The currency in which a griefing deposit is required for the replace.
+        ///
+        /// ## Returns
+        ///
+        /// If the replace operation is successful, this function returns `Ok`. If the operation fails,
+        /// an appropriate error indicating the reason for failure is returned.
+        #[pallet::call_index(7)]
+        #[pallet::weight(<T as Config>::WeightInfo::request_replace())]
+        #[transactional]
+        pub fn request_replace(
+            origin: OriginFor<T>,
+            currency_pair: DefaultVaultCurrencyPair<T>,
+            amount: BalanceOf<T>,
+            new_vault_id: DefaultVaultId<T>,
+            griefing_currency: CurrencyId<T>,
+        ) -> DispatchResultWithPostInfo {
+            let old_vault_account = ensure_signed(origin)?;
+
+            Self::_request_replace(
+                old_vault_account,
+                currency_pair,
+                amount,
+                new_vault_id,
+                griefing_currency,
+            )?;
+
+            Ok(().into())
+        }
     }
 }
 
@@ -462,33 +517,79 @@ mod self_redeem {
             &vault_id.account_id,
         )?;
 
-        Pallet::<T>::release_replace_collateral(vault_id, consumed_issued_tokens)?;
         Ok(())
     }
 }
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
+    fn _request_replace(
+        old_vault_account: T::AccountId,
+        currency_pair: DefaultVaultCurrencyPair<T>,
+        amount: BalanceOf<T>,
+        new_vault_id: DefaultVaultId<T>,
+        griefing_currency: CurrencyId<T>,
+    ) -> Result<(), DispatchError> {
+        // Create VaultId for the old vault
+        let old_vault_id = VaultId::new(
+            old_vault_account.clone(),
+            currency_pair.collateral,
+            currency_pair.wrapped,
+        );
+
+        // Define old and new vault references
+        let old_vault = AccountOrVault::Vault(old_vault_id.clone());
+        let new_vault = AccountOrVault::Vault(new_vault_id.clone());
+
+        // Calculate requestable tokens for old vault
+        let max_requestable_tokens: Amount<T> =
+            ext::vault_registry::requestable_to_be_replaced_tokens::<T>(&old_vault_id)?;
+        let requestable_tokens = amount.min(max_requestable_tokens.amount());
+
+        // Initiate issue call
+        let (issue_id, btc_address) = ext::issue::request_vault_issue::<T>(
+            old_vault.clone(),
+            requestable_tokens,
+            new_vault_id.clone(),
+            griefing_currency,
+        )?;
+
+        // Initiate redeem call
+        let redeem_id =
+            Self::_request_redeem(new_vault, requestable_tokens, btc_address, old_vault_id, Some(issue_id))?;
+
+        // Store the request IDs
+        Self::insert_request(&redeem_id, &issue_id);
+
+        Ok(())
+    }
+
     fn _request_redeem(
-        redeemer: T::AccountId,
+        redeemer: AccountOrVault<T::AccountId, T::CurrencyId>,
         amount_wrapped: BalanceOf<T>,
         btc_address: BtcAddress,
         vault_id: DefaultVaultId<T>,
+        issue_id: Option<H256>,
     ) -> Result<H256, DispatchError> {
         let amount_wrapped = Amount::new(amount_wrapped, vault_id.wrapped_currency());
 
-        let redeemer_balance = ext::treasury::get_balance::<T>(&redeemer, vault_id.wrapped_currency());
-        ensure!(
-            amount_wrapped.le(&redeemer_balance)?,
-            Error::<T>::AmountExceedsUserBalance
-        );
+        // if redeemer is vault then it's a replace request, skip wrapped tokens balance check for
+        // it
+        if !redeemer.is_vault_account() {
+            let redeemer_balance =
+                ext::treasury::get_balance::<T>(&redeemer.get_account(), vault_id.wrapped_currency());
+            ensure!(
+                amount_wrapped.le(&redeemer_balance)?,
+                Error::<T>::AmountExceedsUserBalance
+            );
+        }
 
         // We saw a user lose bitcoin when they forgot to enter the address in the polkadot-js ui.
         // Make sure this can't happen again.
         ensure!(!btc_address.is_zero(), btc_relay::Error::<T>::InvalidBtcHash);
 
         // todo: currently allowed to redeem from one currency to the other for free - decide if this is desirable
-        let fee_wrapped = if redeemer == vault_id.account_id {
+        let fee_wrapped = if redeemer.get_account().clone() == vault_id.account_id {
             Amount::zero(vault_id.wrapped_currency())
         } else {
             ext::fee::get_redeem_fee::<T>(&amount_wrapped)?
@@ -511,12 +612,16 @@ impl<T: Config> Pallet<T> {
             Error::<T>::AmountBelowDustAmount
         );
 
-        // vault will get rid of the btc + btc_inclusion_fee
-        ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(&vault_id, &vault_to_be_burned_tokens)?;
+        if redeemer.is_vault_account() {
+            // increased the to_be_redeem tokens by amount_wrapped since a request replace
+            ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(&vault_id, &amount_wrapped)?;
+        } else {
+            // vault will get rid of the btc + btc_inclusion_fee
+            ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(&vault_id, &vault_to_be_burned_tokens)?;
+            amount_wrapped.lock_on(redeemer.get_account())?;
+        }
 
-        // lock full amount (inc. fee)
-        amount_wrapped.lock_on(&redeemer)?;
-        let redeem_id = ext::security::get_secure_id::<T>(&redeemer);
+        let redeem_id = ext::security::get_secure_id::<T>(redeemer.get_account());
 
         let below_premium_redeem = ext::vault_registry::is_vault_below_premium_threshold::<T>(&vault_id)?;
         let currency_id = vault_id.collateral_currency();
@@ -528,7 +633,11 @@ impl<T: Config> Pallet<T> {
             Amount::zero(currency_id)
         };
 
-        Self::release_replace_collateral(&vault_id, &vault_to_be_burned_tokens)?;
+        let to_be_received_btc = if redeemer.is_vault_account() {
+            amount_wrapped.amount()
+        } else {
+            user_to_be_received_btc.amount()
+        };
 
         Self::insert_redeem_request(
             &redeem_id,
@@ -537,20 +646,21 @@ impl<T: Config> Pallet<T> {
                 opentime: ext::security::active_block_number::<T>(),
                 fee: fee_wrapped.amount(),
                 transfer_fee_btc: inclusion_fee.amount(),
-                amount_btc: user_to_be_received_btc.amount(),
+                amount_btc: to_be_received_btc,
                 premium: premium_collateral.amount(),
                 period: Self::redeem_period(),
-                redeemer: redeemer.clone(),
+                redeemer: redeemer.get_account().clone(),
                 btc_address,
                 btc_height: ext::btc_relay::get_best_block_height::<T>(),
                 status: RedeemRequestStatus::Pending,
+                issue_id,
             },
         );
 
         Self::deposit_event(Event::<T>::RequestRedeem {
             redeem_id,
-            redeemer,
-            amount: user_to_be_received_btc.amount(),
+            redeemer: redeemer.get_account().clone(),
+            amount: to_be_received_btc,
             fee: fee_wrapped.amount(),
             premium: premium_collateral.amount(),
             vault_id,
@@ -598,17 +708,34 @@ impl<T: Config> Pallet<T> {
             redeem_id,
         )?;
 
-        // burn amount (without parachain fee, but including transfer fee)
-        let burn_amount = redeem.amount_btc().checked_add(&redeem.transfer_fee_btc())?;
-        burn_amount.burn_from(&redeem.redeemer)?;
+        if redeem.is_redeem_a_replace_request() {
+            //redeem tokens for old vault
+            ext::vault_registry::redeem_tokens::<T>(
+                &redeem.vault,
+                &redeem.amount_btc(),
+                &redeem.premium()?,
+                &redeem.redeemer,
+            )?;
 
-        // send fees to pool
-        let fee = redeem.fee();
-        fee.unlock_on(&redeem.redeemer)?;
-        fee.transfer(&redeem.redeemer, &ext::fee::fee_pool_account_id::<T>())?;
-        ext::fee::distribute_rewards::<T>(&fee)?;
+            // get issue_id from redeem_id
+            let issue_id = <Requests<T>>::get(redeem_id).ok_or(Error::<T>::RedeemIdNotFound)?;
 
-        ext::vault_registry::redeem_tokens::<T>(&redeem.vault, &burn_amount, &redeem.premium()?, &redeem.redeemer)?;
+            // complete_vault_issue increases issued_tokens & decreases to_be_issued for new vault
+            ext::issue::complete_vault_issue::<T>(issue_id)?;
+        } else {
+            // burn amount (without parachain fee, but including transfer fee)
+            let burn_amount = redeem.amount_btc().checked_add(&redeem.transfer_fee_btc())?;
+            burn_amount.burn_from(&redeem.redeemer)?;
+
+            // send fees to pool
+            let fee = redeem.fee();
+            fee.unlock_on(&redeem.redeemer)?;
+            fee.transfer(&redeem.redeemer, &ext::fee::fee_pool_account_id::<T>())?;
+            ext::fee::distribute_rewards::<T>(&fee)?;
+
+            //redeem tokens for vault
+            ext::vault_registry::redeem_tokens::<T>(&redeem.vault, &burn_amount, &redeem.premium()?, &redeem.redeemer)?;
+        }
 
         Self::set_redeem_status(redeem_id, RedeemRequestStatus::Completed);
         Self::deposit_event(Event::<T>::ExecuteRedeem {
@@ -622,7 +749,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn _cancel_redeem(redeemer: T::AccountId, redeem_id: H256, reimburse: bool) -> DispatchResult {
+    fn _cancel_redeem_request(redeemer: T::AccountId, redeem_id: H256, reimburse: bool) -> DispatchResult {
         let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
         ensure!(redeemer == redeem.redeemer, Error::<T>::UnauthorizedRedeemer);
 
@@ -732,6 +859,62 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    // Cancels a redeem request, replaces it with a new issue request, adjusts vault balances, and
+    // updates the system state.
+    fn _cancel_replace_request(redeem_id: H256, issue_id: H256) -> DispatchResult {
+        let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
+
+        // only cancellable after the request has expired
+        ensure!(
+            ext::btc_relay::has_request_expired::<T>(
+                redeem.opentime,
+                redeem.btc_height,
+                Self::redeem_period().max(redeem.period)
+            )?,
+            Error::<T>::TimeNotExpired
+        );
+
+        let old_vault_id = &redeem.vault;
+        let new_vault_id = ext::issue::get_vault_from_id_from_issue_id::<T>(&issue_id)?;
+
+        // decrease old-vault's to-be-redeemed tokens, and
+        // decrease new-vault's to-be-issued tokens
+        ext::vault_registry::cancel_replace_tokens::<T>(&old_vault_id, &new_vault_id, &redeem.amount_btc())?;
+
+        // cancel issue request and slash collateral
+        let slashed_amount = ext::issue::cancel_issue_request_and_slash_collateral::<T>(&issue_id)?;
+
+        // Set the status of the redeem request to "Cancelled"
+        Self::set_redeem_status(redeem_id, RedeemRequestStatus::Cancelled);
+
+        // release event
+        Self::deposit_event(Event::<T>::CancelReplace {
+            redeem_id,
+            issue_id,
+            old_vault: old_vault_id.clone(),
+            new_vault: new_vault_id.clone(),
+            slashed_amount,
+            status: RedeemRequestStatus::Cancelled,
+        });
+
+        Ok(())
+    }
+
+    fn _cancel_redeem(redeemer: T::AccountId, redeem_id: H256, reimburse: bool) -> DispatchResult {
+        // Retrieve the request associated with the redeem_id
+        let request = <Requests<T>>::get(redeem_id);
+
+        if request.is_none() {
+            // If there's no associated request, cancel the redeem request
+            Self::_cancel_redeem_request(redeemer, redeem_id, reimburse)
+        } else {
+            // If there's an associated request, retrieve its issue_id
+            let issue_id = request.ok_or(Error::<T>::InvalidCancelRequest)?;
+            // Cancel the replace request using the redeem_id and issue_id
+            Self::_cancel_replace_request(redeem_id, issue_id)
+        }
+    }
+
     fn _mint_tokens_for_reimbursed_redeem(vault_id: DefaultVaultId<T>, redeem_id: H256) -> DispatchResult {
         let redeem = RedeemRequests::<T>::try_get(&redeem_id).or(Err(Error::<T>::RedeemIdNotFound))?;
         ensure!(
@@ -758,22 +941,14 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn release_replace_collateral(vault_id: &DefaultVaultId<T>, burned_tokens: &Amount<T>) -> DispatchResult {
-        // decrease to-be-replaced tokens - when the vault requests tokens to be replaced, it
-        // want to get rid of tokens, and it does not matter whether this is through a redeem,
-        // or a replace. As such, we decrease the to-be-replaced tokens here. This call will
-        // never fail due to insufficient to-be-replaced tokens
-        let (_, griefing_collateral) =
-            ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&vault_id, &burned_tokens)?;
-        // release the griefing collateral that is locked for the replace request
-        if !griefing_collateral.is_zero() {
-            ext::vault_registry::transfer_funds(
-                CurrencySource::AvailableReplaceCollateral(vault_id.clone()),
-                CurrencySource::FreeBalance(vault_id.account_id.clone()),
-                &griefing_collateral,
-            )?;
-        }
-        Ok(())
+    /// Insert a new request replace.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - 256-bit identifier of the redeem request
+    /// * `value` - 256-bit identifier of the issue request
+    fn insert_request(key: &H256, value: &H256) {
+        <Requests<T>>::insert(key, value);
     }
 
     /// Insert a new redeem request into state.
@@ -850,7 +1025,7 @@ impl<T: Config> Pallet<T> {
         match request.status {
             RedeemRequestStatus::Pending => Ok(request),
             RedeemRequestStatus::Completed => Err(Error::<T>::RedeemCompleted.into()),
-            RedeemRequestStatus::Reimbursed(_) | RedeemRequestStatus::Retried => {
+            RedeemRequestStatus::Reimbursed(_) | RedeemRequestStatus::Retried | RedeemRequestStatus::Cancelled => {
                 Err(Error::<T>::RedeemCancelled.into())
             }
         }

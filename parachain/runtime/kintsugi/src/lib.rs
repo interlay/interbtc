@@ -28,6 +28,7 @@ use frame_system::{
 use loans::{OnSlashHook, PostDeposit, PostTransfer, PreDeposit, PreTransfer};
 use orml_asset_registry::SequentialId;
 use orml_traits::{currency::MutationHooks, parameter_type_with_key};
+use pallet_contracts_primitives::ContractResult;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use sp_api::impl_runtime_apis;
 use sp_core::{OpaqueMetadata, H256};
@@ -112,7 +113,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("kintsugi-parachain"),
     impl_name: create_runtime_str!("kintsugi-parachain"),
     authoring_version: 1,
-    spec_version: 1025000,
+    spec_version: 1025001,
     impl_version: 1,
     transaction_version: 4,
     apis: RUNTIME_API_VERSIONS,
@@ -1155,13 +1156,6 @@ impl redeem::Config for Runtime {
     type WeightInfo = weights::redeem::WeightInfo<Runtime>;
 }
 
-pub use replace::ReplaceRequest;
-
-impl replace::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = weights::replace::WeightInfo<Runtime>;
-}
-
 pub use nomination::Event as NominationEvent;
 
 impl nomination::Config for Runtime {
@@ -1253,8 +1247,7 @@ construct_runtime! {
         Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>} = 62,
         Issue: issue::{Pallet, Call, Config<T>, Storage, Event<T>} = 63,
         Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>} = 64,
-        Replace: replace::{Pallet, Call, Config<T>, Storage, Event<T>} = 65,
-        Fee: fee::{Pallet, Call, Config<T>, Storage} = 66,
+        Fee: fee::{Pallet, Call, Config<T>, Storage} = 65,
         // Refund: 67
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>} = 68,
         ClientsInfo: clients_info::{Pallet, Call, Storage, Event<T>} = 69,
@@ -1326,12 +1319,7 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (
-        orml_asset_registry::Migration<Runtime>,
-        orml_unknown_tokens::Migration<Runtime>,
-        issue::migration::v1::Migration<Runtime>,
-        evm::SetEvmChainId<Runtime>,
-    ),
+    (evm::SetEvmChainId<Runtime>,),
 >;
 
 impl fp_self_contained::SelfContainedCall for RuntimeCall {
@@ -1439,7 +1427,6 @@ mod benches {
         [nomination, Nomination]
         [oracle, Oracle]
         [redeem, Redeem]
-        [replace, Replace]
         [security, Security]
         [supply, Supply]
         [tx_pause, TxPause]
@@ -1824,21 +1811,6 @@ impl_runtime_apis! {
         }
     }
 
-    impl replace_rpc_runtime_api::ReplaceApi<
-        Block,
-        AccountId,
-        H256,
-        ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>
-    > for Runtime {
-        fn get_old_vault_replace_requests(vault_id: AccountId) -> Vec<H256> {
-            Replace::get_replace_requests_for_old_vault(vault_id)
-        }
-
-        fn get_new_vault_replace_requests(vault_id: AccountId) -> Vec<H256> {
-            Replace::get_replace_requests_for_new_vault(vault_id)
-        }
-    }
-
     impl loans_rpc_runtime_api::LoansApi<
         Block,
         AccountId,
@@ -2161,6 +2133,133 @@ impl_runtime_apis! {
             )
         }
     }
+
+    impl pallet_contracts::ContractsApi<Block, AccountId, Balance, BlockNumber, Hash> for Runtime {
+        fn call(
+            origin: AccountId,
+            dest: AccountId,
+            value: Balance,
+            gas_limit: Option<Weight>,
+            storage_deposit_limit: Option<Balance>,
+            input_data: Vec<u8>,
+        ) -> pallet_contracts_primitives::ContractExecResult<Balance> {
+            if !contracts::EnableContracts::get() {
+                return ContractResult {
+                    gas_consumed: Default::default(),
+                    gas_required: Default::default(),
+                    storage_deposit: Default::default(),
+                    debug_message: Default::default(),
+                    result: Err(sp_runtime::DispatchError::Other("pallet_contracts is disabled")),
+                };
+            }
+
+            let gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
+            Contracts::bare_call(
+                origin,
+                dest,
+                value,
+                gas_limit,
+                storage_deposit_limit,
+                input_data,
+                true,
+                pallet_contracts::Determinism::Enforced,
+            )
+        }
+
+        fn instantiate(
+            origin: AccountId,
+            value: Balance,
+            gas_limit: Option<Weight>,
+            storage_deposit_limit: Option<Balance>,
+            code: pallet_contracts_primitives::Code<Hash>,
+            data: Vec<u8>,
+            salt: Vec<u8>,
+        ) -> pallet_contracts_primitives::ContractInstantiateResult<AccountId, Balance> {
+            if !contracts::EnableContracts::get() {
+                return ContractResult {
+                    gas_consumed: Default::default(),
+                    gas_required: Default::default(),
+                    storage_deposit: Default::default(),
+                    debug_message: Default::default(),
+                    result: Err(sp_runtime::DispatchError::Other("pallet_contracts is disabled")),
+                };
+            }
+
+            let gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
+            Contracts::bare_instantiate(
+                origin,
+                value,
+                gas_limit,
+                storage_deposit_limit,
+                code,
+                data,
+                salt,
+                true,
+            )
+        }
+
+        fn upload_code(
+            origin: AccountId,
+            code: Vec<u8>,
+            storage_deposit_limit: Option<Balance>,
+            determinism: pallet_contracts::Determinism,
+        ) -> pallet_contracts_primitives::CodeUploadResult<Hash, Balance>
+        {
+            if !contracts::EnableContracts::get() {
+                return Err(sp_runtime::DispatchError::Other("pallet_contracts is disabled"));
+            }
+            Contracts::bare_upload_code(origin, code, storage_deposit_limit, determinism)
+        }
+
+        fn get_storage(
+            address: AccountId,
+            key: Vec<u8>,
+        ) -> pallet_contracts_primitives::GetStorageResult {
+            Contracts::get_storage(address, key)
+        }
+    }
+
+    // todo: enable this once we add contracts benchmarking
+//     #[cfg(feature = "runtime-benchmarks")]
+//     impl frame_benchmarking::Benchmark<Block> for Runtime {
+//         fn benchmark_metadata(extra: bool) -> (
+//             Vec<frame_benchmarking::BenchmarkList>,
+//             Vec<frame_support::traits::StorageInfo>,
+//         ) {
+//             use frame_benchmarking::{baseline, Benchmarking, BenchmarkList};
+//             use frame_support::traits::StorageInfoTrait;
+//             use frame_system_benchmarking::Pallet as SystemBench;
+//             use baseline::Pallet as BaselineBench;
+//
+//             let mut list = Vec::<BenchmarkList>::new();
+//             list_benchmarks!(list, extra);
+//
+//             let storage_info = AllPalletsWithSystem::storage_info();
+//
+//             (list, storage_info)
+//         }
+//
+//         fn dispatch_benchmark(
+//             config: frame_benchmarking::BenchmarkConfig
+//         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+//             use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch, TrackedStorageKey};
+//             use frame_system_benchmarking::Pallet as SystemBench;
+//             use baseline::Pallet as BaselineBench;
+//
+//             impl frame_system_benchmarking::Config for Runtime {}
+//             impl baseline::Config for Runtime {}
+//
+//             use frame_support::traits::WhitelistedStorageKeys;
+//             let whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();
+//
+//             let mut batches = Vec::<BenchmarkBatch>::new();
+//             let params = (&config, &whitelist);
+//             add_benchmarks!(params, batches);
+//
+//             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
+//             Ok(batches)
+//         }
+//     }
 }
 
 struct CheckInherents;

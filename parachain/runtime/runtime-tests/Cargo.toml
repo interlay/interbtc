@@ -101,7 +101,6 @@ oracle = { path = "../../../crates/oracle", features = ["testing-utils"]  }
 fee = { path = "../../../crates/fee" }
 issue = { path = "../../../crates/issue" }
 redeem = { path = "../../../crates/redeem" }
-replace = { path = "../../../crates/replace" }
 nomination = { path = "../../../crates/nomination" }
 reward = { path = "../../../crates/reward" }
 staking = { path = "../../../crates/staking", features = ["integration-tests"] }
@@ -130,7 +129,6 @@ oracle-rpc-runtime-api = { path = "../../../crates/oracle/rpc/runtime-api" }
 vault-registry-rpc-runtime-api = { path = "../../../crates/vault-registry/rpc/runtime-api" }
 issue-rpc-runtime-api = { path = "../../../crates/issue/rpc/runtime-api" }
 redeem-rpc-runtime-api = { path = "../../../crates/redeem/rpc/runtime-api" }
-replace-rpc-runtime-api = { path = "../../../crates/replace/rpc/runtime-api" }
 reward-rpc-runtime-api = { path = "../../../crates/reward/rpc/runtime-api" }
 
 # Orml dependencies
@@ -178,7 +176,6 @@ runtime-benchmarks = [
   "oracle/runtime-benchmarks",
   "issue/runtime-benchmarks",
   "redeem/runtime-benchmarks",
-  "replace/runtime-benchmarks",
   "vault-registry/runtime-benchmarks",
   "fee/runtime-benchmarks",
   "security/runtime-benchmarks",

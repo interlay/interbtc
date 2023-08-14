@@ -44,6 +44,7 @@ pub trait WeightInfo {
 	fn cancel_redeem_retry() -> Weight;
 	fn set_redeem_period() -> Weight;
 	fn self_redeem() -> Weight;
+	fn request_replace() -> Weight;
 }
 
 /// Weights for redeem using the Substrate node and recommended hardware.
@@ -411,6 +412,65 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
+	/// Storage: VaultRegistry Vaults (r:2 w:2)
+	/// Proof: VaultRegistry Vaults (max_values: None, max_size: Some(212), added: 2687, mode: MaxEncodedLen)
+	/// Storage: BTCRelay StartBlockHeight (r:1 w:0)
+	/// Proof: BTCRelay StartBlockHeight (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	/// Storage: BTCRelay StableBitcoinConfirmations (r:1 w:0)
+	/// Proof: BTCRelay StableBitcoinConfirmations (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	/// Storage: BTCRelay BestBlockHeight (r:1 w:0)
+	/// Proof: BTCRelay BestBlockHeight (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	/// Storage: Oracle Aggregate (r:3 w:0)
+	/// Proof: Oracle Aggregate (max_values: None, max_size: Some(44), added: 2519, mode: MaxEncodedLen)
+	/// Storage: Fee IssueGriefingCollateral (r:1 w:0)
+	/// Proof: Fee IssueGriefingCollateral (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
+	/// Storage: Tokens Accounts (r:1 w:1)
+	/// Proof: Tokens Accounts (max_values: None, max_size: Some(115), added: 2590, mode: MaxEncodedLen)
+	/// Storage: Issue IssueBtcDustValue (r:1 w:0)
+	/// Proof: Issue IssueBtcDustValue (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
+	/// Storage: VaultRegistry SecureCollateralThreshold (r:1 w:0)
+	/// Proof: VaultRegistry SecureCollateralThreshold (max_values: None, max_size: Some(54), added: 2529, mode: MaxEncodedLen)
+	/// Storage: VaultStaking Nonce (r:2 w:0)
+	/// Proof: VaultStaking Nonce (max_values: None, max_size: Some(74), added: 2549, mode: MaxEncodedLen)
+	/// Storage: VaultStaking TotalCurrentStake (r:2 w:0)
+	/// Proof: VaultStaking TotalCurrentStake (max_values: None, max_size: Some(106), added: 2581, mode: MaxEncodedLen)
+	/// Storage: Fee IssueFee (r:1 w:0)
+	/// Proof: Fee IssueFee (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
+	/// Storage: Security Nonce (r:1 w:1)
+	/// Proof: Security Nonce (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
+	/// Storage: System ParentHash (r:1 w:0)
+	/// Proof: System ParentHash (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
+	/// Storage: VaultRegistry VaultBitcoinPublicKey (r:1 w:0)
+	/// Proof: VaultRegistry VaultBitcoinPublicKey (max_values: None, max_size: Some(81), added: 2556, mode: MaxEncodedLen)
+	/// Storage: Security ActiveBlockCount (r:1 w:0)
+	/// Proof: Security ActiveBlockCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	/// Storage: Issue IssuePeriod (r:1 w:0)
+	/// Proof: Issue IssuePeriod (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	/// Storage: Fee RedeemFee (r:1 w:0)
+	/// Proof: Fee RedeemFee (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
+	/// Storage: Redeem RedeemTransactionSize (r:1 w:0)
+	/// Proof: Redeem RedeemTransactionSize (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	/// Storage: Redeem RedeemBtcDustValue (r:1 w:0)
+	/// Proof: Redeem RedeemBtcDustValue (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
+	/// Storage: VaultRegistry PremiumRedeemThreshold (r:1 w:0)
+	/// Proof: VaultRegistry PremiumRedeemThreshold (max_values: None, max_size: Some(54), added: 2529, mode: MaxEncodedLen)
+	/// Storage: Redeem RedeemPeriod (r:1 w:0)
+	/// Proof: Redeem RedeemPeriod (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	/// Storage: Issue IssueRequests (r:0 w:1)
+	/// Proof: Issue IssueRequests (max_values: None, max_size: Some(295), added: 2770, mode: MaxEncodedLen)
+	/// Storage: Redeem RedeemRequests (r:0 w:1)
+	/// Proof: Redeem RedeemRequests (max_values: None, max_size: Some(278), added: 2753, mode: MaxEncodedLen)
+	/// Storage: Redeem Requests (r:0 w:1)
+	/// Proof: Redeem Requests (max_values: None, max_size: Some(80), added: 2555, mode: MaxEncodedLen)
+	fn request_replace() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `3277`
+		//  Estimated: `8547`
+		// Minimum execution time: 39_015_000_000 picoseconds.
+		Weight::from_parts(39_015_000_000, 8547)
+			.saturating_add(T::DbWeight::get().reads(27_u64))
+			.saturating_add(T::DbWeight::get().writes(7_u64))
+	}
 }
 
 // For backwards compatibility and tests
@@ -776,5 +836,64 @@ impl WeightInfo for () {
 		Weight::from_parts(149_109_000, 7835)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
+	}
+	/// Storage: VaultRegistry Vaults (r:2 w:2)
+	/// Proof: VaultRegistry Vaults (max_values: None, max_size: Some(212), added: 2687, mode: MaxEncodedLen)
+	/// Storage: BTCRelay StartBlockHeight (r:1 w:0)
+	/// Proof: BTCRelay StartBlockHeight (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	/// Storage: BTCRelay StableBitcoinConfirmations (r:1 w:0)
+	/// Proof: BTCRelay StableBitcoinConfirmations (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	/// Storage: BTCRelay BestBlockHeight (r:1 w:0)
+	/// Proof: BTCRelay BestBlockHeight (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	/// Storage: Oracle Aggregate (r:3 w:0)
+	/// Proof: Oracle Aggregate (max_values: None, max_size: Some(44), added: 2519, mode: MaxEncodedLen)
+	/// Storage: Fee IssueGriefingCollateral (r:1 w:0)
+	/// Proof: Fee IssueGriefingCollateral (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
+	/// Storage: Tokens Accounts (r:1 w:1)
+	/// Proof: Tokens Accounts (max_values: None, max_size: Some(115), added: 2590, mode: MaxEncodedLen)
+	/// Storage: Issue IssueBtcDustValue (r:1 w:0)
+	/// Proof: Issue IssueBtcDustValue (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
+	/// Storage: VaultRegistry SecureCollateralThreshold (r:1 w:0)
+	/// Proof: VaultRegistry SecureCollateralThreshold (max_values: None, max_size: Some(54), added: 2529, mode: MaxEncodedLen)
+	/// Storage: VaultStaking Nonce (r:2 w:0)
+	/// Proof: VaultStaking Nonce (max_values: None, max_size: Some(74), added: 2549, mode: MaxEncodedLen)
+	/// Storage: VaultStaking TotalCurrentStake (r:2 w:0)
+	/// Proof: VaultStaking TotalCurrentStake (max_values: None, max_size: Some(106), added: 2581, mode: MaxEncodedLen)
+	/// Storage: Fee IssueFee (r:1 w:0)
+	/// Proof: Fee IssueFee (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
+	/// Storage: Security Nonce (r:1 w:1)
+	/// Proof: Security Nonce (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
+	/// Storage: System ParentHash (r:1 w:0)
+	/// Proof: System ParentHash (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
+	/// Storage: VaultRegistry VaultBitcoinPublicKey (r:1 w:0)
+	/// Proof: VaultRegistry VaultBitcoinPublicKey (max_values: None, max_size: Some(81), added: 2556, mode: MaxEncodedLen)
+	/// Storage: Security ActiveBlockCount (r:1 w:0)
+	/// Proof: Security ActiveBlockCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	/// Storage: Issue IssuePeriod (r:1 w:0)
+	/// Proof: Issue IssuePeriod (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	/// Storage: Fee RedeemFee (r:1 w:0)
+	/// Proof: Fee RedeemFee (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
+	/// Storage: Redeem RedeemTransactionSize (r:1 w:0)
+	/// Proof: Redeem RedeemTransactionSize (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	/// Storage: Redeem RedeemBtcDustValue (r:1 w:0)
+	/// Proof: Redeem RedeemBtcDustValue (max_values: Some(1), max_size: Some(16), added: 511, mode: MaxEncodedLen)
+	/// Storage: VaultRegistry PremiumRedeemThreshold (r:1 w:0)
+	/// Proof: VaultRegistry PremiumRedeemThreshold (max_values: None, max_size: Some(54), added: 2529, mode: MaxEncodedLen)
+	/// Storage: Redeem RedeemPeriod (r:1 w:0)
+	/// Proof: Redeem RedeemPeriod (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
+	/// Storage: Issue IssueRequests (r:0 w:1)
+	/// Proof: Issue IssueRequests (max_values: None, max_size: Some(295), added: 2770, mode: MaxEncodedLen)
+	/// Storage: Redeem RedeemRequests (r:0 w:1)
+	/// Proof: Redeem RedeemRequests (max_values: None, max_size: Some(278), added: 2753, mode: MaxEncodedLen)
+	/// Storage: Redeem Requests (r:0 w:1)
+	/// Proof: Redeem Requests (max_values: None, max_size: Some(80), added: 2555, mode: MaxEncodedLen)
+	fn request_replace() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `3277`
+		//  Estimated: `8547`
+		// Minimum execution time: 39_015_000_000 picoseconds.
+		Weight::from_parts(39_015_000_000, 8547)
+			.saturating_add(RocksDbWeight::get().reads(27_u64))
+			.saturating_add(RocksDbWeight::get().writes(7_u64))
 	}
 }

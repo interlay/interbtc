@@ -17,6 +17,8 @@ pub struct KintsugiDevGenesisExt {
     pub(crate) enable_instant_seal: bool,
     /// The flag to enable EVM contract creation.
     pub(crate) enable_create: bool,
+    /// The flag to enable wasm contracts.
+    pub(crate) enable_contracts: bool,
 }
 
 impl sp_runtime::BuildStorage for KintsugiDevGenesisExt {
@@ -24,6 +26,7 @@ impl sp_runtime::BuildStorage for KintsugiDevGenesisExt {
         sp_state_machine::BasicExternalities::execute_with_storage(storage, || {
             kintsugi_runtime::EnableManualSeal::set(&self.enable_instant_seal);
             kintsugi_runtime::evm::EnableCreate::set(&self.enable_create);
+            kintsugi_runtime::contracts::EnableContracts::set(&self.enable_contracts);
         });
         self.genesis_config.assimilate_storage(storage)
     }
@@ -73,6 +76,7 @@ pub fn kintsugi_dev_config(enable_instant_seal: bool) -> KintsugiDevChainSpec {
             ),
             enable_instant_seal,
             enable_create: true,
+            enable_contracts: true,
         },
         Vec::new(),
         None,
@@ -232,10 +236,6 @@ pub fn kintsugi_genesis(
             redeem_transaction_size: expected_transaction_size(),
             redeem_period: kintsugi_runtime::DAYS * 2,
             redeem_btc_dust_value: DEFAULT_DUST_VALUE,
-        },
-        replace: kintsugi_runtime::ReplaceConfig {
-            replace_period: kintsugi_runtime::DAYS * 2,
-            replace_btc_dust_value: DEFAULT_DUST_VALUE,
         },
         vault_registry: kintsugi_runtime::VaultRegistryConfig {
             minimum_collateral_vault: vec![(Token(KINT), 55 * KINT.one()), (Token(KSM), 3 * KSM.one())],

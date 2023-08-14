@@ -42,10 +42,6 @@ pub enum Version {
 pub enum CurrencySource<T: frame_system::Config + orml_tokens::Config> {
     /// Used by vault to back issued tokens
     Collateral(DefaultVaultId<T>),
-    /// Collateral put down by request_replace, but that has not been accepted yet
-    AvailableReplaceCollateral(DefaultVaultId<T>),
-    /// Collateral that is locked, but not used to back issued tokens (e.g. griefing collateral)
-    ActiveReplaceCollateral(DefaultVaultId<T>),
     /// User's issue griefing collateral
     UserGriefing(<T as frame_system::Config>::AccountId),
     /// Unlocked balance
@@ -61,8 +57,6 @@ impl<T: Config> CurrencySource<T> {
     pub fn account_id(&self) -> <T as frame_system::Config>::AccountId {
         match self {
             CurrencySource::Collateral(DefaultVaultId::<T> { account_id: x, .. })
-            | CurrencySource::AvailableReplaceCollateral(DefaultVaultId::<T> { account_id: x, .. })
-            | CurrencySource::ActiveReplaceCollateral(DefaultVaultId::<T> { account_id: x, .. })
             | CurrencySource::UserGriefing(x)
             | CurrencySource::FreeBalance(x)
             | CurrencySource::LiquidatedCollateral(DefaultVaultId::<T> { account_id: x, .. }) => x.clone(),
@@ -73,17 +67,6 @@ impl<T: Config> CurrencySource<T> {
     pub fn current_balance(&self, currency_id: CurrencyId<T>) -> Result<crate::Amount<T>, DispatchError> {
         let amount = match self {
             CurrencySource::Collateral(vault_id) => Pallet::<T>::get_backing_collateral(vault_id)?,
-            CurrencySource::AvailableReplaceCollateral(vault_id) => {
-                let vault = Pallet::<T>::get_vault_from_id(vault_id)?;
-                Amount::new(vault.replace_collateral, T::GetGriefingCollateralCurrencyId::get())
-            }
-            CurrencySource::ActiveReplaceCollateral(vault_id) => {
-                let vault = Pallet::<T>::get_vault_from_id(vault_id)?;
-                Amount::new(
-                    vault.active_replace_collateral,
-                    T::GetGriefingCollateralCurrencyId::get(),
-                )
-            }
             CurrencySource::UserGriefing(x) => ext::currency::get_reserved_balance::<T>(currency_id, x),
             CurrencySource::FreeBalance(x) => ext::currency::get_free_balance::<T>(currency_id, x),
             CurrencySource::LiquidatedCollateral(vault_id) => {
@@ -157,14 +140,6 @@ pub struct Vault<AccountId, BlockNumber, Balance, CurrencyId: Copy, UnsignedFixe
     pub issued_tokens: Balance,
     /// Number of tokens pending redeem
     pub to_be_redeemed_tokens: Balance,
-    /// Number of tokens that have been requested for a replace through
-    /// `request_replace`, but that have not been accepted yet by a new_vault.
-    pub to_be_replaced_tokens: Balance,
-    /// Amount of collateral that is available as griefing collateral to vaults accepting
-    /// a replace request. It is to be payed out if the old_vault fails to call execute_replace.
-    pub replace_collateral: Balance,
-    /// Amount of collateral locked for accepted replace requests.
-    pub active_replace_collateral: Balance,
     /// Amount of collateral that is locked for remaining to_be_redeemed
     /// tokens upon liquidation.
     pub liquidated_collateral: Balance,
@@ -204,11 +179,8 @@ impl<
             secure_collateral_threshold: Default::default(),
             issued_tokens: Default::default(),
             liquidated_collateral: Default::default(),
-            replace_collateral: Default::default(),
             to_be_issued_tokens: Default::default(),
             to_be_redeemed_tokens: Default::default(),
-            to_be_replaced_tokens: Default::default(),
-            active_replace_collateral: Default::default(),
         }
     }
 
@@ -380,10 +352,6 @@ impl<T: Config> RichVault<T> {
         Ok(Amount::new(amount, self.wrapped_currency()))
     }
 
-    pub(crate) fn to_be_replaced_tokens(&self) -> Amount<T> {
-        Amount::new(self.data.to_be_replaced_tokens, self.wrapped_currency())
-    }
-
     pub(crate) fn to_be_redeemed_tokens(&self) -> Amount<T> {
         Amount::new(self.data.to_be_redeemed_tokens, self.wrapped_currency())
     }
@@ -452,53 +420,6 @@ impl<T: Config> RichVault<T> {
         }
 
         self.issued_tokens().checked_sub(&self.to_be_redeemed_tokens())
-    }
-
-    pub(crate) fn set_to_be_replaced_amount(&mut self, tokens: &Amount<T>) -> DispatchResult {
-        self.update(|v| {
-            v.to_be_replaced_tokens = tokens.amount();
-            Ok(())
-        })
-    }
-
-    pub(crate) fn increase_available_replace_collateral(&mut self, amount: &Amount<T>) -> DispatchResult {
-        self.update(|v| {
-            v.replace_collateral = v
-                .replace_collateral
-                .checked_add(&amount.amount())
-                .ok_or(ArithmeticError::Overflow)?;
-            Ok(())
-        })
-    }
-
-    pub(crate) fn decrease_available_replace_collateral(&mut self, amount: &Amount<T>) -> DispatchResult {
-        self.update(|v| {
-            v.replace_collateral = v
-                .replace_collateral
-                .checked_sub(&amount.amount())
-                .ok_or(ArithmeticError::Underflow)?;
-            Ok(())
-        })
-    }
-
-    pub(crate) fn increase_active_replace_collateral(&mut self, amount: &Amount<T>) -> DispatchResult {
-        self.update(|v| {
-            v.active_replace_collateral = v
-                .active_replace_collateral
-                .checked_add(&amount.amount())
-                .ok_or(ArithmeticError::Overflow)?;
-            Ok(())
-        })
-    }
-
-    pub(crate) fn decrease_active_replace_collateral(&mut self, amount: &Amount<T>) -> DispatchResult {
-        self.update(|v| {
-            v.active_replace_collateral = v
-                .active_replace_collateral
-                .checked_sub(&amount.amount())
-                .ok_or(ArithmeticError::Underflow)?;
-            Ok(())
-        })
     }
 
     pub(crate) fn set_custom_secure_threshold(&mut self, threshold: Option<UnsignedFixedPoint<T>>) -> DispatchResult {
@@ -578,8 +499,6 @@ impl<T: Config> RichVault<T> {
                 .ok_or(Error::<T>::ThresholdNotSet)?,
         )?;
 
-        // Clear `to_be_replaced` tokens, since the vault will have no more `issued` or `to_be_issued` tokens.
-        let _ = Pallet::<T>::withdraw_replace_request(&self.data.id, &self.to_be_replaced_tokens())?;
         // the vault struct was modified in the call above - we need to re-fetch,
         // otherwise changes get overwritten below
         *self = Pallet::<T>::get_rich_vault_from_id(&vault_id)?;
