@@ -803,9 +803,7 @@ mod redeem_replace_tests {
                 premium: 0,
                 vault_id: OLD_VAULT,
                 btc_address,
-                transfer_fee: Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
-                    .unwrap()
-                    .amount()
+                transfer_fee: 0
             });
         })
     }
@@ -828,9 +826,7 @@ mod redeem_replace_tests {
                 vault_id: OLD_VAULT,
                 amount: 10,
                 fee: 0,
-                transfer_fee: Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
-                    .unwrap()
-                    .amount(),
+                transfer_fee: 0,
             });
 
             assert_err!(

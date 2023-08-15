@@ -172,6 +172,10 @@ pub mod pallet {
         AmountBelowDustAmount,
         /// Invalid Cancel request.
         InvalidCancelRequest,
+        /// Cannot replace self.
+        ReplaceSelfNotAllowed,
+        /// Vault cannot replace different currency.
+        InvalidWrappedCurrency,
     }
 
     /// The time difference in number of blocks between a redeem request is created and required completion time by a
@@ -541,6 +545,16 @@ impl<T: Config> Pallet<T> {
         let old_vault = AccountOrVault::Vault(old_vault_id.clone());
         let new_vault = AccountOrVault::Vault(new_vault_id.clone());
 
+        // probably this check is not strictly required, but it's better to give an
+        // explicit error rather than insufficient balance
+        ensure!(
+            old_vault_id.wrapped_currency() == new_vault_id.wrapped_currency(),
+            Error::<T>::InvalidWrappedCurrency
+        );
+
+        // don't allow vaults to replace themselves
+        ensure!(old_vault != new_vault, Error::<T>::ReplaceSelfNotAllowed);
+
         // Calculate requestable tokens for old vault
         let max_requestable_tokens: Amount<T> =
             ext::vault_registry::requestable_to_be_replaced_tokens::<T>(&old_vault_id)?;
@@ -589,12 +603,12 @@ impl<T: Config> Pallet<T> {
         ensure!(!btc_address.is_zero(), btc_relay::Error::<T>::InvalidBtcHash);
 
         // todo: currently allowed to redeem from one currency to the other for free - decide if this is desirable
-        let fee_wrapped = if redeemer.get_account().clone() == vault_id.account_id {
+        let mut fee_wrapped = if redeemer.get_account().clone() == vault_id.account_id {
             Amount::zero(vault_id.wrapped_currency())
         } else {
             ext::fee::get_redeem_fee::<T>(&amount_wrapped)?
         };
-        let inclusion_fee = Self::get_current_inclusion_fee(vault_id.wrapped_currency())?;
+        let mut inclusion_fee = Self::get_current_inclusion_fee(vault_id.wrapped_currency())?;
 
         let vault_to_be_burned_tokens = amount_wrapped.checked_sub(&fee_wrapped)?;
 
@@ -634,6 +648,8 @@ impl<T: Config> Pallet<T> {
         };
 
         let to_be_received_btc = if redeemer.is_vault_account() {
+            fee_wrapped = Amount::zero(vault_id.wrapped_currency());
+            inclusion_fee = Amount::zero(vault_id.wrapped_currency());
             amount_wrapped.amount()
         } else {
             user_to_be_received_btc.amount()
