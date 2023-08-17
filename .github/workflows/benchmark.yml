@@ -83,7 +83,8 @@ jobs:
           script: |
             const fs = require('fs')
             const id = `${{steps.comment.outputs.result}}`
-            const body = fs.readFileSync('${{runner.temp}}/out.txt').toString()
+            // trim body to fit within max allowed payload of 65536 characters
+            const body = fs.readFileSync('${{runner.temp}}/out.txt').toString().substring(0, 64000)
             github.rest.issues.updateComment({
               comment_id: id,
               owner: context.repo.owner,
