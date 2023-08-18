@@ -413,7 +413,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_parse_block_header() {
-        let hex_header = sample_block_header();
+        let hex_header = "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4adae5494dffff7f2002000000";
         let parsed_header = BlockHeader::from_hex(&hex_header).unwrap();
         assert_eq!(parsed_header.version, 4);
         assert_eq!(parsed_header.timestamp, 1415239972);

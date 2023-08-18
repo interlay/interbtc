@@ -339,7 +339,7 @@ pub mod pallet {
 
     /// Stores a mapping from (chain_index, block_height) to block hash
     #[pallet::storage]
-    pub(super) type ChainsHashes<T: Config> =
+    pub type ChainsHashes<T: Config> =
         StorageDoubleMap<_, Blake2_128Concat, u32, Blake2_128Concat, u32, H256Le, ValueQuery>;
 
     /// Store the current blockchain tip
@@ -352,7 +352,7 @@ pub mod pallet {
 
     /// BTC height when the relay was initialized
     #[pallet::storage]
-    pub(super) type StartBlockHeight<T: Config> = StorageValue<_, u32, ValueQuery>;
+    pub type StartBlockHeight<T: Config> = StorageValue<_, u32, ValueQuery>;
 
     /// Increment-only counter used to track new BlockChain entries
     #[pallet::storage]

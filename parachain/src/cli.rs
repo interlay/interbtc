@@ -90,6 +90,10 @@ pub struct Cli {
     #[clap(flatten)]
     pub eth: EthConfiguration,
 
+    /// Connection settings for Bitcoin Core for relay purposes.
+    #[clap(flatten)]
+    pub bitcoin: bitcoin_client::cli::BitcoinOpts,
+
     /// Relaychain arguments
     #[clap(raw = true)]
     pub relaychain_args: Vec<String>,

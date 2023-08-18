@@ -1,3 +1,5 @@
+use crate::embedded_relay::*;
+
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_consensus_aura::{AuraConsensus, BuildAuraConsensusParams, SlotProportion};
 use cumulus_client_consensus_common::{ParachainBlockImport as TParachainBlockImport, ParachainConsensus};
@@ -10,7 +12,9 @@ use cumulus_primitives_parachain_inherent::{MockValidationDataInherentDataProvid
 use cumulus_relay_chain_inprocess_interface::build_inprocess_relay_chain;
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 use cumulus_relay_chain_minimal_node::build_minimal_relay_chain_node;
+
 use futures::StreamExt;
+
 use polkadot_service::CollatorPair;
 use primitives::*;
 use sc_client_api::{HeaderBackend, StateBackendFor};
@@ -20,16 +24,20 @@ use sc_network::NetworkBlock;
 use sc_network_sync::SyncingService;
 use sc_service::{Configuration, PartialComponents, RpcHandlers, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
-use sp_api::ConstructRuntimeApi;
+
+use sp_api::{ConstructRuntimeApi, Encode, StateBackend};
 use sp_consensus_aura::{
     sr25519::{AuthorityId as AuraId, AuthorityPair as AuraPair},
     SlotDuration,
 };
 use sp_core::H256;
+
 use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{BlakeTwo256, Block as BlockT};
 use std::{sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
+
+use bitcoin_client::RandomDelay;
 
 // Frontier imports
 use crate::eth::{
@@ -686,9 +694,34 @@ where
     .await
 }
 
+#[async_trait::async_trait]
+trait Q {
+    fn f<I: bitcoin_client::Issuing>(isser: I, x: Arc<Box<dyn RandomDelay<Error = I::Error> + Send + Sync + 'static>>) {
+    }
+}
+
+struct W;
+impl Q for W {
+    fn f<I: bitcoin_client::Issuing>(isser: I, x: Arc<Box<dyn RandomDelay<Error = I::Error> + Send + Sync + 'static>>) {
+    }
+}
+fn f<I: bitcoin_client::Issuing>(isser: I, x: Arc<Box<dyn RandomDelay<Error = I::Error> + Send + Sync + 'static>>) {}
+
+/// Runner implements the main loop for the relayer
+pub struct Runnerz;
+
+impl Runnerz {
+    pub fn new<I: bitcoin_client::Issuing>(
+        issuing: I,
+        random_delay: Arc<Box<dyn RandomDelay<Error = I::Error> + Send + Sync + 'static>>,
+    ) {
+    }
+}
+
 pub async fn start_instant<RuntimeApi, Executor, CT>(
     mut config: Configuration,
     eth_config: EthConfiguration,
+    bitcoin_config: bitcoin_client::cli::BitcoinOpts,
 ) -> sc_service::error::Result<(TaskManager, RpcHandlers)>
 where
     RuntimeApi: ConstructRuntimeApi<Block, FullClient<RuntimeApi, Executor>> + Send + Sync + 'static,
@@ -697,6 +730,8 @@ where
     Executor: sc_executor::NativeExecutionDispatch + 'static,
     CT: fp_rpc::ConvertTransaction<<Block as BlockT>::Extrinsic> + Clone + Default + Send + Sync + 'static,
 {
+    log::info!("In instant..");
+
     let sc_service::PartialComponents {
         client,
         backend,
@@ -838,6 +873,36 @@ where
                 .map_err(Into::into)
         }
     };
+
+    let moved_pool = transaction_pool.clone();
+    let moved_client = client.clone();
+
+    if matches!(bitcoin_config.bitcoin_rpc_url, Some(ref x) if x != "") {
+        log::info!("Starting bitcoin relay...");
+
+        // bitcoin url is set, start relayer
+        let bitcoin_rpc = bitcoin_config.new_client(Some("alice".into())).await.unwrap();
+
+        task_manager.spawn_handle().spawn("btc-relay", None, async move {
+            // todo: without this sleep, sometimes making a call get stuck. The status
+            // of the tx will be `ready` but won't get to `in_block`. It may be that
+            // some other tasks needs to finish initializing
+            tokio::time::sleep(Duration::from_secs(5)).await;
+            let pool = moved_pool.pool();
+            let direct_issuer = DirectIssuer::new(pool.clone(), moved_client.clone()).await;
+
+            let cfg = bitcoin_client::Config {
+                start_height: None,
+                max_batch_size: 1,
+                interval: Some(Duration::from_secs(1)),
+                btc_confirmations: 1,
+            };
+            let runner = bitcoin_client::Runner::new(bitcoin_rpc, direct_issuer, cfg, Arc::new(Box::new(ZeroDelay)));
+            loop {
+                runner.submit_next().await.unwrap();
+            }
+        });
+    }
 
     let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
         rpc_builder: Box::new(rpc_builder),

@@ -5,6 +5,7 @@ mod chain_spec;
 #[macro_use]
 mod cli;
 mod command;
+mod embedded_relay;
 mod eth;
 mod service;
 
