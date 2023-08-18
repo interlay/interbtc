@@ -352,7 +352,7 @@ pub mod pallet {
 
     /// BTC height when the relay was initialized
     #[pallet::storage]
-    pub(super) type StartBlockHeight<T: Config> = StorageValue<_, u32, ValueQuery>;
+    pub type StartBlockHeight<T: Config> = StorageValue<_, u32, ValueQuery>;
 
     /// Increment-only counter used to track new BlockChain entries
     #[pallet::storage]

@@ -470,6 +470,10 @@ pub fn run() -> Result<()> {
 
             runner
                 .run_node_until_exit(|config| async move {
+                    log::info!("Im here");
+                    // let bitcoin_rpc = cli.bitcoin.new_client(None).await.unwrap();
+                    // plan: use pool.
+                    // bitcoin_rpc.
                     if cli.instant_seal {
                         start_instant(cli, config).await
                     } else {
@@ -484,6 +488,7 @@ pub fn run() -> Result<()> {
 async fn start_instant(cli: Cli, config: Configuration) -> sc_service::error::Result<TaskManager> {
     with_runtime_or_err!(config.chain_spec, {
         {
+            log::info!("starting instant..");
             crate::service::start_instant::<RuntimeApi, Executor, TransactionConverter>(config, cli.eth)
                 .await
                 .map(|r| r.0)

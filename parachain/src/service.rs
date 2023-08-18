@@ -1,3 +1,5 @@
+use async_trait::async_trait;
+use bitcoin_client::relay::{Error as RelayError, Issuing};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_consensus_aura::{AuraConsensus, BuildAuraConsensusParams, SlotProportion};
 use cumulus_client_consensus_common::{ParachainBlockImport as TParachainBlockImport, ParachainConsensus};
@@ -11,7 +13,8 @@ use cumulus_relay_chain_inprocess_interface::build_inprocess_relay_chain;
 use cumulus_relay_chain_interface::{RelayChainInterface, RelayChainResult};
 use cumulus_relay_chain_minimal_node::build_minimal_relay_chain_node;
 use futures::StreamExt;
-use polkadot_service::CollatorPair;
+use polkadot_primitives::BlockId;
+use polkadot_service::{Client, CollatorPair};
 use primitives::*;
 use sc_client_api::{HeaderBackend, StateBackendFor};
 use sc_consensus::{ImportQueue, LongestChain};
@@ -20,16 +23,85 @@ use sc_network::NetworkBlock;
 use sc_network_sync::SyncingService;
 use sc_service::{Configuration, PartialComponents, RpcHandlers, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
-use sp_api::ConstructRuntimeApi;
+use sc_transaction_pool::{ChainApi, Pool};
+use sp_api::{ConstructRuntimeApi, Encode, StateBackend};
 use sp_consensus_aura::{
     sr25519::{AuthorityId as AuraId, AuthorityPair as AuraPair},
     SlotDuration,
 };
-use sp_core::H256;
+use sp_core::{Pair, H256};
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{BlakeTwo256, Block as BlockT};
+use sp_runtime::{
+    traits::{BlakeTwo256, Block as BlockT},
+    OpaqueExtrinsic,
+};
 use std::{sync::Arc, time::Duration};
 use substrate_prometheus_endpoint::Registry;
+use tokio::sync::Mutex;
+
+fn create_extrinsic<Executor, RuntimeApi>(
+    client: Arc<TFullClient<Block, RuntimeApi, NativeElseWasmExecutor<Executor>>>,
+    nonce: u32,
+    call: kintsugi_runtime::RuntimeCall,
+) -> OpaqueExtrinsic
+where
+    Executor: sc_executor::NativeExecutionDispatch + 'static,
+{
+    use sc_client_api::BlockBackend;
+    use sp_keyring::Sr25519Keyring;
+    use sp_runtime::SaturatedConversion;
+
+    let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
+    let best_hash = client.chain_info().best_hash;
+    let best_block = client.chain_info().best_number;
+
+    let period = kintsugi_runtime::BlockHashCount::get()
+        .checked_next_power_of_two()
+        .map(|c| c / 2)
+        .unwrap_or(2) as u64;
+
+    let extra: kintsugi_runtime::SignedExtra = (
+        frame_system::CheckSpecVersion::<kintsugi_runtime::Runtime>::new(),
+        frame_system::CheckTxVersion::<kintsugi_runtime::Runtime>::new(),
+        frame_system::CheckGenesis::<kintsugi_runtime::Runtime>::new(),
+        frame_system::CheckEra::<kintsugi_runtime::Runtime>::from(sp_runtime::generic::Era::mortal(
+            period,
+            best_block.saturated_into(),
+        )),
+        frame_system::CheckNonce::<kintsugi_runtime::Runtime>::from(nonce),
+        frame_system::CheckWeight::<kintsugi_runtime::Runtime>::new(),
+        // frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
+        pallet_transaction_payment::ChargeTransactionPayment::<kintsugi_runtime::Runtime>::from(0),
+    );
+
+    /// The payload being signed
+    type SignedPayload =
+        sp_runtime::generic::SignedPayload<kintsugi_runtime::RuntimeCall, kintsugi_runtime::SignedExtra>;
+
+    let raw_payload = SignedPayload::from_raw(
+        call.clone(),
+        extra.clone(),
+        (
+            kintsugi_runtime::VERSION.spec_version,
+            kintsugi_runtime::VERSION.transaction_version,
+            genesis_hash,
+            best_hash,
+            (),
+            (),
+            (),
+        ),
+    );
+    let sender = Sr25519Keyring::Alice.pair();
+    let signature = raw_payload.using_encoded(|e| sender.sign(e));
+
+    kintsugi_runtime::UncheckedExtrinsic::new_signed(
+        call.clone(),
+        sp_runtime::AccountId32::from(sender.public()).into(),
+        kintsugi_runtime::Signature::Sr25519(signature.clone()),
+        extra.clone(),
+    )
+    .into()
+}
 
 // Frontier imports
 use crate::eth::{
@@ -686,6 +758,188 @@ where
     .await
 }
 
+struct DirectIssuer<Executor, RuntimeApi, PoolApi>
+where
+    PoolApi: ChainApi<Block = Block> + 'static,
+    Executor: sc_executor::NativeExecutionDispatch + 'static,
+    RuntimeApi: ConstructRuntimeApi<Block, FullClient<RuntimeApi, Executor>> + Send + Sync + 'static,
+    RuntimeApi::RuntimeApi: RuntimeApiCollection<StateBackend = sc_client_api::StateBackendFor<FullBackend, Block>>,
+    RuntimeApi::RuntimeApi: sp_consensus_aura::AuraApi<Block, AuraId>,
+{
+    pool: Arc<Pool<PoolApi>>,
+    client: Arc<FullClient<RuntimeApi, Executor>>,
+    nonce: Arc<Mutex<u32>>,
+    // pool: Arc<
+    //     Pool<
+    //         FullChainApi<
+    //             Client<
+    //                 Backend<Block<Header<u32, BlakeTwo256>, OpaqueExtrinsic>>,
+    //                 LocalCallExecutor<
+    //                     Block<Header<u32, BlakeTwo256>, OpaqueExtrinsic>,
+    //                     Backend<Block<Header<u32, BlakeTwo256>, OpaqueExtrinsic>>,
+    //                     NativeElseWasmExecutor<Executor>,
+    //                 >,
+    //                 Block<Header<u32, BlakeTwo256>, OpaqueExtrinsic>,
+    //                 RuntimeApi,
+    //             >,
+    //             Block<Header<u32, BlakeTwo256>, OpaqueExtrinsic>,
+    //         >,
+    //     >,
+    // >,
+}
+
+impl<Executor, RuntimeApi, PoolApi> DirectIssuer<Executor, RuntimeApi, PoolApi>
+where
+    PoolApi: ChainApi<Block = Block> + 'static,
+    Executor: sc_executor::NativeExecutionDispatch + 'static,
+    RuntimeApi: ConstructRuntimeApi<Block, FullClient<RuntimeApi, Executor>> + Send + Sync + 'static,
+    RuntimeApi::RuntimeApi: RuntimeApiCollection<StateBackend = sc_client_api::StateBackendFor<FullBackend, Block>>,
+    RuntimeApi::RuntimeApi: sp_consensus_aura::AuraApi<Block, AuraId>,
+{
+    async fn new(pool: Arc<Pool<PoolApi>>, client: Arc<FullClient<RuntimeApi, Executor>>) -> Self {
+        //  system.account(alice)
+        let address = hex::decode("26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9de1e86a9a8c739864cf3cc5ec2bea59fd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d").unwrap();
+        let info = client.chain_info();
+
+        let state = client.state_at(info.best_hash).unwrap().storage(&address).unwrap();
+        let nonce = match state {
+            None => {
+                log::info!("No nonce set");
+                0
+            }
+            Some(state) => {
+                let account_info: frame_system::AccountInfo<u32, pallet_balances::AccountData<Balance>> =
+                    codec::Decode::decode(&mut &state[..]).unwrap();
+                log::info!("Nonce: {}", account_info.nonce);
+                account_info.nonce
+            }
+        };
+
+        Self {
+            pool,
+            client,
+            nonce: Arc::new(Mutex::new(nonce)),
+        }
+    }
+
+    async fn get_nonce(&self) -> u32 {
+        let mut nonce_lock = self.nonce.lock().await;
+        let ret = *nonce_lock;
+        *nonce_lock += 1;
+        ret
+    }
+    async fn call(&self, call: kintsugi_runtime::RuntimeCall) {
+        let info = self.client.chain_info();
+
+        let nonce = self.get_nonce().await;
+
+        let tx = create_extrinsic(self.client.clone(), nonce, call);
+
+        // todo: wait until inclusion: use submit_and_watch
+        self.pool
+            .submit_one(
+                &BlockId::Hash(info.best_hash),
+                sp_runtime::transaction_validity::TransactionSource::Local,
+                tx,
+            )
+            .await
+            .unwrap();
+    }
+}
+
+#[async_trait]
+impl<Executor, RuntimeApi, PoolApi> Issuing for DirectIssuer<Executor, RuntimeApi, PoolApi>
+where
+    PoolApi: ChainApi<Block = Block> + 'static,
+    Executor: sc_executor::NativeExecutionDispatch + 'static,
+    RuntimeApi: ConstructRuntimeApi<Block, FullClient<RuntimeApi, Executor>> + Send + Sync + 'static,
+    RuntimeApi::RuntimeApi: RuntimeApiCollection<StateBackend = sc_client_api::StateBackendFor<FullBackend, Block>>,
+    RuntimeApi::RuntimeApi: sp_consensus_aura::AuraApi<Block, AuraId>,
+{
+    async fn is_initialized(&self) -> Result<bool, RelayError> {
+        // let tx = create_extrinsic(self.client.clone(), 123);
+        let info = self.client.chain_info();
+
+        // kintsugi_runtime::BTCRelay::StartBlockHeight::key();
+        // let q = kintsugi_runtime::|metadata();
+
+        // StartBlockHeight
+        let address = hex::decode("8df2c0f8b3fb547e6fbe821d8f53ce4234ca9a8dc00a85a82b3efc9543f686f4").unwrap();
+        let state = self.client.state_at(info.best_hash).unwrap().storage(&address).unwrap();
+        match state {
+            None => {
+                log::info!("Reading returned None - assuming uninitialized even though we exepected a 0 value");
+                Ok(false)
+            }
+            Some(state) => {
+                println!("Startblockheight: 0x{}", hex::encode(&state));
+                Ok(true)
+            }
+        }
+    }
+
+    async fn initialize(&self, header: Vec<u8>, height: u32) -> Result<(), RelayError> {
+        let block_header = bitcoin::parser::parse_block_header(&header).unwrap();
+
+        let call = kintsugi_runtime::RuntimeCall::BTCRelay(kintsugi_runtime::btc_relay::Call::initialize {
+            block_header,
+            block_height: height,
+        });
+
+        self.call(call).await;
+
+        Ok(())
+    }
+
+    async fn submit_block_header(&self, header: Vec<u8>) -> Result<(), RelayError> {
+        let block_header = bitcoin::parser::parse_block_header(&header).unwrap();
+
+        let call = kintsugi_runtime::RuntimeCall::BTCRelay(kintsugi_runtime::btc_relay::Call::store_block_header {
+            block_header,
+            fork_bound: 10,
+        });
+
+        self.call(call).await;
+
+        Ok(())
+    }
+
+    async fn submit_block_header_batch(&self, headers: Vec<Vec<u8>>) -> Result<(), RelayError> {
+        for header in headers {
+            self.submit_block_header(header).await.unwrap();
+        }
+        Ok(())
+    }
+
+    async fn get_best_height(&self) -> Result<u32, RelayError> {
+        // let tx = create_extrinsic(self.client.clone(), 123);
+        let info = self.client.chain_info();
+
+        // bestBlockHeight
+        let address = hex::decode("8df2c0f8b3fb547e6fbe821d8f53ce427e6a2038e919bb8eb04f4f120aa0b65b").unwrap();
+        let state = self.client.state_at(info.best_hash).unwrap().storage(&address).unwrap();
+        match state {
+            None => {
+                log::info!("bestBlockHeight read failure");
+                Ok(0) // fixme
+            }
+            Some(bytes) => {
+                let best_height: u32 = codec::Decode::decode(&mut &bytes[..]).unwrap();
+                log::info!("get_best_height: {}", best_height);
+                Ok(best_height)
+            }
+        }
+    }
+
+    async fn get_block_hash(&self, height: u32) -> Result<Vec<u8>, RelayError> {
+        todo!()
+    }
+
+    async fn is_block_stored(&self, hash_le: Vec<u8>) -> Result<bool, RelayError> {
+        todo!()
+    }
+}
+
 pub async fn start_instant<RuntimeApi, Executor, CT>(
     mut config: Configuration,
     eth_config: EthConfiguration,
@@ -697,6 +951,8 @@ where
     Executor: sc_executor::NativeExecutionDispatch + 'static,
     CT: fp_rpc::ConvertTransaction<<Block as BlockT>::Extrinsic> + Clone + Default + Send + Sync + 'static,
 {
+    log::info!("In instant..");
+
     let sc_service::PartialComponents {
         client,
         backend,
@@ -838,6 +1094,67 @@ where
                 .map_err(Into::into)
         }
     };
+
+    // use substrate::
+    // type ExtrinsicFor<A> = <<A as sc_transaction_pool::ChainApi>::Block as sp_runtime::traits::Block>::Extrinsic;
+    // let f = || -> ExtrinsicFor<X> { todo!() };
+
+    // OpaqueExtrinsic::
+    let moved_pool = transaction_pool.clone();
+    let moved_client = client.clone();
+    // let key = [0u8, 1, 2, 3];
+    // // client.
+    // backend.storage(&key);
+    // backend.
+    // client.state_at(todo!()).unwrap().
+    // assert_eq!(state.storage(&[1, 3, 5]).unwrap(), Some(vec![2, 4, 6]));
+    log::info!("starting relay...");
+
+    task_manager.spawn_handle().spawn("btc-relay", None, async move {
+    log::info!("In relay, sleeping...");
+    tokio::time::sleep(Duration::from_secs(5)).await;
+    log::info!("Waking up...");
+
+
+    let pool = moved_pool.pool();
+        let q = DirectIssuer::new(pool.clone(),moved_client.clone()).await;
+
+        q.is_initialized().await;
+
+        let raw_header = hex::decode("0000002006226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f9f233ca7b08179b3345f74e70d48d60e426dea4df41e504a6bef4f502a6cd0354f27de64ffff7f2000000000").unwrap();
+        let raw_header_vec = raw_header.to_vec();
+        q.initialize(raw_header_vec, 1).await.unwrap();
+
+        let raw_header = hex::decode("00000020323827761e799d7223cb2ec31806cdafa92d52872110f4ee970769fd41ee4a7f1646edebfb500e7892b716d705f8a389b47559ab6bc89f150812636a237ccae55027de64ffff7f2003000000").unwrap();
+        let raw_header_vec = raw_header.to_vec();
+        q.submit_block_header(raw_header_vec).await.unwrap();
+        q.get_best_height().await;
+
+        let raw_header = hex::decode("00000020900a6894ffe887477e6cc536ac6804a4bf8def4998caa978e32c9f9dd554137252eac09613ddd8133e3a6af07c072802b8bccb572f39e46df99fd2bd9b9e78525027de64ffff7f2000000000").unwrap();
+        let raw_header_vec = raw_header.to_vec();
+        q.submit_block_header(raw_header_vec).await.unwrap();
+        q.get_best_height().await;
+        
+        loop {
+            log::info!("Hello");
+            q.get_best_height().await;
+
+            q.is_initialized().await.unwrap();
+
+            tokio::time::sleep(Duration::from_secs(1)).await;
+//             let tx = create_extrinsic(moved_client.clone(), 123);
+//             let info = moved_client.chain_info();
+// 
+//             let state = moved_client.state_at(info.best_hash).unwrap().storage(&[1, 3, 5]);
+// 
+//             pool.submit_one(
+//                 &BlockId::Hash(info.best_hash),
+//                 sp_runtime::transaction_validity::TransactionSource::Local,
+//                 tx,
+//             )
+//             .await;
+        }
+    });
 
     let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
         rpc_builder: Box::new(rpc_builder),
