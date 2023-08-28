@@ -18,7 +18,7 @@ jobs:
 
       - name: Build ${{ matrix.runtime }} runtime
         id: srtool_build
-        uses: chevdor/srtool-actions@v0.7.0
+        uses: chevdor/srtool-actions@v0.8.0
         with:
           image: docker.io/interlayhq/srtool
           tag: nightly-2022-12-15
