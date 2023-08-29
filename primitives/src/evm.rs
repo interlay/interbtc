@@ -40,6 +40,7 @@ impl TryFrom<EvmAddress> for CurrencyId {
 mod tests {
     use super::*;
     use crate::{LpToken, TokenSymbol};
+    use codec::MaxEncodedLen;
 
     #[test]
     fn encode_currency_id_as_evm_address() {
@@ -58,13 +59,15 @@ mod tests {
             CurrencyId::StableLpToken(u32::MAX),
         ];
 
+        let max_encoded_len = currency_ids
+            .iter()
+            .map(|currency_id| currency_id.encode().len())
+            .max()
+            .unwrap();
+
+        assert_eq!(max_encoded_len, CurrencyId::max_encoded_len());
         assert!(
-            currency_ids
-                .iter()
-                .map(|currency_id| currency_id.encode().len())
-                .max()
-                .unwrap()
-                < H160::len_bytes() - CURRENCY_PREFIX_LEN,
+            max_encoded_len < H160::len_bytes() - CURRENCY_PREFIX_LEN,
             "Currency cannot be encoded to address"
         );
 

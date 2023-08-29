@@ -6,6 +6,7 @@ use sp_core::{H160, H256, U256};
 struct MockPrecompileHandle {
     context: fp_evm::Context,
     logs: Vec<Log>,
+    gas_used: u64,
 }
 
 impl fp_evm::PrecompileHandle for MockPrecompileHandle {
@@ -21,8 +22,9 @@ impl fp_evm::PrecompileHandle for MockPrecompileHandle {
         unimplemented!()
     }
 
-    fn record_cost(&mut self, _: u64) -> Result<(), fp_evm::ExitError> {
-        unimplemented!()
+    fn record_cost(&mut self, cost: u64) -> Result<(), fp_evm::ExitError> {
+        self.gas_used += cost;
+        Ok(())
     }
 
     fn remaining_gas(&self) -> u64 {
@@ -150,6 +152,7 @@ fn generate_event() {
             apparent_value: Default::default(),
         },
         logs: Default::default(),
+        gas_used: Default::default(),
     };
 
     assert_ok!(Event::Transfer {
@@ -158,6 +161,8 @@ fn generate_event() {
         value: U256::one(),
     }
     .log(&mut precompile_handle));
+
+    assert_eq!(precompile_handle.gas_used, 1756);
 
     let mut data = [0u8; 32];
     U256::one().to_big_endian(&mut data);

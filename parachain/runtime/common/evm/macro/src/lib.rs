@@ -204,6 +204,8 @@ fn parse_event_enum(input: DeriveInput) -> syn::Result<TokenStream> {
                 let mut writer = ::evm_utils::Writer::new();
                 let data = writer.write(data).build();
 
+                handle.record_cost(::evm_utils::log_cost(topics.len(), data.len())?)?;
+
                 handle.log(
                     handle.context().address,
                     topics,

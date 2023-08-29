@@ -2,7 +2,10 @@ extern crate alloc;
 
 use crate::{EvmString, Writer};
 use alloc::string::{String, ToString};
-use frame_support::dispatch::DispatchError;
+use frame_support::{
+    dispatch::{DispatchError, PostDispatchInfo},
+    sp_runtime::DispatchErrorWithPostInfo,
+};
 use pallet_evm::{ExitRevert, PrecompileFailure};
 use sp_std::prelude::*;
 
@@ -73,5 +76,11 @@ impl From<RevertReason> for PrecompileFailure {
 impl From<DispatchError> for RevertReason {
     fn from(err: DispatchError) -> Self {
         RevertReason::custom(alloc::format!("Runtime error: {err:?}"))
+    }
+}
+
+impl From<DispatchErrorWithPostInfo<PostDispatchInfo>> for RevertReason {
+    fn from(error_and_info: DispatchErrorWithPostInfo<PostDispatchInfo>) -> Self {
+        RevertReason::custom(alloc::format!("Runtime error: {:?}", error_and_info.error))
     }
 }
