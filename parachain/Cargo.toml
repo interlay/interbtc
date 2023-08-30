@@ -25,13 +25,15 @@ futures = "0.3.15"
 jsonrpsee = { version = "0.16.2", features = ["server", "macros"] }
 serde_json = "1.0.68"
 regex = "1.5.6"
+bitcoin_client = { path = "../../polkabtc-clients/bitcoin/", package = "bitcoin", features=["cli"]}
+hex = "0.4.2"
 
 # Parachain dependencies
 interlay-runtime = { package = "interlay-runtime-parachain", path = "./runtime/interlay" }
 kintsugi-runtime = { package = "kintsugi-runtime-parachain", path = "./runtime/kintsugi" }
 runtime-common = { package = "runtime-common", path = "./runtime/common" }
 interbtc-rpc = { path = "../rpc" }
-bitcoin = { path = "../crates/bitcoin" }
+bitcoin = { path = "../crates/bitcoin", features = ["parser"] }
 loans = { path = "../crates/loans" }
 primitives = { package = "interbtc-primitives", path = "../primitives" }
 
@@ -123,6 +125,9 @@ fc-rpc-core = { git = "https://github.com/paritytech/frontier", branch = "polkad
 fp-evm = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42" }
 fp-rpc = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42" }
 pallet-evm = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42" }
+
+tokio = "1.22.0"
+pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.42" }
 
 [features]
 default = []

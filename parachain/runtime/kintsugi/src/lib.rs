@@ -75,7 +75,7 @@ pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{FixedU128, Perbill, Permill};
 
 // interBTC exports
-pub use btc_relay::{bitcoin, Call as BtcRelayCall, TARGET_SPACING};
+pub use btc_relay::{self, bitcoin, Call as BtcRelayCall, TARGET_SPACING};
 pub use constants::{currency::*, time::*};
 pub use oracle_rpc_runtime_api::BalanceWrapper;
 pub use orml_asset_registry::AssetMetadata;
