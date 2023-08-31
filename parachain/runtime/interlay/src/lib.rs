@@ -112,7 +112,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("interlay-parachain"),
     impl_name: create_runtime_str!("interlay-parachain"),
     authoring_version: 1,
-    spec_version: 1025001,
+    spec_version: 1025002,
     impl_version: 1,
     transaction_version: 4,
     apis: RUNTIME_API_VERSIONS,
@@ -496,7 +496,7 @@ type EnsureRootOrAllTechnicalCommittee = EitherOfDiverse<
 >;
 
 parameter_types! {
-    pub const LaunchPeriod: u64 = 1000 * 60 * 60 * 24 * 7; // one week
+    pub const LaunchPeriod: u64 = 60 * 60 * 24 * 7; // one week (seconds)
     pub const VotingPeriod: BlockNumber = 7 * DAYS;
     pub const FastTrackVotingPeriod: BlockNumber = 3 * HOURS;
     // Require 250 vINTR to make a proposal. Given the crowdloan airdrop, this qualifies about 7500
