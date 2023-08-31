@@ -496,7 +496,7 @@ type EnsureRootOrAllTechnicalCommittee = EitherOfDiverse<
 >;
 
 parameter_types! {
-    pub const LaunchPeriod: u64 = 1000 * 60 * 60 * 24 * 7; // one week
+    pub const LaunchPeriod: u64 = 60 * 60 * 24 * 7; // one week (seconds)
     pub const VotingPeriod: BlockNumber = 2 * DAYS;
     pub const FastTrackVotingPeriod: BlockNumber = 3 * HOURS;
     // Require 5 vKINT to make a proposal. Given the crowdloan airdrop, this qualifies about 3500
