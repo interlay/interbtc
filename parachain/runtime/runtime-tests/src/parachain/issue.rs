@@ -1159,9 +1159,9 @@ mod oracle_down {
     fn no_oracle_cancel_issue_succeeds() {
         test_with_initialized_vault(|vault_id| {
             assert_ok!(RuntimeCall::Issue(IssueCall::set_issue_period { period: 1000 }).dispatch(root()));
-            let (issue_id, issue) = request_issue(&vault_id, vault_id.wrapped(4_000));
+            let (issue_id, _) = request_issue(&vault_id, vault_id.wrapped(4_000));
             SecurityPallet::set_active_block_number(1100);
-            mine_blocks(issue.period);
+            mine_blocks(100);
             OraclePallet::expire_all();
             assert_ok!(RuntimeCall::Issue(IssueCall::cancel_issue { issue_id: issue_id })
                 .dispatch(origin_of(account_of(VAULT))));
@@ -1197,9 +1197,9 @@ mod oracle_down {
     fn no_oracle_execute_cancelled_issue_fails() {
         test_with_initialized_vault(|vault_id| {
             assert_ok!(RuntimeCall::Issue(IssueCall::set_issue_period { period: 1000 }).dispatch(root()));
-            let (issue_id, issue) = request_issue(&vault_id, vault_id.wrapped(4_000));
+            let (issue_id, _) = request_issue(&vault_id, vault_id.wrapped(4_000));
             SecurityPallet::set_active_block_number(1100);
-            mine_blocks(issue.period);
+            mine_blocks(100);
             assert_ok!(RuntimeCall::Issue(IssueCall::cancel_issue { issue_id: issue_id })
                 .dispatch(origin_of(account_of(VAULT))));
 

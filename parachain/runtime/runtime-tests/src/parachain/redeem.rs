@@ -597,7 +597,7 @@ mod spec_based_tests {
                 set_redeem_period(2000);
                 let redeem_id = request_redeem(&vault_id);
                 SecurityPallet::set_active_block_number(1100);
-                mine_blocks(100);
+                mine_blocks(12);
                 set_redeem_period(1000);
 
                 // request still uses period = 200, so cancel fails and execute succeeds
