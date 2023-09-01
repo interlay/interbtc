@@ -25,6 +25,7 @@ jobs:
           package: ${{ matrix.runtime }}-runtime-parachain
           runtime_dir: ./parachain/runtime/${{ matrix.runtime }}
           chain: ${{ matrix.runtime }}
+          workdir: ${{ github.workspace }}
       - name: Store srtool digest to disk
         run: |
           echo '${{ steps.srtool_build.outputs.json }}' | jq > ${{ matrix.runtime }}_srtool_output.json
