@@ -1,6 +1,5 @@
 use super::*;
 use frame_support::{pallet_prelude::*, traits::OnRuntimeUpgrade};
-#[cfg(feature = "std")]
 use sp_core::H256;
 
 /// The log target.
