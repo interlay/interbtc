@@ -235,6 +235,7 @@ pub fn new_partial<RuntimeApi, Executor>(
         sc_consensus::DefaultImportQueue<Block, FullClient<RuntimeApi, Executor>>,
         sc_transaction_pool::FullPool<Block, FullClient<RuntimeApi, Executor>>,
         (
+            ParachainBlockImport<RuntimeApi, Executor>,
             Option<Telemetry>,
             Option<TelemetryWorkerHandle>,
             FrontierBackend,
@@ -310,6 +311,8 @@ where
     let overrides = interbtc_rpc::overrides_handle(client.clone());
     let frontier_backend = open_frontier_backend(client.clone(), config, eth_config, overrides.clone())?;
 
+    let parachain_block_import = ParachainBlockImport::new(client.clone(), backend.clone());
+
     let import_queue = if instant_seal {
         // instant sealing
         sc_consensus_manual_seal::import_queue(
@@ -322,7 +325,7 @@ where
 
         cumulus_client_consensus_aura::import_queue::<AuraPair, _, _, _, _, _>(
             cumulus_client_consensus_aura::ImportQueueParams {
-                block_import: ParachainBlockImport::new(client.clone(), backend.clone()),
+                block_import: parachain_block_import.clone(),
                 client: client.clone(),
                 create_inherent_data_providers: move |_parent: sp_core::H256, _| async move {
                     let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
@@ -349,7 +352,13 @@ where
         task_manager,
         transaction_pool,
         select_chain,
-        other: (telemetry, telemetry_worker_handle, frontier_backend, overrides),
+        other: (
+            parachain_block_import,
+            telemetry,
+            telemetry_worker_handle,
+            frontier_backend,
+            overrides,
+        ),
     };
 
     Ok(params)
@@ -409,7 +418,7 @@ where
     let mut parachain_config = prepare_node_config(parachain_config);
 
     let params = new_partial(&parachain_config, &eth_config, false)?;
-    let (mut telemetry, telemetry_worker_handle, frontier_backend, overrides) = params.other;
+    let (parachain_block_import, mut telemetry, telemetry_worker_handle, frontier_backend, overrides) = params.other;
 
     let client = params.client.clone();
     let backend = params.backend.clone();
@@ -541,7 +550,7 @@ where
     if validator {
         let parachain_consensus = build_consensus(
             client.clone(),
-            ParachainBlockImport::new(client.clone(), backend.clone()),
+            parachain_block_import,
             prometheus_registry.as_ref(),
             telemetry.as_ref().map(|t| t.handle()),
             &task_manager,
@@ -705,7 +714,7 @@ where
         keystore_container,
         select_chain: maybe_select_chain,
         transaction_pool,
-        other: (mut telemetry, _telemetry_worker_handle, frontier_backend, overrides),
+        other: (_, mut telemetry, _telemetry_worker_handle, frontier_backend, overrides),
     } = new_partial::<RuntimeApi, Executor>(&config, &eth_config, true)?;
 
     let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
