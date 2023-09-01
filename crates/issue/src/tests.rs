@@ -425,7 +425,7 @@ fn execute_issue_fails_for_replace_request() {
 }
 
 #[test]
-fn complete_issue_request_for_replace() {
+fn fail_to_cancel_completed_replace_issue_request() {
     run_test(|| {
         let issue_id = setup_execute(3, 1, 1, 3, AccountOrVault::Vault(OLD_VAULT));
         assert_ok!(Issue::_complete_vault_issue(issue_id));
@@ -438,15 +438,15 @@ fn complete_issue_request_for_replace() {
 }
 
 #[test]
-fn cancel_issue_for_replace() {
+fn cancel_replace_issue_request() {
     run_test(|| {
         let griefing_collateral = 10;
         let issue_id = setup_execute(3, 1, griefing_collateral, 3, AccountOrVault::Vault(OLD_VAULT));
 
-        assert_eq!(
-            Issue::cancel_issue_request_and_slash_collateral(&issue_id),
-            Ok(griefing_collateral)
-        );
+        ext::btc_relay::has_request_expired::<Test>.mock_safe(move |_, _, _| MockResult::Return(Ok(true)));
+        ext::vault_registry::decrease_to_be_issued_tokens::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
+
+        assert_ok!(Issue::_cancel_issue(USER, issue_id));
 
         assert_eq!(
             Issue::issue_requests(&issue_id).unwrap().status,
@@ -455,9 +455,18 @@ fn cancel_issue_for_replace() {
 
         let request_issue_event = TestEvent::Issue(Event::CancelIssue {
             issue_id,
-            requester: OLD_VAULT.account_id,
-            griefing_collateral,
+            requester: USER,
+            griefing_collateral: 0,
         });
         assert!(System::events().iter().any(|a| a.event == request_issue_event));
+    });
+}
+
+#[test]
+fn cancel_replace_issue_when_request_not_expired() {
+    run_test(|| {
+        let griefing_collateral = 10;
+        let issue_id = setup_execute(3, 1, griefing_collateral, 3, AccountOrVault::Vault(OLD_VAULT));
+        assert_noop!(cancel_issue(USER, &issue_id), TestError::TimeNotExpired);
     });
 }

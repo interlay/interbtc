@@ -53,6 +53,8 @@ fn default_vault() -> DefaultVault<Test> {
 #[test]
 fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
     run_test(|| {
+        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(move |_vault_id| MockResult::Return(Ok(())));
+
         let amount = Amount::<Test>::new(2, <Test as currency::Config>::GetWrappedCurrencyId::get());
         amount.mint_to(&USER).unwrap();
         let amount = 10_000_000;
@@ -567,6 +569,7 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
 #[test]
 fn test_cancel_redeem_fails_with_unauthorized_caller() {
     run_test(|| {
+        ext::btc_relay::has_request_expired::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(true)));
         Security::<Test>::set_active_block_number(20);
 
         Redeem::get_open_redeem_request_from_id.mock_safe(|_| {
@@ -734,14 +737,13 @@ mod redeem_replace_tests {
 
     fn setup_mocks() {
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
-        ext::vault_registry::requestable_to_be_replaced_tokens::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(wrapped(1000000))));
         ext::vault_registry::transfer_funds::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
         ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>
             .mock_safe(move |_vault_id, _amount| MockResult::Return(Ok(())));
         ext::security::get_secure_id::<Test>.mock_safe(move |_| MockResult::Return(H256([0; 32])));
         ext::vault_registry::is_vault_below_premium_threshold::<Test>
             .mock_safe(move |_vault_id| MockResult::Return(Ok(false)));
+        ext::vault_registry::is_vault_fully_replacing::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(false)));
     }
 
     fn setup_execute_redeem() {
@@ -754,9 +756,11 @@ mod redeem_replace_tests {
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
             .mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
         ext::btc_relay::has_request_expired::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(true)));
-        ext::issue::get_vault_from_id_from_issue_id::<Test>.mock_safe(|_| MockResult::Return(Ok(NEW_VAULT)));
-        ext::vault_registry::cancel_replace_tokens::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
-        ext::issue::cancel_issue_request_and_slash_collateral::<Test>.mock_safe(|_| MockResult::Return(Ok(1)));
+        ext::issue::get_vault_from_issue_id::<Test>.mock_safe(|_| MockResult::Return(Ok(NEW_VAULT)));
+        ext::vault_registry::cancel_replace_tokens::<Test>.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
+        ext::vault_registry::transfer_funds_saturated::<Test>
+            .mock_safe(move |_, _, amount| MockResult::Return(Ok(amount.clone())));
+        ext::issue::cancel_issue::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
         let amount = 10;
         assert_ok!(Redeem::request_replace(
@@ -850,8 +854,8 @@ mod redeem_replace_tests {
                 issue_id: H256([1; 32]),
                 old_vault: OLD_VAULT,
                 new_vault: NEW_VAULT,
-                slashed_amount: 1,
                 status: RedeemRequestStatus::Cancelled,
+                punishment_fee: 1,
             });
 
             assert_err!(

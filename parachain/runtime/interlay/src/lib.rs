@@ -1245,7 +1245,8 @@ construct_runtime! {
         Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>} = 62,
         Issue: issue::{Pallet, Call, Config<T>, Storage, Event<T>} = 63,
         Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>} = 64,
-        Fee: fee::{Pallet, Call, Config<T>, Storage} = 65,
+        // Replace: 65
+        Fee: fee::{Pallet, Call, Config<T>, Storage} = 66,
         // Refund: 67
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>} = 68,
         ClientsInfo: clients_info::{Pallet, Call, Storage, Event<T>} = 69,

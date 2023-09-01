@@ -608,7 +608,12 @@ fn cancel_replace_tokens_succeeds() {
         assert_ok!(VaultRegistry::try_increase_to_be_redeemed_tokens(&old_id, &wrapped(50)));
         assert_ok!(VaultRegistry::try_increase_to_be_issued_tokens(&new_id, &wrapped(50)));
 
-        assert_ok!(VaultRegistry::cancel_replace_tokens(&old_id, &new_id, &wrapped(50)));
+        assert_ok!(VaultRegistry::cancel_replace_tokens(
+            &old_id,
+            &new_id,
+            &wrapped(50),
+            &wrapped(50)
+        ));
 
         let old_vault = VaultRegistry::get_active_rich_vault_from_id(&old_id).unwrap();
         let new_vault = VaultRegistry::get_active_rich_vault_from_id(&new_id).unwrap();

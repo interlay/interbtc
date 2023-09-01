@@ -111,7 +111,7 @@ pub mod pallet {
         }
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            crate::types::v1::migrate_v1_to_v6::<T>()
+            types::v7::migrate_v6_to_v7::<T>()
         }
     }
 
@@ -976,14 +976,6 @@ impl<T: Config> Pallet<T> {
         Ok(btc_address)
     }
 
-    /// returns the amount of tokens that a vault can request to be replaced on top of the
-    /// current to-be-replaced tokens
-    pub fn requestable_to_be_replaced_tokens(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
-        let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-
-        vault.issued_tokens().checked_sub(&vault.to_be_redeemed_tokens())
-    }
-
     /// Decreases the amount of tokens to be issued in the next issue request from the
     /// vault, or from the liquidation vault if the vault is liquidated
     ///
@@ -1048,6 +1040,37 @@ impl<T: Config> Pallet<T> {
             increase: tokens.amount(),
         });
         Ok(())
+    }
+
+    /// Checks if redeeming a certain amount of tokens from a vault would fully replace the vault's locked tokens.
+    ///
+    /// # Arguments
+    /// * `vault_id` - the id of the vault to check
+    /// * `to_redeem_tokens` - the amount of tokens to be redeemed
+    ///
+    /// # Errors
+    /// * `VaultNotFound` - if no vault exists for the given `vault_id`
+    /// * `InsufficientTokensCommitted` - if the amount of to-be-redeemed tokens is too low
+    ///
+    /// # Returns
+    /// `Ok(true)` if redeeming the specified `to_redeem_tokens` would fully replace the vault's locked tokens.
+    /// `Ok(false)` otherwise.
+    pub fn is_vault_fully_replacing(
+        vault_id: &DefaultVaultId<T>,
+        to_redeem_tokens: &Amount<T>,
+    ) -> Result<bool, DispatchError> {
+        let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
+        let max_redeemable = vault.issued_tokens().checked_sub(&vault.to_be_redeemed_tokens())?;
+        ensure!(
+            max_redeemable.ge(&to_redeem_tokens)?,
+            Error::<T>::InsufficientTokensCommitted
+        );
+
+        if to_redeem_tokens == &max_redeemable {
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 
     /// Subtracts an amount tokens from the to-be-redeemed tokens balance of a vault.
@@ -1279,7 +1302,8 @@ impl<T: Config> Pallet<T> {
     pub fn cancel_replace_tokens(
         old_vault_id: &DefaultVaultId<T>,
         new_vault_id: &DefaultVaultId<T>,
-        tokens: &Amount<T>,
+        redeem_tokens: &Amount<T>,
+        issue_tokens: &Amount<T>,
     ) -> DispatchResult {
         let mut old_vault = Self::get_rich_vault_from_id(&old_vault_id)?;
         let mut new_vault = Self::get_rich_vault_from_id(&new_vault_id)?;
@@ -1287,7 +1311,7 @@ impl<T: Config> Pallet<T> {
         if old_vault.data.is_liquidated() {
             let to_be_transferred = Self::calculate_collateral(
                 &old_vault.liquidated_collateral(),
-                tokens,
+                redeem_tokens,
                 &old_vault.to_be_redeemed_tokens(),
             )?;
             old_vault.decrease_liquidated_collateral(&to_be_transferred)?;
@@ -1300,8 +1324,8 @@ impl<T: Config> Pallet<T> {
             )?;
         }
 
-        old_vault.cancel_redeem_tokens(tokens)?;
-        new_vault.cancel_issue_tokens(tokens)?;
+        old_vault.cancel_redeem_tokens(redeem_tokens)?;
+        new_vault.cancel_issue_tokens(issue_tokens)?;
 
         Ok(())
     }

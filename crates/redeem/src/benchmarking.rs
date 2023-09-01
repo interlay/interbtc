@@ -221,11 +221,18 @@ fn setup_replace<T: crate::Config>(
     old_vault_id: &DefaultVaultId<T>,
     new_vault_id: &DefaultVaultId<T>,
     to_be_replaced: Amount<T>,
+    expire_redeem_request: bool,
 ) -> (H256, BalanceOf<T>)
 where
     <<T as currency::Config>::Balance as TryInto<i64>>::Error: Debug,
 {
     let value: Amount<T> = Amount::new(2u32.into(), get_wrapped_currency_id::<T>());
+
+    let btc_address = if expire_redeem_request {
+        Default::default()
+    } else {
+        BtcAddress::dummy()
+    };
 
     //set up redeem
     let redeem_id = H256::zero();
@@ -234,6 +241,8 @@ where
     redeem_request.opentime = Security::<T>::active_block_number();
     redeem_request.issue_id = Some(H256::zero());
     redeem_request.amount_btc = value.amount();
+    redeem_request.btc_address = btc_address;
+
     Redeem::<T>::insert_redeem_request(&redeem_id, &redeem_request);
 
     VaultRegistry::<T>::try_increase_to_be_redeemed_tokens(&old_vault_id, &to_be_replaced).unwrap();
@@ -242,17 +251,19 @@ where
     mint_and_reserve_wrapped::<T>(&redeem_request.redeemer, redeem_request.amount_btc);
 
     // expire redeem request
-    initialize_and_mine_blocks_until_expiry::<T>(&redeem_request);
-    Security::<T>::set_active_block_number(
-        Security::<T>::active_block_number() + Redeem::<T>::redeem_period() + 100u32.into(),
-    );
+    if expire_redeem_request {
+        initialize_and_mine_blocks_until_expiry::<T>(&redeem_request);
+        Security::<T>::set_active_block_number(
+            Security::<T>::active_block_number() + Redeem::<T>::redeem_period() + 100u32.into(),
+        );
+    }
 
     // set up issue
     let issue_id = H256::zero();
     let issue_request = IssueRequest {
-        requester: AccountOrVault::Account(old_vault_id.account_id.clone()),
+        requester: AccountOrVault::Vault(old_vault_id.clone()),
         vault: new_vault_id.clone(),
-        btc_address: Default::default(),
+        btc_address,
         amount: value.amount(),
         btc_height: Default::default(),
         btc_public_key: Default::default(),
@@ -267,8 +278,6 @@ where
     let value: Amount<T> = Amount::new(3u32.into(), get_wrapped_currency_id::<T>());
 
     VaultRegistry::<T>::try_increase_to_be_issued_tokens(&new_vault_id, &value).unwrap();
-
-    Redeem::<T>::insert_request(&redeem_id, &issue_id);
 
     (redeem_id, redeem_request.amount_btc)
 }
@@ -492,7 +501,7 @@ pub mod benchmarks {
             ..
         } = setup_chain::<T>();
 
-        let (redeem_id, amount_btc) = setup_replace::<T>(&old_vault_id, &new_vault_id, to_be_replaced);
+        let (redeem_id, amount_btc) = setup_replace::<T>(&old_vault_id, &new_vault_id, to_be_replaced, true);
 
         let vault_id = activate_lending_and_get_vault_id::<T>();
 
@@ -599,6 +608,62 @@ pub mod benchmarks {
             new_vault_id.clone(),
             get_native_currency_id::<T>(),
         );
+    }
+
+    #[benchmark]
+    pub fn execute_replace(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<2, 3>, b: Linear<541, 2_048>) {
+        let ChainState {
+            old_vault_id,
+            to_be_replaced,
+            new_vault_id,
+            ..
+        } = setup_chain::<T>();
+
+        let (redeem_id, amount_btc) = setup_replace::<T>(&old_vault_id, &new_vault_id, to_be_replaced, false);
+
+        let vault_id = activate_lending_and_get_vault_id::<T>();
+
+        initialize_oracle::<T>();
+
+        register_public_key::<T>(vault_id.clone());
+        VaultRegistry::<T>::insert_vault(
+            &vault_id,
+            Vault {
+                id: vault_id.clone(),
+                issued_tokens: amount_btc,
+                to_be_redeemed_tokens: amount_btc,
+                ..Vault::new(vault_id.clone())
+            },
+        );
+
+        mint_collateral::<T>(&vault_id.account_id, 1000u32.into());
+        assert_ok!(VaultRegistry::<T>::try_deposit_collateral(&vault_id, &collateral(1000)));
+
+        assert_ok!(Oracle::<T>::_set_exchange_rate(
+            get_collateral_currency_id::<T>(),
+            UnsignedFixedPoint::<T>::one()
+        ));
+
+        let relayer_id: T::AccountId = account("Relayer", 0, 0);
+
+        // we always need these outputs for redeem
+        let mut outputs = vec![
+            TransactionOutput::payment(amount_btc.try_into().unwrap(), &BtcAddress::dummy()),
+            TransactionOutput::op_return(0, H256::zero().as_bytes()),
+        ];
+
+        // add return-to-self output
+        if o == 3 {
+            outputs.push(TransactionOutput::payment(
+                2u32.into(),
+                &BtcAddress::P2PKH(sp_core::H160::zero()),
+            ));
+        }
+
+        let transaction = BtcRelay::<T>::initialize_and_store_max(relayer_id.clone(), h, i, outputs, b as usize);
+
+        #[extrinsic_call]
+        execute_redeem(RawOrigin::Signed(vault_id.account_id.clone()), redeem_id, transaction);
     }
 
     impl_benchmark_test_suite!(

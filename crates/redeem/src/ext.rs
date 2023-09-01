@@ -43,18 +43,20 @@ pub(crate) mod vault_registry {
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use vault_registry::types::{CurrencyId, CurrencySource, DefaultVault};
 
+    pub fn is_vault_fully_replacing<T: crate::Config>(
+        vault_id: &DefaultVaultId<T>,
+        to_redeem_tokens: &Amount<T>,
+    ) -> Result<bool, DispatchError> {
+        <vault_registry::Pallet<T>>::is_vault_fully_replacing(vault_id, to_redeem_tokens)
+    }
+
     pub fn cancel_replace_tokens<T: crate::Config>(
         old_vault_id: &DefaultVaultId<T>,
         new_vault_id: &DefaultVaultId<T>,
-        tokens: &Amount<T>,
+        redeem_tokens: &Amount<T>,
+        issue_tokens: &Amount<T>,
     ) -> DispatchResult {
-        <vault_registry::Pallet<T>>::cancel_replace_tokens(old_vault_id, new_vault_id, tokens)
-    }
-
-    pub fn requestable_to_be_replaced_tokens<T: crate::Config>(
-        vault_id: &DefaultVaultId<T>,
-    ) -> Result<Amount<T>, DispatchError> {
-        <vault_registry::Pallet<T>>::requestable_to_be_replaced_tokens(vault_id)
+        <vault_registry::Pallet<T>>::cancel_replace_tokens(old_vault_id, new_vault_id, redeem_tokens, issue_tokens)
     }
 
     pub fn get_liquidated_collateral<T: crate::Config>(
@@ -256,15 +258,11 @@ pub(crate) mod issue {
         <issue::Pallet<T>>::_complete_vault_issue(issue_id)
     }
 
-    pub fn get_vault_from_id_from_issue_id<T: crate::Config>(
-        issue_id: &H256,
-    ) -> Result<DefaultVaultId<T>, DispatchError> {
-        <issue::Pallet<T>>::get_vault_from_id_from_issue_id(issue_id)
+    pub fn get_vault_from_issue_id<T: crate::Config>(issue_id: &H256) -> Result<DefaultVaultId<T>, DispatchError> {
+        <issue::Pallet<T>>::get_vault_from_issue_id(issue_id)
     }
 
-    pub fn cancel_issue_request_and_slash_collateral<T: crate::Config>(
-        issue_id: &H256,
-    ) -> Result<BalanceOf<T>, DispatchError> {
-        <issue::Pallet<T>>::cancel_issue_request_and_slash_collateral(issue_id)
+    pub fn cancel_issue<T: crate::Config>(issue_id: H256, redeemer: T::AccountId) -> Result<(), DispatchError> {
+        <issue::Pallet<T>>::_cancel_issue(redeemer, issue_id)
     }
 }

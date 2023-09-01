@@ -32,7 +32,7 @@ pub mod types;
 pub use crate::types::{DefaultIssueRequest, IssueRequest, IssueRequestStatus};
 
 use crate::types::{BalanceOf, DefaultVaultId, Version};
-use bitcoin::{merkle::PartialTransactionProof, types::FullTransactionProof, Address};
+use bitcoin::{merkle::PartialTransactionProof, types::FullTransactionProof};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
 use frame_support::{dispatch::DispatchError, ensure, pallet_prelude::Weight, traits::Get, transactional, PalletId};
@@ -76,7 +76,6 @@ pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
-    use primitives::AccountOrVault;
 
     /// ## Configuration
     /// The pallet's configuration trait.
@@ -183,7 +182,7 @@ pub mod pallet {
         Version::V4
     }
 
-    /// Build storage at V1 (requires default 0).
+    /// Build storage at V5 (requires default 4).
     #[pallet::storage]
     #[pallet::getter(fn storage_version)]
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery, DefaultForStorageVersion>;
@@ -192,6 +191,13 @@ pub mod pallet {
     pub struct GenesisConfig<T: Config> {
         pub issue_period: T::BlockNumber,
         pub issue_btc_dust_value: BalanceOf<T>,
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> Weight {
+            migration::v5::migrate_v4_to_v5::<T>()
+        }
     }
 
     #[cfg(feature = "std")]
@@ -270,7 +276,10 @@ pub mod pallet {
         /// * `origin` - sender of the transaction
         /// * `issue_id` - identifier of issue request as output from request_issue
         #[pallet::call_index(2)]
-        #[pallet::weight(<T as Config>::WeightInfo::cancel_issue())]
+        #[pallet::weight(
+            <T as Config>::WeightInfo::cancel_issue()
+                .max(<T as Config>::WeightInfo::cancel_issue_for_replace())
+        )]
         #[transactional]
         pub fn cancel_issue(origin: OriginFor<T>, issue_id: H256) -> DispatchResultWithPostInfo {
             let requester = ensure_signed(origin)?;
@@ -305,37 +314,8 @@ impl<T: Config> Pallet<T> {
         T::TreasuryPalletId::get().into_account_truncating()
     }
 
-    // Function to cancel an issue request and slash collateral
-    pub fn cancel_issue_request_and_slash_collateral(issue_id: &H256) -> Result<BalanceOf<T>, DispatchError> {
-        // Get the issue request using the provided issue_id
-        let issue = Self::get_issue_request_from_id(issue_id)?;
-
-        // Retrieve the amount of griefing collateral from the issue
-        let griefing_collateral = issue.griefing_collateral();
-
-        // Transfer griefing collateral from the requester's account to the vault's account
-        ext::vault_registry::transfer_funds::<T>(
-            CurrencySource::UserGriefing(issue.requester.get_account().clone()),
-            CurrencySource::FreeBalance(issue.vault.account_id),
-            &griefing_collateral,
-        )?;
-
-        // Set the status of the issue request to 'Cancelled'
-        Self::set_issue_status(issue_id.clone(), IssueRequestStatus::Cancelled);
-
-        // Emit an event to indicate the cancellation of the issue request
-        Self::deposit_event(Event::CancelIssue {
-            issue_id: issue_id.clone(),
-            requester: issue.requester.get_account().clone(),
-            griefing_collateral: griefing_collateral.amount(),
-        });
-
-        // Return the amount of griefing collateral that was slashed
-        Ok(griefing_collateral.amount())
-    }
-
     // Function to retrieve the vault ID associated with a given issue ID
-    pub fn get_vault_from_id_from_issue_id(issue_id: &H256) -> Result<DefaultVaultId<T>, DispatchError> {
+    pub fn get_vault_from_issue_id(issue_id: &H256) -> Result<DefaultVaultId<T>, DispatchError> {
         // Retrieve the issue request using the provided issue_id
         let issue_request = Self::get_issue_request_from_id(issue_id)?;
 
@@ -348,18 +328,8 @@ impl<T: Config> Pallet<T> {
         // Retrieve the issue request using the provided issue_id
         let issue = Self::get_issue_request_from_id(&issue_id)?;
 
-        // Calculate the total amount including both issue amount and fee
-        let total = issue.amount().checked_add(&issue.fee())?;
-
         // Decrease the to-be-issued tokens and increase the issued tokens for the new vault
-        ext::vault_registry::issue_tokens::<T>(&issue.vault, &total)?;
-
-        // Distribute rewards based on the issue fee
-        ext::fee::distribute_rewards::<T>(&issue.fee())?;
-
-        // Release the locked griefing collateral to the requester's account
-        let griefing_collateral: Amount<T> = issue.griefing_collateral();
-        griefing_collateral.unlock_on(&issue.requester.get_account())?;
+        ext::vault_registry::issue_tokens::<T>(&issue.vault, &issue.amount())?;
 
         // Set the issue status to 'Completed'
         Self::set_issue_status(issue_id, IssueRequestStatus::Completed);
@@ -373,7 +343,7 @@ impl<T: Config> Pallet<T> {
         amount_requested: BalanceOf<T>,
         vault_id: DefaultVaultId<T>,
         griefing_currency: CurrencyId<T>,
-    ) -> Result<(H256, Address), DispatchError> {
+    ) -> Result<(H256, BtcAddress), DispatchError> {
         let amount_requested = Amount::new(amount_requested, vault_id.wrapped_currency());
 
         ensure!(
@@ -392,10 +362,28 @@ impl<T: Config> Pallet<T> {
         // Check that the vault is currently not banned
         ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
-        // calculate griefing collateral based on the total amount of tokens to be issued
-        let amount_collateral = amount_requested.convert_to(griefing_currency)?;
-        let griefing_collateral = ext::fee::get_issue_griefing_collateral::<T>(&amount_collateral)?;
-        griefing_collateral.lock_on(requester.get_account())?;
+        // check if it's a replace request
+        let (griefing_collateral, fee, amount_user) = if requester.is_vault_account() {
+            (
+                // for replace request griefing collateral remains as zero
+                Amount::zero(griefing_currency),
+                // for replace request fee remains as zero
+                Amount::zero(vault_id.wrapped_currency()),
+                // for replace amount given to old_vault should be equal to specified amount
+                amount_requested.clone(),
+            )
+        } else {
+            // calculate griefing collateral based on the total amount of tokens to be issued
+            let amount_collateral = amount_requested.convert_to(griefing_currency)?;
+            let griefing_collateral = ext::fee::get_issue_griefing_collateral::<T>(&amount_collateral)?;
+            griefing_collateral.lock_on(requester.get_account())?;
+
+            let fee = ext::fee::get_issue_fee::<T>(&amount_requested)?;
+            // calculate the amount of tokens that will be transferred to the user upon execution
+            let amount_user = amount_requested.checked_sub(&fee)?;
+
+            (griefing_collateral, fee, amount_user)
+        };
 
         // only continue if the payment is above the dust value
         ensure!(
@@ -404,10 +392,6 @@ impl<T: Config> Pallet<T> {
         );
 
         ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&vault_id, &amount_requested)?;
-
-        let fee = ext::fee::get_issue_fee::<T>(&amount_requested)?;
-        // calculate the amount of tokens that will be transferred to the user upon execution
-        let amount_user = amount_requested.checked_sub(&fee)?;
 
         let issue_id = ext::security::get_secure_id::<T>(&requester.get_account());
         let btc_address = ext::vault_registry::register_deposit_address::<T>(&vault_id, issue_id)?;
@@ -537,12 +521,22 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Cancels CBA issuance if time has expired and slashes collateral.
-    fn _cancel_issue(requester: T::AccountId, issue_id: H256) -> Result<(), DispatchError> {
+    pub fn _cancel_issue(requester: T::AccountId, issue_id: H256) -> Result<(), DispatchError> {
         let issue = Self::get_pending_issue(&issue_id)?;
 
         let issue_period = Self::issue_period().max(issue.period);
-        let to_be_slashed_collateral =
-            if ext::btc_relay::has_request_expired::<T>(issue.opentime, issue.btc_height, issue_period)? {
+        let is_replace_request = issue.requester.is_vault_account();
+
+        let issue_expired = ext::btc_relay::has_request_expired::<T>(issue.opentime, issue.btc_height, issue_period)?;
+
+        // its a replace issue call if requester is vault
+        let slashed_collateral = if is_replace_request {
+            // only cancel replace request if issue is expired
+            ensure!(issue_expired, Error::<T>::TimeNotExpired);
+            // for replace request griefing collateral is set as zero
+            issue.griefing_collateral()
+        } else {
+            let to_be_slashed_collateral = if issue_expired {
                 // anyone can cancel the issue request once expired
                 issue.griefing_collateral()
             } else if issue.requester.get_account() == &requester {
@@ -576,30 +570,35 @@ impl<T: Config> Pallet<T> {
                 return Err(Error::<T>::TimeNotExpired.into());
             };
 
-        if ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
-            // return slashed griefing collateral if the vault is liquidated
-            to_be_slashed_collateral.unlock_on(issue.requester.get_account())?;
-        } else {
-            // otherwise give slashed griefing collateral to the treasury
-            // since the vault may have purposely blocked minting
-            ext::vault_registry::transfer_funds::<T>(
-                CurrencySource::UserGriefing(issue.requester.get_account().clone()),
-                CurrencySource::FreeBalance(Self::treasury_account_id()),
-                &to_be_slashed_collateral,
-            )?;
-        }
+            if ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
+                // return slashed griefing collateral if the vault is liquidated
+                to_be_slashed_collateral.unlock_on(issue.requester.get_account())?;
+            } else {
+                // otherwise give slashed griefing collateral to the treasury
+                // since the vault may have purposely blocked minting
+                ext::vault_registry::transfer_funds::<T>(
+                    CurrencySource::UserGriefing(issue.requester.get_account().clone()),
+                    CurrencySource::FreeBalance(Self::treasury_account_id()),
+                    &to_be_slashed_collateral,
+                )?;
+            }
 
-        // decrease to-be-issued tokens
-        let full_amount = issue.amount().checked_add(&issue.fee())?;
-        ext::vault_registry::decrease_to_be_issued_tokens::<T>(&issue.vault, &full_amount)?;
+            // decrease to-be-issued tokens
+            let full_amount = issue.amount().checked_add(&issue.fee())?;
+            ext::vault_registry::decrease_to_be_issued_tokens::<T>(&issue.vault, &full_amount)?;
 
+            to_be_slashed_collateral
+        };
+
+        // Set the status of the issue request to 'Cancelled'
         Self::set_issue_status(issue_id, IssueRequestStatus::Cancelled);
 
         Self::deposit_event(Event::CancelIssue {
             issue_id,
             requester,
-            griefing_collateral: to_be_slashed_collateral.amount(),
+            griefing_collateral: slashed_collateral.amount(),
         });
+
         Ok(())
     }
 

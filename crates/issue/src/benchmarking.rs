@@ -27,16 +27,16 @@ fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: BalanceO
     deposit_tokens::<T>(get_native_currency_id::<T>(), account_id, amount);
 }
 
-fn get_vault_id<T: crate::Config>() -> DefaultVaultId<T> {
+fn get_vault_id<T: crate::Config>(name: &'static str) -> DefaultVaultId<T> {
     VaultId::new(
-        account("Vault", 0, 0),
+        account(name, 0, 0),
         get_collateral_currency_id::<T>(),
         get_wrapped_currency_id::<T>(),
     )
 }
 
 fn setup_chain<T: crate::Config>() {
-    let dummy_vault = get_vault_id::<T>();
+    let dummy_vault = get_vault_id::<T>("Vault");
 
     Oracle::<T>::_set_exchange_rate(
         get_native_currency_id::<T>(), // for griefing collateral
@@ -114,9 +114,11 @@ fn setup_issue<T: crate::Config>(
     vin: u32,
     vout: u32,
     tx_size: u32,
+    setup_as_replace: bool,
 ) -> ChainState<T> {
     let origin: T::AccountId = account("Origin", 0, 0);
-    let vault_id = get_vault_id::<T>();
+    let new_vault_id = get_vault_id::<T>("Vault");
+    let old_vault_id = get_vault_id::<T>("OldVault");
     let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
     mint_collateral::<T>(&origin, (1u32 << 31).into());
@@ -128,8 +130,12 @@ fn setup_issue<T: crate::Config>(
 
     let issue_id = H256::zero();
     let issue_request = IssueRequest {
-        requester: AccountOrVault::Account(origin.clone()),
-        vault: vault_id.clone(),
+        requester: if setup_as_replace {
+            AccountOrVault::Vault(old_vault_id.clone())
+        } else {
+            AccountOrVault::Account(origin.clone())
+        },
+        vault: new_vault_id.clone(),
         btc_address: vault_btc_address,
         amount: value.amount(),
         btc_height: Default::default(),
@@ -159,11 +165,14 @@ fn setup_issue<T: crate::Config>(
     let transaction =
         BtcRelay::<T>::initialize_and_store_max(relayer_id.clone(), hashes, vin, outputs, tx_size as usize);
 
-    register_vault::<T>(vault_id.clone());
+    register_vault::<T>(new_vault_id.clone());
+    register_vault::<T>(old_vault_id.clone());
 
-    VaultRegistry::<T>::try_increase_to_be_issued_tokens(&vault_id, &value).unwrap();
-    let secure_id = Security::<T>::get_secure_id(&vault_id.account_id);
-    VaultRegistry::<T>::register_deposit_address(&vault_id, secure_id).unwrap();
+    VaultRegistry::<T>::try_increase_to_be_issued_tokens(&new_vault_id, &value).unwrap();
+    VaultRegistry::<T>::try_increase_to_be_issued_tokens(&old_vault_id, &value).unwrap();
+
+    let secure_id = Security::<T>::get_secure_id(&new_vault_id.account_id);
+    VaultRegistry::<T>::register_deposit_address(&new_vault_id, secure_id).unwrap();
 
     ChainState {
         issue_id,
@@ -180,7 +189,7 @@ pub mod benchmarks {
     fn request_issue() {
         let origin: T::AccountId = account("Origin", 0, 0);
         let amount = Issue::<T>::issue_btc_dust_value(get_wrapped_currency_id::<T>()).amount() + 1000u32.into();
-        let vault_id = get_vault_id::<T>();
+        let vault_id = get_vault_id::<T>("Vault");
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
         mint_collateral::<T>(&origin, (1u32 << 31).into());
@@ -216,7 +225,7 @@ pub mod benchmarks {
     #[benchmark]
     fn execute_issue_exact(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<1, 10>, b: Linear<770, 2_048>) {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let issue_data = setup_issue::<T>(PaymentType::Exact, h, i, o, b);
+        let issue_data = setup_issue::<T>(PaymentType::Exact, h, i, o, b, false);
 
         #[extrinsic_call]
         execute_issue(RawOrigin::Signed(origin), issue_data.issue_id, issue_data.transaction);
@@ -225,7 +234,7 @@ pub mod benchmarks {
     #[benchmark]
     fn execute_issue_overpayment(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<1, 10>, b: Linear<770, 2_048>) {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let issue_data = setup_issue::<T>(PaymentType::Overpayment, h, i, o, b);
+        let issue_data = setup_issue::<T>(PaymentType::Overpayment, h, i, o, b, false);
 
         #[extrinsic_call]
         execute_issue(RawOrigin::Signed(origin), issue_data.issue_id, issue_data.transaction);
@@ -234,7 +243,7 @@ pub mod benchmarks {
     #[benchmark]
     fn execute_issue_underpayment(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<1, 10>, b: Linear<770, 2_048>) {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let issue_data = setup_issue::<T>(PaymentType::Underpayment, h, i, o, b);
+        let issue_data = setup_issue::<T>(PaymentType::Underpayment, h, i, o, b, false);
 
         #[extrinsic_call]
         execute_issue(RawOrigin::Signed(origin), issue_data.issue_id, issue_data.transaction);
@@ -243,7 +252,7 @@ pub mod benchmarks {
     #[benchmark]
     fn execute_expired_issue_exact(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<1, 10>, b: Linear<770, 2_048>) {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let issue_data = setup_issue::<T>(PaymentType::Exact, h, i, o, b);
+        let issue_data = setup_issue::<T>(PaymentType::Exact, h, i, o, b, false);
         expire_issue::<T>(&issue_data);
 
         #[extrinsic_call]
@@ -253,7 +262,7 @@ pub mod benchmarks {
     #[benchmark]
     fn execute_expired_issue_overpayment(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<1, 10>, b: Linear<770, 2_048>) {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let issue_data = setup_issue::<T>(PaymentType::Overpayment, h, i, o, b);
+        let issue_data = setup_issue::<T>(PaymentType::Overpayment, h, i, o, b, false);
         expire_issue::<T>(&issue_data);
 
         #[extrinsic_call]
@@ -263,7 +272,7 @@ pub mod benchmarks {
     #[benchmark]
     fn execute_expired_issue_underpayment(h: Linear<2, 10>, i: Linear<1, 10>, o: Linear<1, 10>, b: Linear<770, 2_048>) {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let issue_data = setup_issue::<T>(PaymentType::Underpayment, h, i, o, b);
+        let issue_data = setup_issue::<T>(PaymentType::Underpayment, h, i, o, b, false);
         expire_issue::<T>(&issue_data);
 
         #[extrinsic_call]
@@ -274,7 +283,18 @@ pub mod benchmarks {
     fn cancel_issue() {
         let origin: T::AccountId = account("Origin", 0, 0);
 
-        let issue_data = setup_issue::<T>(PaymentType::Exact, 2, 2, 2, 770);
+        let issue_data = setup_issue::<T>(PaymentType::Exact, 2, 2, 2, 770, false);
+        expire_issue::<T>(&issue_data);
+
+        #[extrinsic_call]
+        cancel_issue(RawOrigin::Signed(origin), issue_data.issue_id);
+    }
+
+    #[benchmark]
+    fn cancel_issue_for_replace() {
+        let origin: T::AccountId = account("Origin", 0, 0);
+
+        let issue_data = setup_issue::<T>(PaymentType::Exact, 2, 2, 2, 770, true);
         expire_issue::<T>(&issue_data);
 
         #[extrinsic_call]

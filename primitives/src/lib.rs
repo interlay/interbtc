@@ -91,6 +91,7 @@ pub enum AccountOrVault<AccountId, CurrencyId: Copy> {
     Vault(VaultId<AccountId, CurrencyId>),
 }
 impl<AccountId, CurrencyId: Copy> AccountOrVault<AccountId, CurrencyId> {
+    // Method to retrieve the account associated with an `AccountOrVault` instance
     pub fn get_account(&self) -> &AccountId {
         match self {
             AccountOrVault::Account(account_id) => account_id,
@@ -98,6 +99,7 @@ impl<AccountId, CurrencyId: Copy> AccountOrVault<AccountId, CurrencyId> {
         }
     }
 
+    // Method to check if the enum variant is `Vault`
     pub fn is_vault_account(&self) -> bool {
         matches!(self, AccountOrVault::Vault(_))
     }
@@ -298,14 +300,8 @@ pub mod redeem {
         pub btc_height: u32,
         /// the status of this redeem request
         pub status: RedeemRequestStatus,
-        /// the issue id
+        /// the issue id associated with replace request
         pub issue_id: Option<H256>,
-    }
-
-    impl<AccountId, BlockNumber, Balance, CurrencyId: Copy> RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId> {
-        pub fn is_redeem_a_replace_request(&self) -> bool {
-            self.issue_id.is_some()
-        }
     }
 }
 
