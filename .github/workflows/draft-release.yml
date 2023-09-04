@@ -14,7 +14,7 @@ jobs:
         runtime: ["interlay", "kintsugi"]
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Build ${{ matrix.runtime }} runtime
         id: srtool_build
@@ -45,7 +45,7 @@ jobs:
     runs-on: [self-hosted, linux]
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - uses: actions-rs/toolchain@v1
@@ -68,7 +68,7 @@ jobs:
     runs-on: [self-hosted, linux]
     needs: ["build-binary"]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Prepare
         id: prep
         run: |
@@ -126,7 +126,7 @@ jobs:
     needs: ["build-runtimes", "build-binary"]
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
