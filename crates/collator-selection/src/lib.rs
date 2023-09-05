@@ -74,6 +74,7 @@ pub mod pallet {
     use sp_runtime::traits::Convert;
     use sp_staking::SessionIndex;
     use sp_std::prelude::*;
+
     type BalanceOf<T> = <<T as Config>::StakingCurrency as Currency<<T as SystemConfig>::AccountId>>::Balance;
 
     /// A convertor from collators id. Since this pallet does not have stash/controller, this is

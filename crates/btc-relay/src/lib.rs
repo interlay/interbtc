@@ -64,7 +64,7 @@ use frame_support::{
     traits::Get,
     transactional,
 };
-use frame_system::ensure_signed;
+use frame_system::{ensure_signed, pallet_prelude::BlockNumberFor};
 use sp_core::{H256, U256};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedSub, One};
 use sp_std::{
@@ -419,7 +419,6 @@ pub const UNROUNDED_MAX_TARGET: U256 = U256([<u64>::MAX, <u64>::MAX, <u64>::MAX,
 
 /// Main chain id
 pub const MAIN_CHAIN_ID: u32 = 0;
-use frame_system::pallet_prelude::BlockNumberFor;
 
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
