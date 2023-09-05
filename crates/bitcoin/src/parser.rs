@@ -110,6 +110,68 @@ impl Parsable for Vec<bool> {
     }
 }
 
+impl Parsable for Transaction {
+    fn parse(raw_bytes: &[u8], position: usize) -> Result<(Transaction, usize), Error> {
+        let slice = raw_bytes.get(position..).ok_or(Error::EndOfFile)?;
+        let mut parser = BytesParser::new(slice);
+        let version: i32 = parser.parse()?;
+
+        // fail if incorrect version: we only support version 1 and 2
+        if version != 1 && version != 2 {
+            return Err(Error::MalformedTransaction);
+        }
+
+        let allow_witness = (version & SERIALIZE_TRANSACTION_NO_WITNESS) == 0;
+
+        // TODO: bound maximum?
+        let mut inputs: Vec<TransactionInput> = parser.parse_with(version)?;
+
+        let mut flags: u8 = 0;
+        if inputs.is_empty() && allow_witness {
+            flags = parser.parse()?;
+            inputs = parser.parse_with(version)?;
+        }
+
+        // TODO: bound maximum?
+        let outputs: Vec<TransactionOutput> = parser.parse()?;
+
+        if (flags & 1) != 0 && allow_witness {
+            flags ^= 1;
+            for input in &mut inputs {
+                input.with_witness(parser.parse()?);
+            }
+
+            if inputs.iter().all(|input| input.witness.is_empty()) {
+                // A transaction with a set witness-flag must actually include witnesses in the transaction.
+                // see https://github.com/bitcoin/bitcoin/blob/be4171679b8eab8205e04ff86140329bd67878a0/src/primitives/transaction.h#L214-L217
+                return Err(Error::MalformedTransaction);
+            }
+        }
+
+        // https://en.bitcoin.it/wiki/NLockTime
+        let locktime_or_blockheight: u32 = parser.parse()?;
+        let lock_at = if locktime_or_blockheight < LOCKTIME_THRESHOLD {
+            LockTime::BlockHeight(locktime_or_blockheight)
+        } else {
+            LockTime::Time(locktime_or_blockheight)
+        };
+
+        if flags != 0 {
+            return Err(Error::MalformedTransaction);
+        }
+
+        Ok((
+            Transaction {
+                version,
+                inputs,
+                outputs,
+                lock_at,
+            },
+            parser.position,
+        ))
+    }
+}
+
 impl ParsableMeta<i32> for TransactionInput {
     fn parse_with(raw_bytes: &[u8], position: usize, version: i32) -> Result<(TransactionInput, usize), Error> {
         let slice = raw_bytes.get(position..).ok_or(Error::EndOfFile)?;
@@ -270,59 +332,7 @@ pub fn parse_compact_uint(varint: &[u8]) -> Result<(u64, usize), Error> {
 ///
 /// * `raw_transaction` - the raw bytes of the transaction
 pub fn parse_transaction(raw_transaction: &[u8]) -> Result<Transaction, Error> {
-    let mut parser = BytesParser::new(raw_transaction);
-    let version: i32 = parser.parse()?;
-
-    // fail if incorrect version: we only support version 1 and 2
-    if version != 1 && version != 2 {
-        return Err(Error::MalformedTransaction);
-    }
-
-    let allow_witness = (version & SERIALIZE_TRANSACTION_NO_WITNESS) == 0;
-
-    // TODO: bound maximum?
-    let mut inputs: Vec<TransactionInput> = parser.parse_with(version)?;
-
-    let mut flags: u8 = 0;
-    if inputs.is_empty() && allow_witness {
-        flags = parser.parse()?;
-        inputs = parser.parse_with(version)?;
-    }
-
-    // TODO: bound maximum?
-    let outputs: Vec<TransactionOutput> = parser.parse()?;
-
-    if (flags & 1) != 0 && allow_witness {
-        flags ^= 1;
-        for input in &mut inputs {
-            input.with_witness(parser.parse()?);
-        }
-
-        if inputs.iter().all(|input| input.witness.is_empty()) {
-            // A transaction with a set witness-flag must actually include witnesses in the transaction.
-            // see https://github.com/bitcoin/bitcoin/blob/be4171679b8eab8205e04ff86140329bd67878a0/src/primitives/transaction.h#L214-L217
-            return Err(Error::MalformedTransaction);
-        }
-    }
-
-    // https://en.bitcoin.it/wiki/NLockTime
-    let locktime_or_blockheight: u32 = parser.parse()?;
-    let lock_at = if locktime_or_blockheight < LOCKTIME_THRESHOLD {
-        LockTime::BlockHeight(locktime_or_blockheight)
-    } else {
-        LockTime::Time(locktime_or_blockheight)
-    };
-
-    if flags != 0 {
-        return Err(Error::MalformedTransaction);
-    }
-
-    Ok(Transaction {
-        version,
-        inputs,
-        outputs,
-        lock_at,
-    })
+    Transaction::parse(raw_transaction, 0).map(|(tx, _len)| tx)
 }
 
 /// Parses a transaction input
@@ -336,7 +346,7 @@ fn parse_transaction_input(raw_input: &[u8], version: i32) -> Result<(Transactio
 
     // fail if transaction is coinbase and previous index is not 0xffffffff
     // previous_hash
-    if is_coinbase && previous_index != u32::max_value() {
+    if is_coinbase && previous_index != u32::MAX {
         return Err(Error::MalformedTransaction);
     }
 
@@ -549,7 +559,7 @@ pub(crate) mod tests {
         let previous_hash = H256Le::from_hex_le("7b1eabe0209b1fe794124575ef807057c77ada2138ae4fa8d6c4de0398a14f3f");
 
         assert!(matches!(input.source, TransactionInputSource::FromOutput(hash, 0) if hash == previous_hash));
-        assert_eq!(input.sequence, u32::max_value());
+        assert_eq!(input.sequence, u32::MAX);
         assert_eq!(input.script.len(), 73);
     }
 

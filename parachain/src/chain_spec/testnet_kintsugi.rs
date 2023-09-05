@@ -105,6 +105,7 @@ pub fn development_config(id: ParaId, enable_instant_seal: bool) -> KintsugiDevC
             ),
             enable_instant_seal,
             enable_create: true,
+            enable_contracts: true,
         },
         Vec::new(),
         None,

@@ -1,5 +1,4 @@
 use crate::service::{FullBackend, FullClient};
-use cumulus_client_consensus_common::ParachainBlockImportMarker;
 pub use fc_consensus::FrontierBlockImport;
 use fc_rpc::{EthTask, OverrideHandle};
 pub use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
@@ -7,14 +6,11 @@ use fp_rpc::EthereumRuntimeRPCApi;
 use futures::{future, prelude::*};
 use primitives::Block;
 use sc_client_api::{BlockchainEvents, StateBackendFor};
-use sc_consensus::{BlockCheckParams, BlockImport as BlockImportT, BlockImportParams, ImportResult};
 use sc_executor::NativeExecutionDispatch;
 use sc_network_sync::SyncingService;
-use sc_service::{error::Error as ServiceError, BasePath, Configuration, TaskManager};
+use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_transaction_pool::{ChainApi, Pool};
 use sp_api::{ConstructRuntimeApi, ProvideRuntimeApi};
-use sp_block_builder::BlockBuilder as BlockBuilderApi;
-use sp_consensus::Error as ConsensusError;
 use sp_runtime::traits::{BlakeTwo256, Block as BlockT};
 use std::{
     collections::BTreeMap,
@@ -27,12 +23,7 @@ use std::{
 pub type FrontierBackend = fc_db::Backend<Block>;
 
 pub fn db_config_dir(config: &Configuration) -> PathBuf {
-    let application = &config.impl_name;
-    config
-        .base_path
-        .as_ref()
-        .map(|base_path| base_path.config_dir(config.chain_spec.id()))
-        .unwrap_or_else(|| BasePath::from_project("", "", application).config_dir(config.chain_spec.id()))
+    config.base_path.config_dir(config.chain_spec.id())
 }
 
 pub fn open_frontier_backend<C>(
@@ -200,7 +191,7 @@ pub async fn spawn_frontier_tasks<RuntimeApi, Executor>(
                     overrides.clone(),
                     Arc::new(b),
                     3,
-                    0,
+                    0, // TODO: update when deployed
                     fc_mapping_sync::SyncStrategy::Normal,
                     sync,
                     pubsub_notification_sinks,
@@ -247,48 +238,6 @@ pub async fn spawn_frontier_tasks<RuntimeApi, Executor>(
         EthTask::fee_history_task(client, overrides, fee_history_cache, fee_history_cache_limit),
     );
 }
-
-#[derive(Clone)]
-pub struct BlockImport<B: BlockT, I: BlockImportT<B>, C>(FrontierBlockImport<B, I, C>);
-
-impl<B, I, C> BlockImport<B, I, C>
-where
-    B: BlockT,
-    I: BlockImportT<B, Transaction = sp_api::TransactionFor<C, B>>,
-    I::Error: Into<ConsensusError>,
-    C: ProvideRuntimeApi<B>,
-    C::Api: BlockBuilderApi<B> + EthereumRuntimeRPCApi<B>,
-{
-    pub fn new(inner: I, client: Arc<C>) -> Self {
-        Self(FrontierBlockImport::new(inner, client))
-    }
-}
-
-#[async_trait::async_trait]
-impl<B, I, C> BlockImportT<B> for BlockImport<B, I, C>
-where
-    B: BlockT,
-    I: BlockImportT<B, Transaction = sp_api::TransactionFor<C, B>> + Send + Sync,
-    I::Error: Into<ConsensusError>,
-    C: ProvideRuntimeApi<B> + Send + Sync,
-    C::Api: BlockBuilderApi<B> + EthereumRuntimeRPCApi<B>,
-{
-    type Error = ConsensusError;
-    type Transaction = sp_api::TransactionFor<C, B>;
-
-    async fn check_block(&mut self, block: BlockCheckParams<B>) -> Result<ImportResult, Self::Error> {
-        self.0.check_block(block).await
-    }
-
-    async fn import_block(
-        &mut self,
-        block: BlockImportParams<B, Self::Transaction>,
-    ) -> Result<ImportResult, Self::Error> {
-        self.0.import_block(block).await
-    }
-}
-
-impl<B: BlockT, I: BlockImportT<B>, C> ParachainBlockImportMarker for BlockImport<B, I, C> {}
 
 pub fn new_eth_deps<C, P, A: ChainApi, CT>(
     client: Arc<C>,

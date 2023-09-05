@@ -44,10 +44,9 @@ sc-network = { git = "https://github.com/paritytech/substrate", branch = "polkad
 sc-network-sync = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sc-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
-
 fc-db = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42" }
 fc-mapping-sync = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42" }
-fc-rpc = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42" }
+fc-rpc = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", features = ["txpool"] }
 fc-rpc-core = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42" }
 fc-storage = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42" }
 fp-rpc = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42" }

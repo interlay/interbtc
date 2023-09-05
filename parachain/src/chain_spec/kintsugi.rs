@@ -3,7 +3,7 @@ use super::*;
 pub const PARA_ID: u32 = 2092;
 
 /// Specialized `ChainSpec` for the kintsugi parachain runtime.
-pub type KintsugiChainSpec = sc_service::GenericChainSpec<kintsugi_runtime::GenesisConfig, Extensions>;
+pub type KintsugiChainSpec = sc_service::GenericChainSpec<kintsugi_runtime::RuntimeGenesisConfig, Extensions>;
 
 /// Specialized `ChainSpec` for kintsugi development.
 pub type KintsugiDevChainSpec = sc_service::GenericChainSpec<KintsugiDevGenesisExt, Extensions>;
@@ -12,11 +12,13 @@ pub type KintsugiDevChainSpec = sc_service::GenericChainSpec<KintsugiDevGenesisE
 #[derive(Serialize, Deserialize)]
 pub struct KintsugiDevGenesisExt {
     /// Genesis config.
-    pub(crate) genesis_config: kintsugi_runtime::GenesisConfig,
+    pub(crate) genesis_config: kintsugi_runtime::RuntimeGenesisConfig,
     /// The flag to enable instant-seal mode.
     pub(crate) enable_instant_seal: bool,
     /// The flag to enable EVM contract creation.
     pub(crate) enable_create: bool,
+    /// The flag to enable wasm contracts.
+    pub(crate) enable_contracts: bool,
 }
 
 impl sp_runtime::BuildStorage for KintsugiDevGenesisExt {
@@ -24,6 +26,7 @@ impl sp_runtime::BuildStorage for KintsugiDevGenesisExt {
         sp_state_machine::BasicExternalities::execute_with_storage(storage, || {
             kintsugi_runtime::EnableManualSeal::set(&self.enable_instant_seal);
             kintsugi_runtime::evm::EnableCreate::set(&self.enable_create);
+            kintsugi_runtime::contracts::EnableContracts::set(&self.enable_contracts);
         });
         self.genesis_config.assimilate_storage(storage)
     }
@@ -73,6 +76,7 @@ pub fn kintsugi_dev_config(enable_instant_seal: bool) -> KintsugiDevChainSpec {
             ),
             enable_instant_seal,
             enable_create: true,
+            enable_contracts: true,
         },
         Vec::new(),
         None,
@@ -169,21 +173,25 @@ pub fn kintsugi_genesis(
     id: ParaId,
     bitcoin_confirmations: u32,
     disable_difficulty_check: bool,
-) -> kintsugi_runtime::GenesisConfig {
+) -> kintsugi_runtime::RuntimeGenesisConfig {
     let chain_id: u32 = id.into();
     endowed_accounts.extend(
         endowed_evm_accounts
             .into_iter()
             .map(|addr| kintsugi_runtime::evm::AccountConverter::into_account_id(H160::from(addr))),
     );
-    kintsugi_runtime::GenesisConfig {
+    kintsugi_runtime::RuntimeGenesisConfig {
         system: kintsugi_runtime::SystemConfig {
+            _config: Default::default(),
             code: kintsugi_runtime::WASM_BINARY
                 .expect("WASM binary was not build, please build it!")
                 .to_vec(),
         },
         parachain_system: Default::default(),
-        parachain_info: kintsugi_runtime::ParachainInfoConfig { parachain_id: id },
+        parachain_info: kintsugi_runtime::ParachainInfoConfig {
+            _config: Default::default(),
+            parachain_id: id,
+        },
         collator_selection: kintsugi_runtime::CollatorSelectionConfig {
             invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
             candidacy_bond: Zero::zero(),
@@ -290,6 +298,7 @@ pub fn kintsugi_genesis(
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
         },
         nomination: kintsugi_runtime::NominationConfig {
+            _marker: Default::default(),
             is_nomination_enabled: false,
         },
         technical_committee: Default::default(),
@@ -302,16 +311,19 @@ pub fn kintsugi_genesis(
             inflation: FixedU128::checked_from_rational(2, 100).unwrap(), // 2%
         },
         polkadot_xcm: kintsugi_runtime::PolkadotXcmConfig {
+            _config: Default::default(),
             safe_xcm_version: Some(3),
         },
         sudo: kintsugi_runtime::SudoConfig { key: root_key },
         loans: kintsugi_runtime::LoansConfig {
+            _marker: Default::default(),
             max_exchange_rate: Rate::from_inner(loans::DEFAULT_MAX_EXCHANGE_RATE),
             min_exchange_rate: Rate::from_inner(loans::DEFAULT_MIN_EXCHANGE_RATE),
         },
         base_fee: Default::default(),
         ethereum: Default::default(),
         evm: kintsugi_runtime::EVMConfig {
+            _marker: Default::default(),
             // we need _some_ code inserted at the precompile address so that
             // the evm will actually call the address.
             accounts: kintsugi_runtime::evm::Precompiles::used_addresses()
@@ -330,6 +342,7 @@ pub fn kintsugi_genesis(
                 .collect(),
         },
         evm_chain_id: kintsugi_runtime::EVMChainIdConfig {
+            _marker: Default::default(),
             chain_id: chain_id.into(),
         },
     }

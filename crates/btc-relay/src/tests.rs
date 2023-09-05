@@ -1492,6 +1492,52 @@ fn get_chain_from_id_ok() {
 }
 
 #[test]
+fn fake_coinbase_gets_rejected() {
+    let target = U256::from(2).pow(254.into());
+    let some_address = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
+
+    run_test(|| {
+        let transaction = TransactionBuilder::new()
+            .with_version(2)
+            .add_input(TransactionInputBuilder::new().build())
+            .add_output(TransactionOutput::payment(100, &some_address.clone()))
+            .build();
+
+        // build a block with two coinbase transactions
+        let block = BlockBuilder::new()
+            .with_coinbase(&some_address, 50, 25) // this one will be index 1
+            .with_coinbase(&some_address, 50, 0) // this one will be index 0
+            .add_transaction(transaction)
+            .mine(target)
+            .unwrap();
+        assert_ok!(BTCRelay::_initialize(3, block.header, 0));
+
+        let fake_coinbase = block.transactions[1].clone();
+        let fake_coinbase_proof = block.merkle_proof(&[fake_coinbase.tx_id()]).unwrap();
+        let user_tx = block.transactions[2].clone();
+        let user_tx_proof = block.merkle_proof(&[user_tx.tx_id()]).unwrap();
+
+        let full_proof = FullTransactionProof {
+            coinbase_proof: PartialTransactionProof {
+                transaction: fake_coinbase,
+                tx_encoded_len: u32::MAX,
+                merkle_proof: fake_coinbase_proof,
+            },
+            user_tx_proof: PartialTransactionProof {
+                transaction: user_tx,
+                tx_encoded_len: u32::MAX,
+                merkle_proof: user_tx_proof,
+            },
+        };
+
+        assert_err!(
+            BTCRelay::_verify_transaction_inclusion(full_proof, Some(0)),
+            Error::<Test>::InvalidCoinbasePosition
+        );
+    })
+}
+
+#[test]
 fn store_generated_block_headers() {
     let target = U256::from(2).pow(254.into());
     let miner = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());

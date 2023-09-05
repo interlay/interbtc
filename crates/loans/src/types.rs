@@ -76,8 +76,19 @@ pub struct EarnedSnapshot<Balance> {
 }
 
 /// The current state of a market. For more information, see [Market].
-#[cfg_attr(feature = "std", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, Copy, PartialEq, Eq, codec::Decode, codec::Encode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+    serde::Deserialize,
+    serde::Serialize,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    codec::Decode,
+    codec::Encode,
+    RuntimeDebug,
+    TypeInfo,
+    MaxEncodedLen,
+)]
 pub enum MarketState {
     Active,
     Pending,
@@ -89,8 +100,18 @@ pub enum MarketState {
 /// Market.
 ///
 /// A large pool of liquidity where accounts can lend and borrow.
-#[cfg_attr(feature = "std", derive(serde::Deserialize, serde::Serialize))]
-#[derive(Clone, PartialEq, Eq, codec::Decode, codec::Encode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+    serde::Deserialize,
+    serde::Serialize,
+    Clone,
+    PartialEq,
+    Eq,
+    codec::Decode,
+    codec::Encode,
+    RuntimeDebug,
+    TypeInfo,
+    MaxEncodedLen,
+)]
 pub struct Market<Balance> {
     /// The secure collateral ratio
     pub collateral_factor: Ratio,

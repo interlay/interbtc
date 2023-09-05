@@ -10,7 +10,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -23,8 +23,8 @@ jobs:
           fi
 
       - name: Send Discord Notification
-        uses: Ilshidur/action-discord@master
-        with:
-          args: "Breaking change detected in PR: ${{ github.event.pull_request.html_url }}"
-          webhook: ${{ secrets.DISCORD_RELEASE_WEBHOOK_URL }}
+        run: |
+            curl -X POST -H "Content-Type: application/json" \
+                --data '{"content": "Breaking change detected in PR: ${{ github.event.pull_request.html_url }}"}' \
+                "${{ secrets.DISCORD_RELEASE_WEBHOOK_URL }}"
         if: env.BREAKING_CHANGE_DETECTED == 'true'

@@ -103,10 +103,10 @@ impl TryFormat for CompactUint {
     fn try_format<W: Writer>(&self, w: &mut W) -> Result<(), Error> {
         if self.value < 0xfd {
             (self.value as u8).try_format(w)?;
-        } else if self.value < u16::max_value() as u64 {
+        } else if self.value < u16::MAX as u64 {
             0xfd_u8.try_format(w)?;
             (self.value as u16).try_format(w)?;
-        } else if self.value < u32::max_value() as u64 {
+        } else if self.value < u32::MAX as u64 {
             0xfe_u8.try_format(w)?;
             (self.value as u32).try_format(w)?;
         } else {
@@ -136,7 +136,7 @@ where
 impl TryFormat for TransactionInput {
     fn try_format<W: Writer>(&self, w: &mut W) -> Result<(), Error> {
         let (previous_hash, previous_index) = match self.source {
-            TransactionInputSource::Coinbase(_) => (H256Le::zero(), u32::max_value()),
+            TransactionInputSource::Coinbase(_) => (H256Le::zero(), u32::MAX),
             TransactionInputSource::FromOutput(hash, index) => (hash, index),
         };
         previous_hash.try_format(w)?;
@@ -304,7 +304,7 @@ mod tests {
         assert_eq!(try_format(256u16), [0, 1]);
         assert_eq!(try_format(0xffffu32 + 1), [0, 0, 1, 0]);
         assert_eq!(try_format(0xffffffu32 + 1), [0, 0, 0, 1]);
-        assert_eq!(try_format(u64::max_value()), [0xff].repeat(8));
+        assert_eq!(try_format(u64::MAX), [0xff].repeat(8));
     }
 
     #[test]
@@ -313,9 +313,7 @@ mod tests {
         assert_eq!(try_format(CompactUint { value: 0xff }), [0xfd, 0xff, 0]);
         let u32_cuint = CompactUint { value: 0xffff + 1 };
         assert_eq!(try_format(u32_cuint), [0xfe, 0, 0, 1, 0]);
-        let u64_cuint = CompactUint {
-            value: u64::max_value(),
-        };
+        let u64_cuint = CompactUint { value: u64::MAX };
         assert_eq!(try_format(u64_cuint), [0xff].repeat(9));
     }
 

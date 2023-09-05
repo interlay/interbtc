@@ -22,8 +22,10 @@ while getopts ":r:p:" opt; do
 done
 
 if [ -z "${pallet}" ]; then
-  pallet="*"
+  pallet='*'
 fi
+
+path=${runtime%-*}
 
 cargo run \
   --bin interbtc-parachain \
@@ -38,5 +40,5 @@ cargo run \
   --wasm-execution=compiled \
   --steps 50 \
   --repeat 10 \
-  --output "parachain/runtime/${runtime}/src/weights/" \
+  --output "parachain/runtime/${path}/src/weights/" \
   --template .deploy/runtime-weight-template.hbs

@@ -22,7 +22,7 @@ use frame_support::{
     weights::Weight,
     PalletId,
 };
-use frame_system::ensure_root;
+use frame_system::{ensure_root, pallet_prelude::BlockNumberFor};
 use primitives::TruncateFixedPointToInt;
 use scale_info::TypeInfo;
 use sp_arithmetic::ArithmeticError;
@@ -67,7 +67,7 @@ pub mod pallet {
 
         /// The period between inflation updates.
         #[pallet::constant]
-        type InflationPeriod: Get<Self::BlockNumber>;
+        type InflationPeriod: Get<BlockNumberFor<Self>>;
 
         /// Handler for when the total supply has inflated.
         type OnInflation: OnInflation<Self::AccountId, Currency = Self::Currency>;
@@ -87,8 +87,8 @@ pub mod pallet {
     pub enum Error<T> {}
 
     #[pallet::hooks]
-    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
-        fn on_initialize(n: T::BlockNumber) -> Weight {
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_initialize(n: BlockNumberFor<T>) -> Weight {
             if let Err(e) = Self::begin_block(n) {
                 sp_runtime::print(e);
             }
@@ -99,7 +99,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::whitelist_storage]
     #[pallet::getter(fn start_height)]
-    pub type StartHeight<T: Config> = StorageValue<_, T::BlockNumber, OptionQuery>;
+    pub type StartHeight<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn last_emission)]
@@ -110,25 +110,15 @@ pub mod pallet {
     pub type Inflation<T: Config> = StorageValue<_, T::UnsignedFixedPoint, ValueQuery>;
 
     #[pallet::genesis_config]
+    #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T: Config> {
         pub initial_supply: BalanceOf<T>,
-        pub start_height: T::BlockNumber,
+        pub start_height: BlockNumberFor<T>,
         pub inflation: T::UnsignedFixedPoint,
     }
 
-    #[cfg(feature = "std")]
-    impl<T: Config> Default for GenesisConfig<T> {
-        fn default() -> Self {
-            Self {
-                initial_supply: Default::default(),
-                start_height: Default::default(),
-                inflation: Default::default(),
-            }
-        }
-    }
-
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             T::Currency::deposit_creating(&T::SupplyPalletId::get().into_account_truncating(), self.initial_supply);
             StartHeight::<T>::put(self.start_height);
@@ -147,7 +137,7 @@ pub mod pallet {
         #[transactional]
         pub fn set_start_height_and_inflation(
             origin: OriginFor<T>,
-            start_height: T::BlockNumber,
+            start_height: BlockNumberFor<T>,
             inflation: T::UnsignedFixedPoint,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
@@ -164,7 +154,7 @@ impl<T: Config> Pallet<T> {
         T::SupplyPalletId::get().into_account_truncating()
     }
 
-    pub(crate) fn begin_block(height: T::BlockNumber) -> DispatchResult {
+    pub(crate) fn begin_block(height: BlockNumberFor<T>) -> DispatchResult {
         // ignore if uninitialized or not start height
         if let Some(start_height) = <StartHeight<T>>::get().filter(|&start_height| height == start_height) {
             let end_height = start_height + T::InflationPeriod::get();

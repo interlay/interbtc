@@ -19,7 +19,7 @@ async-trait = "0.1"
 clap = { version = "4.0.9", features = [ "derive" ] }
 log = "0.4.8"
 codec = { package = "parity-scale-codec", version = "3.1.5" }
-serde = { version = "1.0.130", features = ["derive"] }
+serde = { version = "1.0.130", features = ["derive"], default-features = false }
 hex-literal = "0.2.1"
 futures = "0.3.15"
 jsonrpsee = { version = "0.16.2", features = ["server", "macros"] }
@@ -48,6 +48,8 @@ dex-general-rpc-runtime-api = { path = "../crates/dex-general/rpc/runtime-api" }
 dex-stable-rpc-runtime-api = { path = "../crates/dex-stable/rpc/runtime-api" }
 
 # Substrate dependencies
+sc-transaction-pool-api =  { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+sc-offchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sc-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }

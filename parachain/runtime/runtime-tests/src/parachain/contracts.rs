@@ -1,5 +1,5 @@
 use crate::setup::{assert_eq, *};
-use pallet_contracts::Determinism;
+use pallet_contracts::{CollectEvents, DebugInfo, Determinism};
 use pallet_contracts_primitives::Code;
 use sp_runtime::traits::Hash;
 
@@ -30,6 +30,9 @@ mod relay {
 fn test_basic_contract() {
     // not sure this case would ever be used, best we have a test for it anyway..
     ExtBuilder::build().execute_with(|| {
+        let key = kintsugi_runtime_parachain::contracts::EnableContracts::key();
+        let hex = hex::encode(key);
+        println!("key = {hex}");
         // note: current working directory is diffent when you run this test, vs when you debug it.
         // However, the `PWD` env variable is (surprisingly) set to the workspace root in both cases.
         // So, we use a path relative to PWD
@@ -63,7 +66,8 @@ fn test_basic_contract() {
             Code::Existing(blob_hash),
             input,
             vec![],
-            true,
+            DebugInfo::Skip,
+            CollectEvents::Skip,
         );
         let result = ret.result.unwrap();
 
@@ -94,7 +98,8 @@ fn test_basic_contract() {
             GAS_LIMIT,
             None,
             do_something_on_runtime_selector,
-            false,
+            DebugInfo::Skip,
+            CollectEvents::Skip,
             Determinism::Enforced,
         );
         assert_ok!(result.result);
@@ -135,7 +140,8 @@ fn test_btc_swap_contract() {
             Code::Existing(blob_hash),
             input,
             vec![],
-            true,
+            DebugInfo::Skip,
+            CollectEvents::Skip,
         );
         let result = ret.result.unwrap();
 
@@ -157,7 +163,8 @@ fn test_btc_swap_contract() {
             GAS_LIMIT,
             None,
             create_trade,
-            false,
+            DebugInfo::Skip,
+            CollectEvents::Skip,
             Determinism::Enforced,
         );
         assert_ok!(result.result);
@@ -177,7 +184,8 @@ fn test_btc_swap_contract() {
                 GAS_LIMIT,
                 None,
                 execute_trade,
-                false,
+                DebugInfo::Skip,
+                CollectEvents::Skip,
                 Determinism::Enforced,
             );
             assert_eq!(result.result.unwrap().flags.bits(), 0); // checks that result is ok, and no error flags are set
@@ -195,7 +203,8 @@ fn test_btc_swap_contract() {
             GAS_LIMIT,
             None,
             execute_trade,
-            false,
+            DebugInfo::Skip,
+            CollectEvents::Skip,
             Determinism::Enforced,
         );
         assert_err!(result.result, ContractsError::ContractTrapped);

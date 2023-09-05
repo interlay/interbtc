@@ -30,7 +30,7 @@ parameter_types! {
 }
 
 /// Means for transacting assets on this chain.
-type LocationToAccountId = (
+pub type LocationToAccountId = (
     // The parent (Relay-chain) origin converts to the default `AccountId`.
     ParentIsPreset<AccountId>,
     // Sibling parachain origins convert to AccountId via the `ParaId::into`.
@@ -211,6 +211,7 @@ impl xcm_executor::Config for XcmConfig {
     type SafeCallFilter = SafeCallFilter;
     type CallDispatcher = WithOriginFilter<SafeCallFilter>;
     type UniversalLocation = UniversalLocation;
+    type Aliasers = Nothing;
 }
 
 /// No local origins on this chain are allowed to dispatch XCM sends/executions.
@@ -255,6 +256,8 @@ impl pallet_xcm::Config for Runtime {
     #[cfg(feature = "runtime-benchmarks")]
     type ReachableDest = ReachableDest;
     type AdminOrigin = EnsureRoot<AccountId>;
+    type MaxRemoteLockConsumers = ConstU32<0>;
+    type RemoteLockConsumerIdentifier = ();
 }
 
 impl cumulus_pallet_xcm::Config for Runtime {
@@ -579,6 +582,11 @@ mod benchmark_impls {
         fn export_message_origin_and_destination(
         ) -> Result<(MultiLocation, NetworkId, InteriorMultiLocation), BenchmarkError> {
             // We don't support exporting messages
+            Err(BenchmarkError::Skip)
+        }
+
+        fn alias_origin() -> Result<(MultiLocation, MultiLocation), BenchmarkError> {
+            // The XCM executor of Polkadot doesn't have a configured `Aliasers`
             Err(BenchmarkError::Skip)
         }
     }

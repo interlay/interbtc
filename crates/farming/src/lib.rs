@@ -108,7 +108,7 @@ pub mod pallet {
 
         /// The period to accrue rewards.
         #[pallet::constant]
-        type RewardPeriod: Get<Self::BlockNumber>;
+        type RewardPeriod: Get<BlockNumberFor<Self>>;
 
         /// Reward pools to track stake.
         type RewardPools: RewardsApi<
@@ -155,8 +155,8 @@ pub mod pallet {
     }
 
     #[pallet::hooks]
-    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
-        fn on_initialize(now: T::BlockNumber) -> Weight {
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_initialize(now: BlockNumberFor<T>) -> Weight {
             if now % T::RewardPeriod::get() == Zero::zero() {
                 let mut count: u32 = 0;
                 // collect first to avoid modifying in-place

@@ -25,15 +25,16 @@ use log::info;
 use primitives::Block;
 use sc_cli::{
     ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams, Result,
-    RuntimeVersion, SharedParams, SubstrateCli,
+    SharedParams, SubstrateCli,
 };
+use sc_executor::{sp_wasm_interface::ExtendedHostFunctions, NativeExecutionDispatch};
 use sc_service::{
     config::{BasePath, PrometheusConfig},
     Configuration, TaskManager,
 };
 use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::traits::AccountIdConversion;
-use std::{io::Write, net::SocketAddr, path::PathBuf};
+use std::{io::Write, path::PathBuf};
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::benchmarking::*;
@@ -156,16 +157,6 @@ impl SubstrateCli for Cli {
     fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
         load_spec(id, self.instant_seal)
     }
-
-    fn native_runtime_version(chain_spec: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-        if chain_spec.is_interlay() {
-            &interlay_runtime::VERSION
-        } else if chain_spec.is_kintsugi() {
-            &kintsugi_runtime::VERSION
-        } else {
-            panic!("Chain should be either kintsugi or interlay");
-        }
-    }
 }
 
 impl SubstrateCli for RelayChainCli {
@@ -201,10 +192,6 @@ impl SubstrateCli for RelayChainCli {
 
     fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
         polkadot_cli::Cli::from_iter([RelayChainCli::executable_name().to_string()].iter()).load_spec(id)
-    }
-
-    fn native_runtime_version(chain_spec: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-        polkadot_cli::Cli::native_runtime_version(chain_spec)
     }
 }
 
@@ -319,9 +306,19 @@ pub fn run() -> Result<()> {
                 BenchmarkCmd::Pallet(cmd) => {
                     if cfg!(feature = "runtime-benchmarks") {
                         if runner.config().chain_spec.is_interlay() {
-                            runner.sync_run(|config| cmd.run::<Block, InterlayRuntimeExecutor>(config))
+                            runner.sync_run(|config| {
+                                cmd.run::<Block, ExtendedHostFunctions<
+                                    sp_io::SubstrateHostFunctions,
+                                    <InterlayRuntimeExecutor as NativeExecutionDispatch>::ExtendHostFunctions,
+                                >>(config)
+                            })
                         } else if runner.config().chain_spec.is_kintsugi() {
-                            runner.sync_run(|config| cmd.run::<Block, KintsugiRuntimeExecutor>(config))
+                            runner.sync_run(|config| {
+                                cmd.run::<Block, ExtendedHostFunctions<
+                                    sp_io::SubstrateHostFunctions,
+                                    <KintsugiRuntimeExecutor as NativeExecutionDispatch>::ExtendHostFunctions,
+                                >>(config)
+                            })
                         } else {
                             Err("Chain doesn't support benchmarking".into())
                         }
@@ -406,10 +403,9 @@ pub fn run() -> Result<()> {
             let chain_spec = &runner.config().chain_spec;
 
             with_runtime_or_err!(chain_spec, {
-                return runner.sync_run(|_config| {
-                    let spec = cli.load_spec(&cmd.shared_params.chain.clone().unwrap_or_default())?;
-                    let state_version = Cli::native_runtime_version(&spec).state_version();
-                    cmd.run::<Block>(&*spec, state_version)
+                return runner.sync_run(|config| {
+                    let partials = new_partial::<RuntimeApi, Executor>(&config, &cli.eth, false)?;
+                    cmd.run::<Block>(&*config.chain_spec, &*partials.client)
                 });
             })
         }
@@ -437,7 +433,6 @@ pub fn run() -> Result<()> {
         }
         #[cfg(feature = "try-runtime")]
         Some(Subcommand::TryRuntime(cmd)) => {
-            use sc_executor::{sp_wasm_interface::ExtendedHostFunctions, NativeExecutionDispatch};
             use try_runtime_cli::block_building_info::timestamp_with_aura_info;
             let runner = cli.create_runner(cmd)?;
             let chain_spec = &runner.config().chain_spec;
@@ -504,7 +499,7 @@ async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Resul
 
     let id = ParaId::from(para_id.unwrap_or(DEFAULT_PARA_ID));
 
-    let parachain_account = AccountIdConversion::<polkadot_primitives::v4::AccountId>::into_account_truncating(&id);
+    let parachain_account = AccountIdConversion::<polkadot_primitives::v5::AccountId>::into_account_truncating(&id);
 
     let tokio_handle = config.tokio_handle.clone();
     let polkadot_config = SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, tokio_handle)
@@ -540,14 +535,6 @@ impl DefaultConfigurationValues for RelayChainCli {
         30334
     }
 
-    fn rpc_ws_listen_port() -> u16 {
-        9945
-    }
-
-    fn rpc_http_listen_port() -> u16 {
-        9934
-    }
-
     fn prometheus_listen_port() -> u16 {
         9616
     }
@@ -575,18 +562,6 @@ impl CliConfiguration<Self> for RelayChainCli {
             .shared_params()
             .base_path()?
             .or_else(|| self.base_path.clone().map(Into::into)))
-    }
-
-    fn rpc_http(&self, default_listen_port: u16) -> Result<Option<SocketAddr>> {
-        self.base.base.rpc_http(default_listen_port)
-    }
-
-    fn rpc_ipc(&self) -> Result<Option<String>> {
-        self.base.base.rpc_ipc()
-    }
-
-    fn rpc_ws(&self, default_listen_port: u16) -> Result<Option<SocketAddr>> {
-        self.base.base.rpc_ws(default_listen_port)
     }
 
     fn prometheus_config(
@@ -630,10 +605,6 @@ impl CliConfiguration<Self> for RelayChainCli {
 
     fn rpc_methods(&self) -> Result<sc_service::config::RpcMethods> {
         self.base.base.rpc_methods()
-    }
-
-    fn rpc_ws_max_connections(&self) -> Result<Option<usize>> {
-        self.base.base.rpc_ws_max_connections()
     }
 
     fn rpc_cors(&self, is_dev: bool) -> Result<Option<Vec<String>>> {

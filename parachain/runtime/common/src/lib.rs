@@ -9,6 +9,7 @@ use frame_support::{
 use primitives::{BlockNumber, UnsignedFixedPoint};
 use sp_runtime::{DispatchError, FixedPointNumber};
 use sp_std::prelude::*;
+use xcm_executor::traits::Properties;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
@@ -41,7 +42,7 @@ pub fn estimate_escrow_reward_rate<T, EscrowAnnuityInstance, EscrowRewardsApi, E
 ) -> Result<UnsignedFixedPoint, DispatchError>
 where
     T: currency::Config
-        + escrow::Config<BlockNumber = BlockNumber, Currency = EscrowCurrency>
+        + escrow::Config<Currency = EscrowCurrency>
         + annuity::Config<EscrowAnnuityInstance, Currency = EscrowCurrency>,
     EscrowAnnuityInstance: 'static,
     EscrowRewardsApi: reward::RewardsApi<(), AccountId<T>, Balance, CurrencyId = CurrencyId<T>>,
@@ -54,7 +55,7 @@ where
     escrow::Pallet::<T>::round_height_and_deposit_for(
         &account_id,
         amount.unwrap_or_default(),
-        lock_time.unwrap_or_default(),
+        lock_time.unwrap_or_default().into(),
     )?;
     // distribute rewards accrued over block count
     let reward = annuity::Pallet::<T, EscrowAnnuityInstance>::min_reward_per_block().saturating_mul(YEARS.into());
@@ -96,16 +97,15 @@ where
 }
 
 pub struct AndBarrier<T: ShouldExecute, U: ShouldExecute>(PhantomData<(T, U)>);
-
 impl<T: ShouldExecute, U: ShouldExecute> ShouldExecute for AndBarrier<T, U> {
     fn should_execute<Call>(
         origin: &MultiLocation,
         instructions: &mut [Instruction<Call>],
         max_weight: Weight,
-        weight_credit: &mut Weight,
+        properties: &mut Properties,
     ) -> Result<(), ProcessMessageError> {
-        T::should_execute(origin, instructions, max_weight, weight_credit)?;
-        U::should_execute(origin, instructions, max_weight, weight_credit)?;
+        T::should_execute(origin, instructions, max_weight, properties)?;
+        U::should_execute(origin, instructions, max_weight, properties)?;
         // only if both returned ok, we return ok
         Ok(())
     }
@@ -118,7 +118,7 @@ impl<T: ShouldExecute> ShouldExecute for Transactless<T> {
         origin: &MultiLocation,
         instructions: &mut [Instruction<Call>],
         max_weight: Weight,
-        weight_credit: &mut Weight,
+        properties: &mut Properties,
     ) -> Result<(), ProcessMessageError> {
         // filter any outer-level Transacts. Any Transact calls sent to other chain should still work.
         let has_transact = instructions.iter().any(|x| matches!(x, Instruction::Transact { .. }));
@@ -126,7 +126,7 @@ impl<T: ShouldExecute> ShouldExecute for Transactless<T> {
             return Err(ProcessMessageError::Unsupported);
         }
         // No transact - return result of the wrapped barrier
-        T::should_execute(origin, instructions, max_weight, weight_credit)
+        T::should_execute(origin, instructions, max_weight, properties)
     }
 }
 

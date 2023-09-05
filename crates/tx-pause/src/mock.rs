@@ -27,8 +27,8 @@ use frame_support::{
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_core::H256;
 use sp_runtime::{
-    testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
+    BuildStorage,
 };
 
 parameter_types! {
@@ -40,13 +40,12 @@ impl frame_system::Config for Test {
     type BlockLength = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
-    type Index = u64;
-    type BlockNumber = u64;
+    type Nonce = u32;
+    type Block = Block;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = u64;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type DbWeight = ();
@@ -75,7 +74,7 @@ impl pallet_balances::Config for Test {
     type MaxLocks = MaxLocks;
     type MaxReserves = ();
     type ReserveIdentifier = [u8; 8];
-    type HoldIdentifier = ();
+    type RuntimeHoldReason = ();
     type FreezeIdentifier = ();
     type MaxFreezes = ();
     type MaxHolds = ();
@@ -194,14 +193,10 @@ impl Config for Test {
     type WeightInfo = ();
 }
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 frame_support::construct_runtime!(
-    pub enum Test where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum Test
     {
         System: frame_system,
         Balances: pallet_balances,
@@ -210,9 +205,8 @@ frame_support::construct_runtime!(
         TxPause: pallet_tx_pause,
     }
 );
-
 pub fn new_test_ext() -> sp_io::TestExternalities {
-    let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+    let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
     pallet_balances::GenesisConfig::<Test> {
         // The 0 account is NOT a special origin. The rest may be:
@@ -221,13 +215,11 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     .assimilate_storage(&mut t)
     .unwrap();
 
-    GenesisBuild::<Test>::assimilate_storage(
-        &pallet_tx_pause::GenesisConfig {
-            paused: vec![],
-            _phantom: Default::default(),
-        },
-        &mut t,
-    )
+    pallet_tx_pause::GenesisConfig::<Test> {
+        paused: vec![],
+        _phantom: Default::default(),
+    }
+    .assimilate_storage(&mut t)
     .unwrap();
 
     let mut ext = sp_io::TestExternalities::new(t);

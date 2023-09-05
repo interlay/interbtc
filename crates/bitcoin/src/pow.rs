@@ -10,12 +10,7 @@ pub const TARGET_TIMESPAN_DIVISOR: u64 = 4;
 
 /// Unrounded Maximum Target
 /// 0x00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-pub const UNROUNDED_MAX_TARGET: U256 = U256([
-    <u64>::max_value(),
-    <u64>::max_value(),
-    <u64>::max_value(),
-    0x0000_0000_ffff_ffffu64,
-]);
+pub const UNROUNDED_MAX_TARGET: U256 = U256([<u64>::MAX, <u64>::MAX, <u64>::MAX, 0x0000_0000_ffff_ffffu64]);
 
 // https://github.com/bitcoin/bitcoin/blob/89b910711c004c21b7d67baa888073742f7f94f0/src/pow.cpp#L49-L72
 pub fn calculate_next_work_required(

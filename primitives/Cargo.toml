@@ -6,7 +6,7 @@ version = "1.2.0"
 
 [dependencies]
 bstringify = "0.1.2"
-serde = { version = "1.0.130", optional = true }
+serde = { version = "1.0.130", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false }
 primitive-types = { version = "0.12.1", default-features = false, features = ["codec", "scale-info"] }
 scale-info = { version = "2.2.0", default-features = false, features = ["derive"] }
@@ -22,10 +22,9 @@ bitcoin = { path = "../crates/bitcoin", default-features = false }
 [features]
 default = ["std", "substrate-compat"]
 std = [
-    "serde",
+    "serde/std",
     "codec/std",
 	"primitive-types/std",
-	"primitive-types/serde",
     "scale-decode",
     "scale-encode",
 

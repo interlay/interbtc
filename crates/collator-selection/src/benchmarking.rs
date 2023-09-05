@@ -101,6 +101,7 @@ fn register_candidates<T: Config>(count: u32) {
 )]
 pub mod benchmarks {
     use super::*;
+    use frame_system::pallet_prelude::BlockNumberFor;
 
     #[benchmark]
     fn set_invulnerables(b: Linear<1, 100>) {
@@ -202,7 +203,7 @@ pub mod benchmarks {
         <CandidacyBond<T>>::put(BalanceOf::<T>::max_value() / 4u32.into());
         T::RewardsCurrency::make_free_balance_be(&<CollatorSelection<T>>::account_id(), 2000u32.into());
         let author = account("author", 0, SEED);
-        let new_block: T::BlockNumber = 10u32.into();
+        let new_block: BlockNumberFor<T> = 10u32.into();
 
         frame_system::Pallet::<T>::set_block_number(new_block);
         assert!(T::RewardsCurrency::free_balance(&author) == 0u32.into());
@@ -226,8 +227,8 @@ pub mod benchmarks {
         register_validators::<T>(c);
         register_candidates::<T>(c);
 
-        let new_block: T::BlockNumber = 1800u32.into();
-        let zero_block: T::BlockNumber = 0u32.into();
+        let new_block: BlockNumberFor<T> = 1800u32.into();
+        let zero_block: BlockNumberFor<T> = 0u32.into();
         let candidates = <Candidates<T>>::get();
 
         let non_removals = c.saturating_sub(r);

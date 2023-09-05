@@ -8,6 +8,7 @@ const TARGET: &'static str = "runtime::issue::migration::v1";
 /// The original data layout of the democracy pallet without a specific version number.
 mod v0 {
     use super::*;
+    use frame_system::pallet_prelude::BlockNumberFor;
 
     #[frame_support::storage_alias]
     pub(super) type IssueRequests<T: Config> =
@@ -42,7 +43,7 @@ mod v0 {
 
     pub type DefaultIssueRequest<T> = IssueRequest<
         <T as frame_system::Config>::AccountId,
-        <T as frame_system::Config>::BlockNumber,
+        BlockNumberFor<T>,
         <T as currency::Config>::Balance,
         vault_registry::types::CurrencyId<T>,
     >;
@@ -51,11 +52,14 @@ mod v0 {
 pub mod v1 {
     use super::*;
 
+    #[cfg(feature = "try-runtime")]
+    use sp_runtime::TryRuntimeError;
+
     pub struct Migration<T>(sp_std::marker::PhantomData<T>);
 
     impl<T: Config + frame_system::Config<Hash = H256>> OnRuntimeUpgrade for Migration<T> {
         #[cfg(feature = "try-runtime")]
-        fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
             assert_eq!(StorageVersion::get::<Pallet<T>>(), 0, "can only upgrade from version 0");
 
             let issue_count = v0::IssueRequests::<T>::iter().count();
@@ -101,7 +105,7 @@ pub mod v1 {
         }
 
         #[cfg(feature = "try-runtime")]
-        fn post_upgrade(state: Vec<u8>) -> Result<(), &'static str> {
+        fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
             assert_eq!(StorageVersion::get::<Pallet<T>>(), 1, "must upgrade");
 
             let old_issue_count: u32 =

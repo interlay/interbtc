@@ -1,8 +1,8 @@
 //! The kintsugi runtime. This can be compiled with `#[no_std]`, ready for Wasm.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
-#![recursion_limit = "256"]
+// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 512.
+#![recursion_limit = "512"]
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -60,7 +60,7 @@ pub use frame_support::{
     construct_runtime,
     dispatch::DispatchClass,
     parameter_types,
-    traits::{Everything, Get, KeyOwnerProofSystem, LockIdentifier, Nothing},
+    traits::{ConstBool, Everything, Get, KeyOwnerProofSystem, LockIdentifier, Nothing},
     weights::{
         constants::{RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND},
         IdentityFee, Weight,
@@ -100,6 +100,9 @@ pub mod evm;
 
 type VaultId = primitives::VaultId<AccountId, CurrencyId>;
 
+type EventRecord =
+    frame_system::EventRecord<<Runtime as frame_system::Config>::RuntimeEvent, <Runtime as frame_system::Config>::Hash>;
+
 impl_opaque_keys! {
     pub struct SessionKeys {
         pub aura: Aura,
@@ -112,10 +115,13 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("kintsugi-parachain"),
     impl_name: create_runtime_str!("kintsugi-parachain"),
     authoring_version: 1,
-    spec_version: 1025000,
+    spec_version: 1025002,
     impl_version: 1,
-    transaction_version: 4,
+    #[cfg(not(feature = "disable-runtime-api"))]
     apis: RUNTIME_API_VERSIONS,
+    #[cfg(feature = "disable-runtime-api")]
+    apis: sp_version::create_apis_vec![[]],
+    transaction_version: 4,
     state_version: 0,
 };
 
@@ -196,11 +202,15 @@ impl Contains<RuntimeCall> for BaseCallFilter {
         ) {
             // always allow core calls
             true
-        } else if let RuntimeCall::PolkadotXcm(_) = call {
-            // For security reasons, disallow usage of the xcm package by users. Sudo and
+        } else if let RuntimeCall::PolkadotXcm(polkadot_xcm_call) = call {
+            // For security reasons, disallow most usage of the xcm package by users. Sudo and
             // governance are still able to call these (sudo is explicitly white-listed, while
             // governance bypasses this call filter).
-            false
+
+            // We do allow PolkadotXcm.send - it's needed for e.g. wormhole interactions on
+            // moonbeam/moonriver. We could probably also allow other functions, but this way
+            // we don't need to worry about security implications of these functions
+            matches!(polkadot_xcm_call, pallet_xcm::Call::<Runtime>::send { .. })
         } else if let RuntimeCall::EVM(_) = call {
             // disable non-root EVM access
             false
@@ -212,6 +222,7 @@ impl Contains<RuntimeCall> for BaseCallFilter {
 }
 
 impl frame_system::Config for Runtime {
+    type Block = Block;
     /// The identifier used to distinguish between accounts.
     type AccountId = AccountId;
     /// The aggregated dispatch type that is available for extrinsics.
@@ -219,15 +230,11 @@ impl frame_system::Config for Runtime {
     /// The lookup mechanism to get account ID from whatever is passed in dispatchers.
     type Lookup = IdentityLookup<AccountId>;
     /// The index type for storing how many extrinsics an account has signed.
-    type Index = Nonce;
-    /// The index type for blocks.
-    type BlockNumber = BlockNumber;
+    type Nonce = Nonce;
     /// The type for hashing blocks and tries.
     type Hash = Hash;
     /// The hashing algorithm used.
     type Hashing = BlakeTwo256;
-    /// The header type.
-    type Header = Header;
     /// The ubiquitous event type.
     type RuntimeEvent = RuntimeEvent;
     /// The ubiquitous origin type.
@@ -317,6 +324,7 @@ impl pallet_aura::Config for Runtime {
     type AuthorityId = AuraId;
     type DisabledValidators = ();
     type MaxAuthorities = MaxAuthorities;
+    type AllowMultipleBlocksPerSlot = ConstBool<false>;
 }
 
 parameter_types! {
@@ -389,6 +397,7 @@ impl pallet_transaction_payment::Config for Runtime {
 impl pallet_sudo::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
 }
 
 impl pallet_utility::Config for Runtime {
@@ -491,7 +500,7 @@ type EnsureRootOrAllTechnicalCommittee = EitherOfDiverse<
 >;
 
 parameter_types! {
-    pub const LaunchPeriod: u64 = 1000 * 60 * 60 * 24 * 7; // one week
+    pub const LaunchPeriod: u64 = 60 * 60 * 24 * 7; // one week (seconds)
     pub const VotingPeriod: BlockNumber = 2 * DAYS;
     pub const FastTrackVotingPeriod: BlockNumber = 3 * HOURS;
     // Require 5 vKINT to make a proposal. Given the crowdloan airdrop, this qualifies about 3500
@@ -724,12 +733,12 @@ impl EnsureOriginWithArg<RuntimeOrigin, Option<u32>> for AssetAuthority {
     type Success = ();
 
     fn try_origin(origin: RuntimeOrigin, _asset_id: &Option<u32>) -> Result<Self::Success, RuntimeOrigin> {
-        EnsureRoot::try_origin(origin)
+        <EnsureRoot<AccountId> as EnsureOrigin<RuntimeOrigin>>::try_origin(origin)
     }
 
     #[cfg(feature = "runtime-benchmarks")]
     fn try_successful_origin(_: &Option<u32>) -> Result<RuntimeOrigin, ()> {
-        EnsureRoot::try_successful_origin()
+        <EnsureRoot<AccountId> as EnsureOrigin<RuntimeOrigin>>::try_successful_origin()
     }
 }
 
@@ -1201,12 +1210,9 @@ impl loans::Config for Runtime {
 }
 
 construct_runtime! {
-    pub enum Runtime where
-        Block = Block,
-        NodeBlock = primitives::Block,
-        UncheckedExtrinsic = UncheckedExtrinsic
+    pub enum Runtime
     {
-        System: frame_system::{Pallet, Call, Storage, Config, Event<T>} = 0,
+        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>} = 0,
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 1,
         Utility: pallet_utility::{Pallet, Call, Event} = 2,
         TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 3,
@@ -1252,7 +1258,7 @@ construct_runtime! {
         Replace: replace::{Pallet, Call, Config<T>, Storage, Event<T>} = 65,
         Fee: fee::{Pallet, Call, Config<T>, Storage} = 66,
         // Refund: 67
-        Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>} = 68,
+        Nomination: nomination::{Pallet, Call, Storage, Config<T>, Event<T>} = 68,
         ClientsInfo: clients_info::{Pallet, Call, Storage, Event<T>} = 69,
 
         // # Governance
@@ -1265,13 +1271,13 @@ construct_runtime! {
         CollatorSelection: collator_selection::{Pallet, Call, Storage, Event<T>, Config<T>} = 81,
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 82,
         Aura: pallet_aura::{Pallet, Storage, Config<T>} = 83,
-        AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config} = 84,
-        ParachainSystem: cumulus_pallet_parachain_system::{Pallet, Call, Config, Storage, Inherent, Event<T>} = 85,
-        ParachainInfo: parachain_info::{Pallet, Storage, Config} = 86,
+        AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config<T>} = 84,
+        ParachainSystem: cumulus_pallet_parachain_system::{Pallet, Call, Config<T>, Storage, Inherent, Event<T>} = 85,
+        ParachainInfo: parachain_info::{Pallet, Storage, Config<T>} = 86,
 
         // # XCM helpers.
         XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 90,
-        PolkadotXcm: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config} = 91,
+        PolkadotXcm: pallet_xcm::{Pallet, Call, Storage, Event<T>, Origin, Config<T>} = 91,
         CumulusXcm: cumulus_pallet_xcm::{Pallet, Call, Event<T>, Origin} = 92,
         DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 93,
 
@@ -1279,7 +1285,7 @@ construct_runtime! {
         UnknownTokens: orml_unknown_tokens::{Pallet, Storage, Event} = 95,
 
         // # Lending & AMM
-        Loans: loans::{Pallet, Call, Storage, Event<T>, Config} = 100,
+        Loans: loans::{Pallet, Call, Storage, Event<T>, Config<T>} = 100,
         DexGeneral: dex_general::{Pallet, Call, Storage, Event<T>} = 101,
         DexStable: dex_stable::{Pallet, Call, Storage, Event<T>}  = 102,
         DexSwapRouter: dex_swap_router::{Pallet, Call, Event<T>} = 103,
@@ -1287,9 +1293,9 @@ construct_runtime! {
         // # Smart contracts
         Contracts: pallet_contracts::{Pallet, Call, Storage, Event<T>} = 110,
         BaseFee: pallet_base_fee::{Pallet, Call, Storage, Event, Config<T>} = 111,
-        Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin} = 112,
-        EVM: pallet_evm::{Pallet, Call, Storage, Event<T>, Config} = 113,
-        EVMChainId: pallet_evm_chain_id::{Pallet, Storage, Config} = 114,
+        Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config<T>, Origin} = 112,
+        EVM: pallet_evm::{Pallet, Call, Storage, Event<T>, Config<T>} = 113,
+        EVMChainId: pallet_evm_chain_id::{Pallet, Storage, Config<T>} = 114,
     }
 }
 
@@ -1322,12 +1328,7 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (
-        orml_asset_registry::Migration<Runtime>,
-        orml_unknown_tokens::Migration<Runtime>,
-        issue::migration::v1::Migration<Runtime>,
-        evm::SetEvmChainId<Runtime>,
-    ),
+    (evm::SetEvmChainId<Runtime>,),
 >;
 
 impl fp_self_contained::SelfContainedCall for RuntimeCall {
@@ -1607,8 +1608,16 @@ impl_runtime_apis! {
         fn dispatch_benchmark(
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-            use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey};
-            impl frame_system_benchmarking::Config for Runtime {}
+            use frame_benchmarking::{Benchmarking, BenchmarkBatch, TrackedStorageKey, BenchmarkError};
+            impl frame_system_benchmarking::Config for Runtime {
+                fn setup_set_code_requirements(code: &sp_std::vec::Vec<u8>) -> Result<(), BenchmarkError> {
+                    ParachainSystem::initialize_for_set_code_benchmark(code.len() as u32);
+                    Ok(())
+                }
+                fn verify_set_code() {
+                    System::assert_last_event(cumulus_pallet_parachain_system::Event::<Runtime>::ValidationFunctionStored.into());
+                }
+            }
             impl runtime_common::benchmarking::orml_tokens::Config for Runtime {}
             impl runtime_common::benchmarking::orml_vesting::Config for Runtime {}
             impl runtime_common::benchmarking::orml_asset_registry::Config for Runtime {}
@@ -2157,6 +2166,121 @@ impl_runtime_apis! {
             )
         }
     }
+
+    impl pallet_contracts::ContractsApi<Block, AccountId, Balance, BlockNumber, Hash, EventRecord> for Runtime {
+        fn call(
+            origin: AccountId,
+            dest: AccountId,
+            value: Balance,
+            gas_limit: Option<Weight>,
+            storage_deposit_limit: Option<Balance>,
+            input_data: Vec<u8>,
+        ) -> pallet_contracts_primitives::ContractExecResult<Balance, EventRecord> {
+            let gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
+            Contracts::bare_call(
+                origin,
+                dest,
+                value,
+                gas_limit,
+                storage_deposit_limit,
+                input_data,
+                pallet_contracts::DebugInfo::UnsafeDebug,
+                pallet_contracts::CollectEvents::UnsafeCollect,
+                pallet_contracts::Determinism::Enforced,
+            )
+        }
+
+        fn instantiate(
+            origin: AccountId,
+            value: Balance,
+            gas_limit: Option<Weight>,
+            storage_deposit_limit: Option<Balance>,
+            code: pallet_contracts_primitives::Code<Hash>,
+            data: Vec<u8>,
+            salt: Vec<u8>,
+        ) -> pallet_contracts_primitives::ContractInstantiateResult<AccountId, Balance, EventRecord>
+        {
+            let gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
+            Contracts::bare_instantiate(
+                origin,
+                value,
+                gas_limit,
+                storage_deposit_limit,
+                code,
+                data,
+                salt,
+                pallet_contracts::DebugInfo::UnsafeDebug,
+                pallet_contracts::CollectEvents::UnsafeCollect,
+            )
+        }
+
+        fn upload_code(
+            origin: AccountId,
+            code: Vec<u8>,
+            storage_deposit_limit: Option<Balance>,
+            determinism: pallet_contracts::Determinism,
+        ) -> pallet_contracts_primitives::CodeUploadResult<Hash, Balance>
+        {
+            Contracts::bare_upload_code(
+                origin,
+                code,
+                storage_deposit_limit,
+                determinism,
+            )
+        }
+
+        fn get_storage(
+            address: AccountId,
+            key: Vec<u8>,
+        ) -> pallet_contracts_primitives::GetStorageResult {
+            Contracts::get_storage(
+                address,
+                key
+            )
+        }
+    }
+
+    // todo: enable this once we add contracts benchmarking
+//     #[cfg(feature = "runtime-benchmarks")]
+//     impl frame_benchmarking::Benchmark<Block> for Runtime {
+//         fn benchmark_metadata(extra: bool) -> (
+//             Vec<frame_benchmarking::BenchmarkList>,
+//             Vec<frame_support::traits::StorageInfo>,
+//         ) {
+//             use frame_benchmarking::{baseline, Benchmarking, BenchmarkList};
+//             use frame_support::traits::StorageInfoTrait;
+//             use frame_system_benchmarking::Pallet as SystemBench;
+//             use baseline::Pallet as BaselineBench;
+//
+//             let mut list = Vec::<BenchmarkList>::new();
+//             list_benchmarks!(list, extra);
+//
+//             let storage_info = AllPalletsWithSystem::storage_info();
+//
+//             (list, storage_info)
+//         }
+//
+//         fn dispatch_benchmark(
+//             config: frame_benchmarking::BenchmarkConfig
+//         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+//             use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch, TrackedStorageKey};
+//             use frame_system_benchmarking::Pallet as SystemBench;
+//             use baseline::Pallet as BaselineBench;
+//
+//             impl frame_system_benchmarking::Config for Runtime {}
+//             impl baseline::Config for Runtime {}
+//
+//             use frame_support::traits::WhitelistedStorageKeys;
+//             let whitelist: Vec<TrackedStorageKey> = AllPalletsWithSystem::whitelisted_storage_keys();
+//
+//             let mut batches = Vec::<BenchmarkBatch>::new();
+//             let params = (&config, &whitelist);
+//             add_benchmarks!(params, batches);
+//
+//             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
+//             Ok(batches)
+//         }
+//     }
 }
 
 struct CheckInherents;

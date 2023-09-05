@@ -17,7 +17,9 @@ pub(crate) mod currency {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
-    pub fn active_block_number<T: crate::Config>() -> T::BlockNumber {
+    use frame_system::pallet_prelude::BlockNumberFor;
+
+    pub fn active_block_number<T: crate::Config>() -> BlockNumberFor<T> {
         <security::Pallet<T>>::active_block_number()
     }
 }
@@ -41,7 +43,7 @@ pub(crate) mod staking {
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
         maybe_amount: Option<Amount<T>>,
-        nonce: Option<<T as frame_system::Config>::Index>,
+        nonce: Option<<T as frame_system::Config>::Nonce>,
     ) -> Result<Amount<T>, DispatchError> {
         if let Some(amount) = maybe_amount {
             T::VaultStaking::withdraw_stake(&(nonce, vault_id.clone()), nominator_id, amount.amount())?;

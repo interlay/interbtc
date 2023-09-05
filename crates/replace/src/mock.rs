@@ -3,7 +3,7 @@ use crate::{Config, Error};
 use currency::Amount;
 use frame_support::{
     assert_ok, parameter_types,
-    traits::{ConstU32, Everything, GenesisBuild},
+    traits::{ConstU32, Everything},
     PalletId,
 };
 use mocktopus::{macros::mockable, mocking::clear_mocks};
@@ -13,22 +13,19 @@ use primitives::{VaultCurrencyPair, VaultId};
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
-    testing::{Header, TestXt},
+    testing::TestXt,
     traits::{BlakeTwo256, IdentityLookup, One, Zero},
+    BuildStorage,
 };
 
 type TestExtrinsic = TestXt<RuntimeCall, ()>;
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
-    pub enum Test where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum Test
     {
-        System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
+        System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 
         // Tokens & Balances
@@ -45,7 +42,7 @@ frame_support::construct_runtime!(
         Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Replace: replace::{Pallet, Call, Config<T>, Storage, Event<T>},
         Fee: fee::{Pallet, Call, Config<T>, Storage},
-        Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>},
+        Nomination: nomination::{Pallet, Call, Storage, Config<T>, Event<T>},
         Currency: currency::{Pallet},
     }
 );
@@ -55,7 +52,6 @@ pub type Balance = u128;
 pub type RawAmount = i128;
 pub type BlockNumber = u64;
 pub type Moment = u64;
-pub type Index = u64;
 pub type SignedFixedPoint = FixedI128;
 pub type SignedInner = i128;
 pub type UnsignedFixedPoint = FixedU128;
@@ -72,13 +68,12 @@ impl frame_system::Config for Test {
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
-    type Index = Index;
-    type BlockNumber = BlockNumber;
+    type Nonce = u64;
+    type Block = Block;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
@@ -284,7 +279,7 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build_with(balances: orml_tokens::GenesisConfig<Test>) -> sp_io::TestExternalities {
-        let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+        let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
         balances.assimilate_storage(&mut storage).unwrap();
 
@@ -295,6 +290,13 @@ impl ExtBuilder {
             premium_redeem_fee: UnsignedFixedPoint::checked_from_rational(5, 100).unwrap(), // 5%
             punishment_fee: UnsignedFixedPoint::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: UnsignedFixedPoint::checked_from_rational(1, 10).unwrap(), // 10%
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        nomination::GenesisConfig::<Test> {
+            is_nomination_enabled: true,
+            _marker: Default::default(),
         }
         .assimilate_storage(&mut storage)
         .unwrap();

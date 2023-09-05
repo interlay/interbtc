@@ -3,7 +3,7 @@ use super::*;
 pub const PARA_ID: u32 = 2032;
 
 /// Specialized `ChainSpec` for the interlay parachain runtime.
-pub type InterlayChainSpec = sc_service::GenericChainSpec<interlay_runtime::GenesisConfig, Extensions>;
+pub type InterlayChainSpec = sc_service::GenericChainSpec<interlay_runtime::RuntimeGenesisConfig, Extensions>;
 
 /// Specialized `ChainSpec` for interlay development.
 pub type InterlayDevChainSpec = sc_service::GenericChainSpec<InterlayDevGenesisExt, Extensions>;
@@ -12,7 +12,7 @@ pub type InterlayDevChainSpec = sc_service::GenericChainSpec<InterlayDevGenesisE
 #[derive(Serialize, Deserialize)]
 pub struct InterlayDevGenesisExt {
     /// Genesis config.
-    pub(crate) genesis_config: interlay_runtime::GenesisConfig,
+    pub(crate) genesis_config: interlay_runtime::RuntimeGenesisConfig,
     /// The flag to enable instant-seal mode.
     pub(crate) enable_instant_seal: bool,
     /// The flag to enable EVM contract creation.
@@ -165,21 +165,25 @@ pub fn interlay_genesis(
     id: ParaId,
     bitcoin_confirmations: u32,
     disable_difficulty_check: bool,
-) -> interlay_runtime::GenesisConfig {
+) -> interlay_runtime::RuntimeGenesisConfig {
     let chain_id: u32 = id.into();
     endowed_accounts.extend(
         endowed_evm_accounts
             .into_iter()
             .map(|addr| interlay_runtime::evm::AccountConverter::into_account_id(H160::from(addr))),
     );
-    interlay_runtime::GenesisConfig {
+    interlay_runtime::RuntimeGenesisConfig {
         system: interlay_runtime::SystemConfig {
+            _config: Default::default(),
             code: interlay_runtime::WASM_BINARY
                 .expect("WASM binary was not build, please build it!")
                 .to_vec(),
         },
         parachain_system: Default::default(),
-        parachain_info: interlay_runtime::ParachainInfoConfig { parachain_id: id },
+        parachain_info: interlay_runtime::ParachainInfoConfig {
+            _config: Default::default(),
+            parachain_id: id,
+        },
         collator_selection: interlay_runtime::CollatorSelectionConfig {
             invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
             candidacy_bond: Zero::zero(),
@@ -262,6 +266,7 @@ pub fn interlay_genesis(
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
         },
         nomination: interlay_runtime::NominationConfig {
+            _marker: Default::default(),
             is_nomination_enabled: false,
         },
         technical_committee: Default::default(),
@@ -274,16 +279,19 @@ pub fn interlay_genesis(
             inflation: FixedU128::checked_from_rational(2, 100).unwrap(), // 2%
         },
         polkadot_xcm: interlay_runtime::PolkadotXcmConfig {
+            _config: Default::default(),
             safe_xcm_version: Some(3),
         },
         sudo: interlay_runtime::SudoConfig { key: root_key },
         loans: interlay_runtime::LoansConfig {
+            _marker: Default::default(),
             max_exchange_rate: Rate::from_inner(loans::DEFAULT_MAX_EXCHANGE_RATE),
             min_exchange_rate: Rate::from_inner(loans::DEFAULT_MIN_EXCHANGE_RATE),
         },
         base_fee: Default::default(),
         ethereum: Default::default(),
-        evm: kintsugi_runtime::EVMConfig {
+        evm: interlay_runtime::EVMConfig {
+            _marker: Default::default(),
             // we need _some_ code inserted at the precompile address so that
             // the evm will actually call the address.
             accounts: interlay_runtime::evm::Precompiles::used_addresses()
@@ -301,7 +309,8 @@ pub fn interlay_genesis(
                 })
                 .collect(),
         },
-        evm_chain_id: kintsugi_runtime::EVMChainIdConfig {
+        evm_chain_id: interlay_runtime::EVMChainIdConfig {
+            _marker: Default::default(),
             chain_id: chain_id.into(),
         },
     }

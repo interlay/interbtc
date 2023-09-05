@@ -36,7 +36,7 @@ use frame_support::{
     weights::Weight,
     BoundedVec,
 };
-use frame_system::{ensure_root, ensure_signed};
+use frame_system::{ensure_root, ensure_signed, pallet_prelude::BlockNumberFor};
 use scale_info::TypeInfo;
 use sp_runtime::traits::*;
 use sp_std::{convert::TryInto, vec::Vec};
@@ -111,8 +111,8 @@ pub mod pallet {
     }
 
     #[pallet::hooks]
-    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
-        fn on_initialize(n: T::BlockNumber) -> Weight {
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_initialize(n: BlockNumberFor<T>) -> Weight {
             let iterations = Self::begin_block(n);
             <T as Config>::WeightInfo::on_initialize(iterations)
         }
@@ -161,23 +161,14 @@ pub mod pallet {
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery, DefaultForStorageVersion>;
 
     #[pallet::genesis_config]
+    #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T: Config> {
         pub max_delay: u32,
         pub authorized_oracles: Vec<(T::AccountId, NameOf<T>)>,
     }
 
-    #[cfg(feature = "std")]
-    impl<T: Config> Default for GenesisConfig<T> {
-        fn default() -> Self {
-            Self {
-                max_delay: Default::default(),
-                authorized_oracles: Default::default(),
-            }
-        }
-    }
-
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             // T::Moment doesn't implement serialize so we use
             // From<u32> as bound by AtLeast32Bit
@@ -257,7 +248,7 @@ pub mod pallet {
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
     // public only for testing purposes
-    pub fn begin_block(_height: T::BlockNumber) -> u32 {
+    pub fn begin_block(_height: BlockNumberFor<T>) -> u32 {
         // read to a temporary value, because we can't alter the map while we iterate over it
         let raw_values_updated: Vec<_> = RawValuesUpdated::<T>::iter().collect();
 

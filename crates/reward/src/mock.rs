@@ -13,28 +13,22 @@ pub use primitives::{
 use sp_arithmetic::FixedI128;
 use sp_core::H256;
 use sp_runtime::{
-    testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
+    BuildStorage,
 };
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
-    pub enum Test where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum Test
     {
-        System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
+        System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
         Reward: reward::{Pallet, Call, Storage, Event<T>},
     }
 );
 
 pub type AccountId = u64;
-pub type BlockNumber = u64;
-pub type Index = u64;
 pub type SignedFixedPoint = FixedI128;
 
 parameter_types! {
@@ -49,13 +43,12 @@ impl frame_system::Config for Test {
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
-    type Index = Index;
-    type BlockNumber = BlockNumber;
+    type Nonce = u64;
+    type Block = Block;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
@@ -87,7 +80,7 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
-        let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+        let storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
         storage.into()
     }

@@ -1,4 +1,4 @@
-use crate::{self as annuity, BlockRewardProvider, Config};
+use crate::{self as annuity, BlockRewardProvider, Config, Convert};
 use frame_support::{
     parameter_types,
     traits::{ConstU32, Everything},
@@ -7,24 +7,17 @@ use frame_support::{
 pub use primitives::{CurrencyId, CurrencyId::Token, SignedFixedPoint, TokenSymbol::*};
 use sp_core::H256;
 use sp_runtime::{
-    generic::Header as GenericHeader,
-    traits::{BlakeTwo256, Identity, IdentityLookup},
-    DispatchError, DispatchResult,
+    traits::{BlakeTwo256, IdentityLookup},
+    BuildStorage, DispatchError, DispatchResult,
 };
 
-type Header = GenericHeader<BlockNumber, BlakeTwo256>;
-
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
-    pub enum Test where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum Test
     {
-        System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
+        System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
         Rewards: reward::{Pallet, Call, Storage, Event<T>},
         Annuity: annuity::{Pallet, Call, Storage, Event<T>},
@@ -33,8 +26,7 @@ frame_support::construct_runtime!(
 
 pub type AccountId = u64;
 pub type Balance = u128;
-pub type BlockNumber = u128;
-pub type Index = u64;
+pub type BlockNumber = u64;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -48,13 +40,12 @@ impl frame_system::Config for Test {
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
-    type Index = Index;
-    type BlockNumber = BlockNumber;
+    type Nonce = u64;
+    type Block = Block;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
@@ -82,7 +73,7 @@ impl pallet_balances::Config for Test {
     type MaxLocks = ();
     type MaxReserves = ();
     type ReserveIdentifier = [u8; 8];
-    type HoldIdentifier = ();
+    type RuntimeHoldReason = ();
     type FreezeIdentifier = ();
     type MaxFreezes = ();
     type MaxHolds = ();
@@ -133,12 +124,19 @@ parameter_types! {
     pub const TotalWrapped: Balance = 100000000; // 1 BTC
 }
 
+pub struct BlockNumberToBalance;
+impl Convert<BlockNumber, Balance> for BlockNumberToBalance {
+    fn convert(a: BlockNumber) -> Balance {
+        a.into()
+    }
+}
+
 impl Config for Test {
     type AnnuityPalletId = AnnuityPalletId;
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type BlockRewardProvider = MockBlockRewardProvider;
-    type BlockNumberToBalance = Identity;
+    type BlockNumberToBalance = BlockNumberToBalance;
     type EmissionPeriod = EmissionPeriod;
     type TotalWrapped = TotalWrapped;
     type WeightInfo = ();
@@ -148,7 +146,7 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
-        let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+        let storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
         storage.into()
     }

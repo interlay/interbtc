@@ -86,9 +86,9 @@ pub mod pallet {
         >;
 
         /// Vault staking pool.
-        type VaultStaking: StakingApi<DefaultVaultId<Self>, Self::Index, BalanceOf<Self>>
+        type VaultStaking: StakingApi<DefaultVaultId<Self>, Self::Nonce, BalanceOf<Self>>
             + RewardsApi<
-                (Option<Self::Index>, DefaultVaultId<Self>),
+                (Option<Self::Nonce>, DefaultVaultId<Self>),
                 Self::AccountId,
                 BalanceOf<Self>,
                 CurrencyId = CurrencyId<Self>,
@@ -176,6 +176,7 @@ pub mod pallet {
         StorageMap<_, Blake2_128Concat, DefaultVaultId<T>, UnsignedFixedPoint<T>, OptionQuery>;
 
     #[pallet::genesis_config]
+    #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T: Config> {
         pub issue_fee: UnsignedFixedPoint<T>,
         pub issue_griefing_collateral: UnsignedFixedPoint<T>,
@@ -185,22 +186,8 @@ pub mod pallet {
         pub replace_griefing_collateral: UnsignedFixedPoint<T>,
     }
 
-    #[cfg(feature = "std")]
-    impl<T: Config> Default for GenesisConfig<T> {
-        fn default() -> Self {
-            Self {
-                issue_fee: Default::default(),
-                issue_griefing_collateral: Default::default(),
-                redeem_fee: Default::default(),
-                premium_redeem_fee: Default::default(),
-                punishment_fee: Default::default(),
-                replace_griefing_collateral: Default::default(),
-            }
-        }
-    }
-
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             IssueFee::<T>::put(self.issue_fee);
             IssueGriefingCollateral::<T>::put(self.issue_griefing_collateral);
@@ -228,7 +215,7 @@ pub mod pallet {
         pub fn withdraw_rewards(
             origin: OriginFor<T>,
             vault_id: DefaultVaultId<T>,
-            index: Option<T::Index>,
+            index: Option<T::Nonce>,
         ) -> DispatchResultWithPostInfo {
             let nominator_id = ensure_signed(origin)?;
             for currency_id in [vault_id.wrapped_currency(), T::GetNativeCurrencyId::get()] {
@@ -490,7 +477,7 @@ impl<T: Config> Pallet<T> {
     fn withdraw_vault_rewards(
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
-        index: Option<T::Index>,
+        index: Option<T::Nonce>,
         currency_id: CurrencyId<T>,
     ) -> Result<BalanceOf<T>, DispatchError> {
         Self::distribute_vault_rewards(&vault_id, currency_id)?;

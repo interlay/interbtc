@@ -99,11 +99,11 @@ pub mod pallet {
         type WeightInfo: WeightInfo;
 
         #[pallet::constant]
-        type ParachainBlocksPerBitcoinBlock: Get<<Self as frame_system::Config>::BlockNumber>;
+        type ParachainBlocksPerBitcoinBlock: Get<BlockNumberFor<Self>>;
     }
 
     #[pallet::hooks]
-    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -316,12 +316,14 @@ pub mod pallet {
         WrongForkBound,
         /// Weight bound exceeded
         BoundExceeded,
+        /// Coinbase tx must be the first transaction in the block
+        InvalidCoinbasePosition,
     }
 
     /// Store Bitcoin block headers
     #[pallet::storage]
     pub(super) type BlockHeaders<T: Config> =
-        StorageMap<_, Blake2_128Concat, H256Le, RichBlockHeader<T::BlockNumber>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, H256Le, RichBlockHeader<BlockNumberFor<T>>, ValueQuery>;
 
     /// Priority queue of BlockChain elements, ordered by the maximum height (descending).
     /// The first index into this mapping (0) is considered to be the longest chain. The value
@@ -364,7 +366,7 @@ pub mod pallet {
     /// Global security parameter k for stable Parachain transactions
     #[pallet::storage]
     #[pallet::getter(fn parachain_confirmations)]
-    pub(super) type StableParachainConfirmations<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+    pub(super) type StableParachainConfirmations<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     /// Whether the module should perform difficulty checks.
     #[pallet::storage]
@@ -377,31 +379,20 @@ pub mod pallet {
     pub(super) type DisableInclusionCheck<T: Config> = StorageValue<_, bool, ValueQuery>;
 
     #[pallet::genesis_config]
+    #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T: Config> {
         /// Global security parameter k for stable Bitcoin transactions
         pub bitcoin_confirmations: u32,
         /// Global security parameter k for stable Parachain transactions
-        pub parachain_confirmations: T::BlockNumber,
+        pub parachain_confirmations: BlockNumberFor<T>,
         /// Whether the module should perform difficulty checks.
         pub disable_difficulty_check: bool,
         /// Whether the module should perform inclusion checks.
         pub disable_inclusion_check: bool,
     }
 
-    #[cfg(feature = "std")]
-    impl<T: Config> Default for GenesisConfig<T> {
-        fn default() -> Self {
-            Self {
-                bitcoin_confirmations: Default::default(),
-                parachain_confirmations: Default::default(),
-                disable_difficulty_check: Default::default(),
-                disable_inclusion_check: Default::default(),
-            }
-        }
-    }
-
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             StableBitcoinConfirmations::<T>::put(self.bitcoin_confirmations);
             StableParachainConfirmations::<T>::put(self.parachain_confirmations);
@@ -424,15 +415,11 @@ pub const ACCEPTED_MAX_TRANSACTION_OUTPUTS: usize = 3;
 
 /// Unrounded Maximum Target
 /// 0x00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-pub const UNROUNDED_MAX_TARGET: U256 = U256([
-    <u64>::max_value(),
-    <u64>::max_value(),
-    <u64>::max_value(),
-    0x0000_0000_ffff_ffffu64,
-]);
+pub const UNROUNDED_MAX_TARGET: U256 = U256([<u64>::MAX, <u64>::MAX, <u64>::MAX, 0x0000_0000_ffff_ffffu64]);
 
 /// Main chain id
 pub const MAIN_CHAIN_ID: u32 = 0;
+use frame_system::pallet_prelude::BlockNumberFor;
 
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
@@ -608,6 +595,14 @@ impl<T: Config> Pallet<T> {
         let user_proof_result = Self::verify_merkle_proof(unchecked_transaction.user_tx_proof)?;
         let coinbase_proof_result = Self::verify_merkle_proof(unchecked_transaction.coinbase_proof)?;
 
+        // make sure the the coinbase tx is the first tx in the block. Otherwise a fake coinbase
+        // could be included in a leaf-node attack. Related:
+        // https://bitslog.com/2018/06/09/leaf-node-weakness-in-bitcoin-merkle-tree-design/ .
+        ensure!(
+            coinbase_proof_result.transaction_position == 0,
+            Error::<T>::InvalidCoinbasePosition
+        );
+
         // Make sure the coinbase tx is for the same block as the user tx
         ensure!(
             user_proof_result.extracted_root == coinbase_proof_result.extracted_root,
@@ -696,20 +691,20 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn has_request_expired(
-        opentime: T::BlockNumber,
+        opentime: BlockNumberFor<T>,
         btc_open_height: u32,
-        period: T::BlockNumber,
+        period: BlockNumberFor<T>,
     ) -> Result<bool, DispatchError> {
         Ok(ext::security::parachain_block_expired::<T>(opentime, period)?
             && Self::bitcoin_block_expired(btc_open_height, period)?)
     }
 
-    pub fn bitcoin_expiry_height(btc_open_height: u32, period: T::BlockNumber) -> Result<u32, DispatchError> {
+    pub fn bitcoin_expiry_height(btc_open_height: u32, period: BlockNumberFor<T>) -> Result<u32, DispatchError> {
         // calculate num_bitcoin_blocks as ceil(period / ParachainBlocksPerBitcoinBlock)
         let num_bitcoin_blocks: u32 = period
             .checked_add(&T::ParachainBlocksPerBitcoinBlock::get())
             .ok_or(Error::<T>::ArithmeticOverflow)?
-            .checked_sub(&T::BlockNumber::one())
+            .checked_sub(&BlockNumberFor::<T>::one())
             .ok_or(Error::<T>::ArithmeticUnderflow)?
             .checked_div(&T::ParachainBlocksPerBitcoinBlock::get())
             .ok_or(Error::<T>::ArithmeticUnderflow)?
@@ -721,7 +716,7 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::ArithmeticOverflow)?)
     }
 
-    pub fn bitcoin_block_expired(btc_open_height: u32, period: T::BlockNumber) -> Result<bool, DispatchError> {
+    pub fn bitcoin_block_expired(btc_open_height: u32, period: BlockNumberFor<T>) -> Result<bool, DispatchError> {
         let expiration_height = Self::bitcoin_expiry_height(btc_open_height, period)?;
 
         // Note that we check stictly greater than. This ensures that at least
@@ -787,7 +782,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Get a block header from its hash
-    fn get_block_header_from_hash(block_hash: H256Le) -> Result<RichBlockHeader<T::BlockNumber>, DispatchError> {
+    fn get_block_header_from_hash(block_hash: H256Le) -> Result<RichBlockHeader<BlockNumberFor<T>>, DispatchError> {
         BlockHeaders::<T>::try_get(block_hash).or(Err(Error::<T>::BlockNotFound.into()))
     }
 
@@ -800,7 +795,7 @@ impl<T: Config> Pallet<T> {
     fn get_block_header_from_height(
         blockchain: &BlockChain,
         block_height: u32,
-    ) -> Result<RichBlockHeader<T::BlockNumber>, DispatchError> {
+    ) -> Result<RichBlockHeader<BlockNumberFor<T>>, DispatchError> {
         let block_hash = Self::get_block_hash(blockchain.chain_id, block_height)?;
         Self::get_block_header_from_hash(block_hash)
     }
@@ -828,7 +823,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Set a new block header
-    fn set_block_header_from_hash(hash: H256Le, header: &RichBlockHeader<T::BlockNumber>) {
+    fn set_block_header_from_hash(hash: H256Le, header: &RichBlockHeader<BlockNumberFor<T>>) {
         BlockHeaders::<T>::insert(hash, header);
     }
 
@@ -942,7 +937,7 @@ impl<T: Config> Pallet<T> {
     fn verify_block_header(
         block_header: &BlockHeader,
         block_height: u32,
-        prev_block_header: RichBlockHeader<T::BlockNumber>,
+        prev_block_header: RichBlockHeader<BlockNumberFor<T>>,
     ) -> Result<(), DispatchError> {
         // Check that the block header is not yet stored in BTC-Relay
         ensure!(
@@ -976,7 +971,7 @@ impl<T: Config> Pallet<T> {
     /// * `prev_block_header`: previous block header
     /// * `block_height` : block height of new target
     fn compute_new_target(
-        prev_block_header: &RichBlockHeader<T::BlockNumber>,
+        prev_block_header: &RichBlockHeader<BlockNumberFor<T>>,
         block_height: u32,
     ) -> Result<U256, DispatchError> {
         // time of last retarget (first block in current difficulty period)
@@ -1100,7 +1095,7 @@ impl<T: Config> Pallet<T> {
     /// Transfers the given block to the main chain. If this would overwrite a block already in the
     /// main chain, then the overwritten block is moved to to `chain_id_for_old_main_blocks`.
     fn swap_block_to_mainchain(
-        block: RichBlockHeader<T::BlockNumber>,
+        block: RichBlockHeader<BlockNumberFor<T>>,
         chain_id_for_old_main_blocks: u32,
     ) -> Result<(), DispatchError> {
         let block_height = block.block_height;
@@ -1129,7 +1124,7 @@ impl<T: Config> Pallet<T> {
     // returns (child, parent)
     fn enumerate_chain_links(
         start: H256Le,
-    ) -> impl Iterator<Item = Result<(RichBlockHeader<T::BlockNumber>, RichBlockHeader<T::BlockNumber>), DispatchError>>
+    ) -> impl Iterator<Item = Result<(RichBlockHeader<BlockNumberFor<T>>, RichBlockHeader<BlockNumberFor<T>>), DispatchError>>
     {
         let child = Self::get_block_header_from_hash(start);
 
@@ -1307,7 +1302,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `para_height` - height of the parachain when the block was stored
-    pub fn check_parachain_confirmations(para_height: T::BlockNumber) -> Result<(), DispatchError> {
+    pub fn check_parachain_confirmations(para_height: BlockNumberFor<T>) -> Result<(), DispatchError> {
         let current_height = ext::security::active_block_number::<T>();
 
         ensure!(

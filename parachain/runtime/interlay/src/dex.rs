@@ -6,6 +6,8 @@ use sp_runtime::traits::Zero;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
+#[cfg(feature = "try-runtime")]
+use sp_runtime::TryRuntimeError;
 
 pub use dex_general::{AssetBalance, GenerateLpAssetId, PairInfo, ValidateAsset};
 pub use dex_stable::traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency};
@@ -107,7 +109,7 @@ impl OnRuntimeUpgrade for SetLoansExchangeRates {
     }
 
     #[cfg(feature = "try-runtime")]
-    fn post_upgrade(_state: sp_std::vec::Vec<u8>) -> Result<(), &'static str> {
+    fn post_upgrade(_state: sp_std::vec::Vec<u8>) -> Result<(), TryRuntimeError> {
         let min_exchange_rate = loans::MinExchangeRate::<Runtime>::get();
         let max_exchange_rate = loans::MaxExchangeRate::<Runtime>::get();
         ensure!(

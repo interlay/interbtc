@@ -130,7 +130,7 @@ pub mod pallet {
             griefing_collateral: BalanceOf<T>,
         },
         ReplacePeriodChange {
-            period: T::BlockNumber,
+            period: BlockNumberFor<T>,
         },
     }
 
@@ -171,7 +171,7 @@ pub mod pallet {
     /// to prevent griefing of vault collateral.
     #[pallet::storage]
     #[pallet::getter(fn replace_period)]
-    pub(super) type ReplacePeriod<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+    pub(super) type ReplacePeriod<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     /// The minimum amount of btc that is accepted for replace requests; any lower values would
     /// risk the bitcoin client to reject the payment
@@ -190,23 +190,14 @@ pub mod pallet {
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery, DefaultForStorageVersion>;
 
     #[pallet::genesis_config]
+    #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T: Config> {
-        pub replace_period: T::BlockNumber,
+        pub replace_period: BlockNumberFor<T>,
         pub replace_btc_dust_value: BalanceOf<T>,
     }
 
-    #[cfg(feature = "std")]
-    impl<T: Config> Default for GenesisConfig<T> {
-        fn default() -> Self {
-            Self {
-                replace_period: Default::default(),
-                replace_btc_dust_value: Default::default(),
-            }
-        }
-    }
-
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             ReplacePeriod::<T>::put(self.replace_period);
             ReplaceBtcDustValue::<T>::put(self.replace_btc_dust_value);
@@ -214,7 +205,7 @@ pub mod pallet {
     }
 
     #[pallet::hooks]
-    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
@@ -332,7 +323,7 @@ pub mod pallet {
         #[pallet::call_index(5)]
         #[pallet::weight(<T as Config>::WeightInfo::set_replace_period())]
         #[transactional]
-        pub fn set_replace_period(origin: OriginFor<T>, period: T::BlockNumber) -> DispatchResultWithPostInfo {
+        pub fn set_replace_period(origin: OriginFor<T>, period: BlockNumberFor<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             <ReplacePeriod<T>>::set(period);
             Self::deposit_event(Event::ReplacePeriodChange { period });

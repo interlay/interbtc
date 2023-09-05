@@ -12,6 +12,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
       - run: git fetch --prune --unshallow
       - name: Install System Dependencies
         run: |
@@ -47,7 +49,6 @@ jobs:
           ./target/release/interbtc-parachain benchmark pallet \
             --pallet '*' \
             --extrinsic '*' \
-            --execution=wasm \
             --wasm-execution=compiled \
             --steps 2 --repeat 1 \
             --template .deploy/runtime-weight-template.hbs \
@@ -55,7 +56,6 @@ jobs:
           ./target/release/interbtc-parachain benchmark pallet \
             --pallet '*' \
             --extrinsic '*' \
-            --execution=wasm \
             --wasm-execution=compiled \
             --steps 2 --repeat 1 \
             --template .deploy/runtime-weight-template.hbs \

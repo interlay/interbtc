@@ -9,7 +9,7 @@ targets = ['x86_64-unknown-linux-gnu']
 
 [dependencies]
 log = { version = "0.4.17", default-features = false }
-serde = { version = "1.0.130", default-features = false, features = ["derive"], optional = true }
+serde = { version = "1.0.130", default-features = false, features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.1.5", default-features = false, features = ["derive", "max-encoded-len"] }
 hex-literal = { version = "0.3.1" }
 scale-info = { version = "2.2.0", default-features = false, features = ["derive"] }
@@ -32,7 +32,7 @@ sp-weights = { git = "https://github.com/paritytech/substrate", branch = "polkad
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 frame-executive = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
-frame-system-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false, optional = true }
+frame-system-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false, optional = true}
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false, optional = true }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
@@ -137,7 +137,7 @@ orml-asset-registry= { git = "https://github.com/open-web3-stack/open-runtime-mo
 
 # Frontier dependencies
 fp-rpc = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
-fp-self-contained = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
+fp-self-contained = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false, features = ["serde"] }
 pallet-base-fee = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
 pallet-ethereum = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
 pallet-evm = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
@@ -162,7 +162,7 @@ disable-runtime-api = []
 vesting-any = []
 std = [
   "log/std",
-  "serde",
+  "serde/std",
   "codec/std",
 
   "sp-std/std",
@@ -304,6 +304,7 @@ runtime-benchmarks = [
   "pallet-society/runtime-benchmarks",
 
   "cumulus-pallet-xcmp-queue/runtime-benchmarks",
+  "cumulus-pallet-parachain-system/runtime-benchmarks",
 
   "pallet-xcm/runtime-benchmarks",
   "pallet-xcm-benchmarks/runtime-benchmarks",

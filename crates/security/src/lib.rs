@@ -28,6 +28,7 @@ use mocktopus::macros::mockable;
 
 use codec::Encode;
 use frame_support::{dispatch::DispatchError, weights::Weight};
+use frame_system::pallet_prelude::BlockNumberFor;
 pub use pallet::*;
 use sha2::{Digest, Sha256};
 use sp_core::{H256, U256};
@@ -53,7 +54,7 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        UpdateActiveBlock { block_number: T::BlockNumber },
+        UpdateActiveBlock { block_number: BlockNumberFor<T> },
         Activated,
         Deactivated,
     }
@@ -62,8 +63,8 @@ pub mod pallet {
     pub enum Error<T> {}
 
     #[pallet::hooks]
-    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
-        fn on_initialize(_n: T::BlockNumber) -> Weight {
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
             Self::increment_active_block();
             <T as Config>::WeightInfo::on_initialize()
         }
@@ -81,7 +82,7 @@ pub mod pallet {
     /// proof.
     #[pallet::storage]
     #[pallet::getter(fn active_block_number)]
-    pub type ActiveBlockCount<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+    pub type ActiveBlockCount<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     #[pallet::storage]
     pub type IsDeactivated<T: Config> = StorageValue<_, bool, ValueQuery>;
@@ -110,11 +111,13 @@ pub mod pallet {
         }
     }
 }
-
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
-    pub fn parachain_block_expired(opentime: T::BlockNumber, period: T::BlockNumber) -> Result<bool, DispatchError> {
+    pub fn parachain_block_expired(
+        opentime: BlockNumberFor<T>,
+        period: BlockNumberFor<T>,
+    ) -> Result<bool, DispatchError> {
         let expiration_block = opentime.checked_add(&period).ok_or(ArithmeticError::Overflow)?;
         Ok(Self::active_block_number() > expiration_block)
     }
@@ -159,7 +162,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// for testing purposes only!
-    pub fn set_active_block_number(n: T::BlockNumber) {
+    pub fn set_active_block_number(n: BlockNumberFor<T>) {
         ActiveBlockCount::<T>::set(n);
     }
 }

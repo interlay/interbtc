@@ -1,7 +1,7 @@
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_consensus_aura::{AuraConsensus, BuildAuraConsensusParams, SlotProportion};
 use cumulus_client_consensus_common::{ParachainBlockImport as TParachainBlockImport, ParachainConsensus};
-use cumulus_client_network::BlockAnnounceValidator;
+use cumulus_client_network::RequireSecondedInBlockAnnounce;
 use cumulus_client_service::{
     prepare_node_config, start_collator, start_full_node, StartCollatorParams, StartFullNodeParams,
 };
@@ -13,13 +13,14 @@ use cumulus_relay_chain_minimal_node::build_minimal_relay_chain_node;
 use futures::StreamExt;
 use polkadot_service::CollatorPair;
 use primitives::*;
-use sc_client_api::{HeaderBackend, StateBackendFor};
+use sc_client_api::{Backend, HeaderBackend, StateBackendFor};
 use sc_consensus::{ImportQueue, LongestChain};
-use sc_executor::NativeElseWasmExecutor;
+use sc_executor::{HeapAllocStrategy, NativeElseWasmExecutor, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::NetworkBlock;
 use sc_network_sync::SyncingService;
 use sc_service::{Configuration, PartialComponents, RpcHandlers, TFullBackend, TFullClient, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ConstructRuntimeApi;
 use sp_consensus_aura::{
     sr25519::{AuthorityId as AuraId, AuthorityPair as AuraPair},
@@ -33,8 +34,8 @@ use substrate_prometheus_endpoint::Registry;
 
 // Frontier imports
 use crate::eth::{
-    new_eth_deps, new_frontier_partial, open_frontier_backend, spawn_frontier_tasks, BlockImport as EthBlockImport,
-    EthCompatRuntimeApiCollection, EthConfiguration, FrontierBackend, FrontierPartialComponents,
+    new_eth_deps, new_frontier_partial, open_frontier_backend, spawn_frontier_tasks, EthCompatRuntimeApiCollection,
+    EthConfiguration, FrontierBackend, FrontierPartialComponents,
 };
 
 macro_rules! new_runtime_executor {
@@ -189,6 +190,12 @@ type MaybeFullSelectChain = Option<LongestChain<FullBackend, Block>>;
 type ParachainBlockImport<RuntimeApi, ExecutorDispatch> =
     TParachainBlockImport<Block, Arc<FullClient<RuntimeApi, ExecutorDispatch>>, FullBackend>;
 
+// 0x9af9a64e6e4da8e3073901c3ff0cc4c3aad9563786d89daf6ad820b6e14a0b8b
+const KINTSUGI_GENESIS_HASH: H256 = H256([
+    154, 249, 166, 78, 110, 77, 168, 227, 7, 57, 1, 195, 255, 12, 196, 195, 170, 217, 86, 55, 134, 216, 157, 175, 106,
+    216, 32, 182, 225, 74, 11, 139,
+]);
+
 fn import_slot_duration<C>(client: &C) -> SlotDuration
 where
     C: sc_client_api::backend::AuxStore
@@ -197,18 +204,19 @@ where
         + sp_api::CallApiAt<Block>,
     C::Api: sp_consensus_aura::AuraApi<Block, AuraId>,
 {
-    match client.runtime_version_at(client.usage_info().chain.best_hash) {
-        Ok(x) if x.spec_name.starts_with("kintsugi") && client.usage_info().chain.best_number < 1983993 => {
-            // the kintsugi runtime was misconfigured at genesis to use a slot duration of 6s
-            // which stalled collators when we upgraded to polkadot-v0.9.16 and subsequently
-            // broke mainnet when we introduced the aura timestamp hook, collators should only
-            // switch when syncing after the (failed) 1.20.0 upgrade
-            SlotDuration::from_millis(6000)
-        }
+    if client.usage_info().chain.genesis_hash == KINTSUGI_GENESIS_HASH
+        && client.usage_info().chain.best_number < 1983993
+    {
+        // the kintsugi runtime was misconfigured at genesis to use a slot duration of 6s
+        // which stalled collators when we upgraded to polkadot-v0.9.16 and subsequently
+        // broke mainnet when we introduced the aura timestamp hook, collators should only
+        // switch when syncing after the (failed) 1.20.0 upgrade
+        SlotDuration::from_millis(6000)
+    } else {
         // this is pallet_timestamp::MinimumPeriod * 2 at the current height
         // on kintsugi we increased MinimumPeriod from 3_000 to 6_000 at 16_593
         // but the interlay runtime has always used 6_000
-        _ => sc_consensus_aura::slot_duration(&*client).unwrap(),
+        sc_consensus_aura::slot_duration(&*client).unwrap()
     }
 }
 
@@ -228,6 +236,7 @@ pub fn new_partial<RuntimeApi, Executor>(
         sc_consensus::DefaultImportQueue<Block, FullClient<RuntimeApi, Executor>>,
         sc_transaction_pool::FullPool<Block, FullClient<RuntimeApi, Executor>>,
         (
+            ParachainBlockImport<RuntimeApi, Executor>,
             Option<Telemetry>,
             Option<TelemetryWorkerHandle>,
             FrontierBackend,
@@ -254,11 +263,20 @@ where
         })
         .transpose()?;
 
-    let executor = NativeElseWasmExecutor::<Executor>::new(
-        config.wasm_method,
-        config.default_heap_pages,
-        config.max_runtime_instances,
-        config.runtime_cache_size,
+    let heap_pages = config
+        .default_heap_pages
+        .map_or(DEFAULT_HEAP_ALLOC_STRATEGY, |h| HeapAllocStrategy::Static {
+            extra_pages: h as _,
+        });
+
+    let executor = NativeElseWasmExecutor::<Executor>::new_with_wasm_executor(
+        WasmExecutor::builder()
+            .with_execution_method(config.wasm_method)
+            .with_onchain_heap_alloc_strategy(heap_pages)
+            .with_offchain_heap_alloc_strategy(heap_pages)
+            .with_max_runtime_instances(config.max_runtime_instances)
+            .with_runtime_cache_size(config.runtime_cache_size)
+            .build(),
     );
 
     let (client, backend, keystore_container, task_manager) = sc_service::new_full_parts::<Block, RuntimeApi, _>(
@@ -293,11 +311,12 @@ where
 
     let overrides = interbtc_rpc::overrides_handle(client.clone());
     let frontier_backend = open_frontier_backend(client.clone(), config, eth_config, overrides.clone())?;
+    let parachain_block_import = ParachainBlockImport::new(client.clone(), backend.clone());
 
     let import_queue = if instant_seal {
         // instant sealing
         sc_consensus_manual_seal::import_queue(
-            Box::new(EthBlockImport::new(client.clone(), client.clone())),
+            Box::new(client.clone()),
             &task_manager.spawn_essential_handle(),
             registry,
         )
@@ -306,10 +325,7 @@ where
 
         cumulus_client_consensus_aura::import_queue::<AuraPair, _, _, _, _, _>(
             cumulus_client_consensus_aura::ImportQueueParams {
-                block_import: EthBlockImport::new(
-                    ParachainBlockImport::new(client.clone(), backend.clone()),
-                    client.clone(),
-                ),
+                block_import: parachain_block_import.clone(),
                 client: client.clone(),
                 create_inherent_data_providers: move |_parent: sp_core::H256, _| async move {
                     let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
@@ -336,7 +352,13 @@ where
         task_manager,
         transaction_pool,
         select_chain,
-        other: (telemetry, telemetry_worker_handle, frontier_backend, overrides),
+        other: (
+            parachain_block_import,
+            telemetry,
+            telemetry_worker_handle,
+            frontier_backend,
+            overrides,
+        ),
     };
 
     Ok(params)
@@ -382,7 +404,7 @@ where
     CT: fp_rpc::ConvertTransaction<<Block as BlockT>::Extrinsic> + Clone + Default + Send + Sync + 'static,
     BIC: FnOnce(
         Arc<FullClient<RuntimeApi, Executor>>,
-        EthBlockImport<Block, ParachainBlockImport<RuntimeApi, Executor>, FullClient<RuntimeApi, Executor>>,
+        ParachainBlockImport<RuntimeApi, Executor>,
         Option<&Registry>,
         Option<TelemetryHandle>,
         &TaskManager,
@@ -396,7 +418,8 @@ where
     let mut parachain_config = prepare_node_config(parachain_config);
 
     let params = new_partial(&parachain_config, &eth_config, false)?;
-    let (mut telemetry, telemetry_worker_handle, frontier_backend, overrides) = params.other;
+    let (parachain_block_import, mut telemetry, telemetry_worker_handle, frontier_backend, overrides) = params.other;
+    let net_config = sc_network::config::FullNetworkConfiguration::new(&parachain_config.network);
 
     let client = params.client.clone();
     let backend = params.backend.clone();
@@ -412,7 +435,7 @@ where
     .await
     .map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
 
-    let block_announce_validator = BlockAnnounceValidator::new(relay_chain_interface.clone(), id);
+    let block_announce_validator = RequireSecondedInBlockAnnounce::new(relay_chain_interface.clone(), id);
 
     let force_authoring = parachain_config.force_authoring;
     let validator = parachain_config.role.is_authority();
@@ -422,6 +445,7 @@ where
     let (network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
         sc_service::build_network(sc_service::BuildNetworkParams {
             config: &parachain_config,
+            net_config,
             client: client.clone(),
             transaction_pool: transaction_pool.clone(),
             spawn_handle: task_manager.spawn_handle(),
@@ -477,11 +501,23 @@ where
     };
 
     if parachain_config.offchain_worker.enabled {
-        sc_service::build_offchain_workers(
-            &parachain_config,
-            task_manager.spawn_handle(),
-            client.clone(),
-            network.clone(),
+        use futures::FutureExt;
+
+        task_manager.spawn_handle().spawn(
+            "offchain-workers-runner",
+            "offchain-work",
+            sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
+                runtime_api_provider: client.clone(),
+                keystore: Some(params.keystore_container.keystore()),
+                offchain_db: backend.offchain_storage(),
+                transaction_pool: Some(OffchainTransactionPoolFactory::new(transaction_pool.clone())),
+                network_provider: network.clone(),
+                is_validator: parachain_config.role.is_authority(),
+                enable_http_requests: false,
+                custom_extensions: move |_| vec![],
+            })
+            .run(client.clone(), task_manager.spawn_handle())
+            .boxed(),
         );
     };
 
@@ -528,10 +564,7 @@ where
     if validator {
         let parachain_consensus = build_consensus(
             client.clone(),
-            EthBlockImport::new(
-                ParachainBlockImport::new(client.clone(), backend.clone()),
-                client.clone(),
-            ),
+            parachain_block_import,
             prometheus_registry.as_ref(),
             telemetry.as_ref().map(|t| t.handle()),
             &task_manager,
@@ -695,12 +728,14 @@ where
         keystore_container,
         select_chain: maybe_select_chain,
         transaction_pool,
-        other: (mut telemetry, _telemetry_worker_handle, frontier_backend, overrides),
+        other: (_, mut telemetry, _telemetry_worker_handle, frontier_backend, overrides),
     } = new_partial::<RuntimeApi, Executor>(&config, &eth_config, true)?;
+    let net_config = sc_network::config::FullNetworkConfiguration::new(&config.network);
 
     let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
         sc_service::build_network(sc_service::BuildNetworkParams {
             config: &config,
+            net_config,
             client: client.clone(),
             transaction_pool: transaction_pool.clone(),
             spawn_handle: task_manager.spawn_handle(),
@@ -710,7 +745,24 @@ where
         })?;
 
     if config.offchain_worker.enabled {
-        sc_service::build_offchain_workers(&config, task_manager.spawn_handle(), client.clone(), network.clone());
+        use futures::FutureExt;
+
+        task_manager.spawn_handle().spawn(
+            "offchain-workers-runner",
+            "offchain-work",
+            sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
+                runtime_api_provider: client.clone(),
+                keystore: None,
+                offchain_db: backend.offchain_storage(),
+                transaction_pool: Some(OffchainTransactionPoolFactory::new(transaction_pool.clone())),
+                network_provider: network.clone(),
+                is_validator: config.role.is_authority(),
+                enable_http_requests: false,
+                custom_extensions: move |_| vec![],
+            })
+            .run(client.clone(), task_manager.spawn_handle())
+            .boxed(),
+        );
     };
 
     let prometheus_registry = config.prometheus_registry().cloned();
@@ -744,7 +796,7 @@ where
         let client_for_cidp = client.clone();
 
         let authorship_future = sc_consensus_manual_seal::run_manual_seal(sc_consensus_manual_seal::ManualSealParams {
-            block_import: EthBlockImport::new(client.clone(), client.clone()),
+            block_import: client.clone(),
             env: proposer_factory,
             client: client.clone(),
             pool: transaction_pool.clone(),

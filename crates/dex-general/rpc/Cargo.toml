@@ -6,7 +6,7 @@ edition = "2021"
 license = "Apache 2.0"
 
 [dependencies]
-serde = { version = "1.0.119", features = ["derive"], optional = true }
+serde = { version = "1.0.119", features = ["derive"] , default-features = false}
 # alias "parity-scale-code" to "codec"
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false }
 

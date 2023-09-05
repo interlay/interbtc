@@ -11,19 +11,30 @@ use frame_support::{parameter_types, traits::Contains, PalletId};
 use orml_traits::parameter_type_with_key;
 use sp_core::{ConstU32, H256};
 use sp_runtime::{
-    testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
-    RuntimeDebug,
+    BuildStorage, RuntimeDebug,
 };
 
 use crate as pallet_dex_general;
 pub use crate::{AssetBalance, Config, GenerateLpAssetId, Pallet, ValidateAsset};
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
-#[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, MaxEncodedLen, Ord, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(
+    Serialize,
+    Deserialize,
+    Encode,
+    Decode,
+    Eq,
+    PartialEq,
+    Copy,
+    Clone,
+    RuntimeDebug,
+    PartialOrd,
+    MaxEncodedLen,
+    Ord,
+    TypeInfo,
+)]
 pub enum CurrencyId {
     Token(u8),
     LpToken(u8, u8),
@@ -55,12 +66,9 @@ impl ValidateAsset<CurrencyId> for EnsurePairAssetImpl {
 }
 
 frame_support::construct_runtime!(
-    pub enum Test where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum Test
     {
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
         DexGeneral: pallet_dex_general::{Pallet, Call, Storage, Event<T>},
         Tokens: orml_tokens::{Pallet, Storage, Event<T>, Config<T>},
     }
@@ -78,14 +86,13 @@ parameter_types! {
 impl frame_system::Config for Test {
     type BaseCallFilter = frame_support::traits::Everything;
     type RuntimeOrigin = RuntimeOrigin;
-    type Index = u64;
+    type Nonce = u64;
+    type Block = Block;
     type RuntimeCall = RuntimeCall;
-    type BlockNumber = u64;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = u128;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type DbWeight = ();
@@ -151,10 +158,7 @@ impl Config for Test {
 pub type DexPallet = Pallet<Test>;
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
-    let mut t = frame_system::GenesisConfig::default()
-        .build_storage::<Test>()
-        .unwrap()
-        .into();
+    let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
     pallet_dex_general::GenesisConfig::<Test> {
         fee_receiver: None,
