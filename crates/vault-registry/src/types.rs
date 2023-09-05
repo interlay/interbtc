@@ -171,8 +171,8 @@ pub struct Vault<AccountId, BlockNumber, Balance, CurrencyId: Copy, UnsignedFixe
     pub liquidated_collateral: Balance,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Encode, Decode, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
+#[cfg_attr(feature = "std", derive(Debug, serde::Serialize, serde::Deserialize))]
 pub struct SystemVault<Balance, CurrencyId: Copy> {
     // Number of tokens pending issue
     pub to_be_issued_tokens: Balance,

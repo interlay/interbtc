@@ -3,7 +3,6 @@ use bitcoin_hashes::{hash160::Hash as Hash160, Hash};
 use codec::{Decode, Encode, MaxEncodedLen};
 use primitive_types::{H160, H256};
 use scale_info::TypeInfo;
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 #[cfg(not(feature = "std"))]
@@ -14,10 +13,8 @@ use secp256k1::{constants::PUBLIC_KEY_SIZE, Error as Secp256k1Error, PublicKey a
 /// A Bitcoin address is a serialized identifier that represents the destination for a payment.
 /// Address prefixes are used to indicate the network as well as the format. Since the Parachain
 /// follows SPV assumptions we do not need to know which network a payment is included in.
-#[derive(
-    Serialize, Deserialize, Encode, Decode, Clone, Ord, PartialOrd, PartialEq, Eq, Debug, Copy, TypeInfo, MaxEncodedLen,
-)]
-#[cfg_attr(feature = "std", derive(std::hash::Hash))]
+#[derive(Encode, Decode, Clone, Ord, PartialOrd, PartialEq, Eq, Debug, Copy, TypeInfo, MaxEncodedLen)]
+#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize, std::hash::Hash))]
 pub enum Address {
     // input: {signature} {pubkey}
     // output: OP_DUP OP_HASH160 {hash160(pubkey)} OP_EQUALVERIFY OP_CHECKSIG
@@ -153,6 +150,7 @@ impl From<[u8; PUBLIC_KEY_SIZE]> for PublicKey {
     }
 }
 
+#[cfg(feature = "std")]
 impl serde::Serialize for PublicKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -163,6 +161,7 @@ impl serde::Serialize for PublicKey {
     }
 }
 
+#[cfg(feature = "std")]
 impl<'de> serde::Deserialize<'de> for PublicKey {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
