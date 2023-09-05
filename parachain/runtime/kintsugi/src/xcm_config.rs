@@ -30,7 +30,7 @@ parameter_types! {
 }
 
 /// Means for transacting assets on this chain.
-pub type LocationToAccountId = (
+type LocationToAccountId = (
     // The parent (Relay-chain) origin converts to the default `AccountId`.
     ParentIsPreset<AccountId>,
     // Sibling parachain origins convert to AccountId via the `ParaId::into`.
