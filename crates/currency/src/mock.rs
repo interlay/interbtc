@@ -33,6 +33,7 @@ pub type SignedFixedPoint = FixedI128;
 pub type SignedInner = i128;
 pub type CurrencyId = primitives::CurrencyId;
 pub type Moment = u64;
+pub type Nonce = u64;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -46,7 +47,7 @@ impl frame_system::Config for Test {
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
-    type Nonce = u64;
+    type Nonce = Nonce;
     type Block = Block;
     type Hash = H256;
     type Hashing = BlakeTwo256;

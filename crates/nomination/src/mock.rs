@@ -51,6 +51,7 @@ pub type AccountId = u64;
 pub type Balance = u128;
 pub type RawAmount = i128;
 pub type Moment = u64;
+pub type Nonce = u64;
 pub type SignedFixedPoint = FixedI128;
 pub type SignedInner = i128;
 pub type UnsignedFixedPoint = FixedU128;
@@ -67,7 +68,7 @@ impl frame_system::Config for Test {
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
-    type Nonce = u64;
+    type Nonce = Nonce;
     type Block = Block;
     type Hash = H256;
     type Hashing = BlakeTwo256;

@@ -40,7 +40,7 @@ impl frame_system::Config for Test {
     type BlockLength = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
-    type Nonce = u32;
+    type Nonce = u64;
     type Block = Block;
     type Hash = H256;
     type Hashing = BlakeTwo256;
