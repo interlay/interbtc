@@ -28,6 +28,7 @@ use frame_system::{
 use loans::{OnSlashHook, PostDeposit, PostTransfer, PreDeposit, PreTransfer};
 use orml_asset_registry::SequentialId;
 use orml_traits::{currency::MutationHooks, parameter_type_with_key};
+use pallet_contracts_primitives::ContractResult;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use sp_api::impl_runtime_apis;
 use sp_core::{OpaqueMetadata, H256};
@@ -2173,6 +2174,17 @@ impl_runtime_apis! {
             storage_deposit_limit: Option<Balance>,
             input_data: Vec<u8>,
         ) -> pallet_contracts_primitives::ContractExecResult<Balance, EventRecord> {
+            if !contracts::EnableContracts::get() {
+                return ContractResult {
+                    gas_consumed: Default::default(),
+                    gas_required: Default::default(),
+                    storage_deposit: Default::default(),
+                    debug_message: Default::default(),
+                    events: Default::default(),
+                    result: Err(sp_runtime::DispatchError::Other("pallet_contracts is disabled")),
+                };
+            }
+
             let gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
             Contracts::bare_call(
                 origin,
@@ -2197,6 +2209,17 @@ impl_runtime_apis! {
             salt: Vec<u8>,
         ) -> pallet_contracts_primitives::ContractInstantiateResult<AccountId, Balance, EventRecord>
         {
+            if !contracts::EnableContracts::get() {
+                return ContractResult {
+                    gas_consumed: Default::default(),
+                    gas_required: Default::default(),
+                    storage_deposit: Default::default(),
+                    debug_message: Default::default(),
+                    events: Default::default(),
+                    result: Err(sp_runtime::DispatchError::Other("pallet_contracts is disabled")),
+                };
+            }
+
             let gas_limit = gas_limit.unwrap_or(RuntimeBlockWeights::get().max_block);
             Contracts::bare_instantiate(
                 origin,
@@ -2218,6 +2241,9 @@ impl_runtime_apis! {
             determinism: pallet_contracts::Determinism,
         ) -> pallet_contracts_primitives::CodeUploadResult<Hash, Balance>
         {
+            if !contracts::EnableContracts::get() {
+                return Err(sp_runtime::DispatchError::Other("pallet_contracts is disabled"));
+            }
             Contracts::bare_upload_code(
                 origin,
                 code,
