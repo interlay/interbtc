@@ -19,7 +19,6 @@ use alloc::{vec, vec::Vec};
 #[cfg(feature = "std")]
 use codec::alloc::string::String;
 
-#[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
 /// We also check the coinbase proof in order to defend against the 'leaf-node weakness'.
@@ -591,8 +590,9 @@ pub struct BlockChain {
 }
 
 /// Represents a bitcoin 32 bytes hash digest encoded in little-endian
-#[derive(Encode, Decode, Default, PartialEq, Eq, Clone, Copy, Debug, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(
+    Serialize, Deserialize, Encode, Decode, Default, PartialEq, Eq, Clone, Copy, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub struct H256Le {
     content: [u8; 32],
 }
