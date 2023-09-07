@@ -86,6 +86,27 @@ pub struct VaultCurrencyPair<CurrencyId: Copy> {
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize, std::hash::Hash))]
+pub enum AccountOrVault<AccountId, CurrencyId: Copy> {
+    Account(AccountId),
+    Vault(VaultId<AccountId, CurrencyId>),
+}
+impl<AccountId, CurrencyId: Copy> AccountOrVault<AccountId, CurrencyId> {
+    // Method to retrieve the account associated with an `AccountOrVault` instance
+    pub fn get_account(&self) -> &AccountId {
+        match self {
+            AccountOrVault::Account(account_id) => account_id,
+            AccountOrVault::Vault(vault_id) => &vault_id.account_id,
+        }
+    }
+
+    // Method to check if the enum variant is `Vault`
+    pub fn is_vault_account(&self) -> bool {
+        matches!(self, AccountOrVault::Vault(_))
+    }
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, std::hash::Hash))]
 pub struct VaultId<AccountId, CurrencyId: Copy> {
     pub account_id: AccountId,
     pub currencies: VaultCurrencyPair<CurrencyId>,
@@ -174,7 +195,7 @@ pub mod issue {
         /// the number of tokens that will be transferred to the fee pool
         pub fee: Balance,
         /// the account issuing tokens
-        pub requester: AccountId,
+        pub requester: AccountOrVault<AccountId, CurrencyId>,
         /// the vault's Bitcoin deposit address
         pub btc_address: BtcAddress,
         /// the vault's Bitcoin public key (when this request was made)
@@ -226,6 +247,8 @@ pub mod redeem {
         Reimbursed(bool),
         /// user received compensation, but is retrying the redeem with another vault
         Retried,
+        /// the redeem replace request is cancelled
+        Cancelled,
     }
 
     impl Default for RedeemRequestStatus {
@@ -277,6 +300,8 @@ pub mod redeem {
         pub btc_height: u32,
         /// the status of this redeem request
         pub status: RedeemRequestStatus,
+        /// the issue id associated with replace request
+        pub issue_id: Option<H256>,
     }
 }
 

@@ -5,6 +5,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::Get,
+    Blake2_128Concat,
 };
 pub use primitives::{VaultCurrencyPair, VaultId};
 use scale_info::TypeInfo;
@@ -20,7 +21,7 @@ use mocktopus::macros::mockable;
 pub use bitcoin::{Address as BtcAddress, PublicKey as BtcPublicKey};
 
 /// Storage version.
-#[derive(Encode, Decode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
+#[derive(Debug, Encode, Decode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
 pub enum Version {
     /// Initial version.
     V0,
@@ -36,16 +37,16 @@ pub enum Version {
     V5,
     /// Removed wallet
     V6,
+    /// Removed replace pallet fields
+    /// Following fields have been removed from vault
+    /// `to_be_replaced_tokens`, `replace_collateral` and `active_replace_collateral`
+    V7,
 }
 
 #[derive(Debug, PartialEq)]
 pub enum CurrencySource<T: frame_system::Config + orml_tokens::Config> {
     /// Used by vault to back issued tokens
     Collateral(DefaultVaultId<T>),
-    /// Collateral put down by request_replace, but that has not been accepted yet
-    AvailableReplaceCollateral(DefaultVaultId<T>),
-    /// Collateral that is locked, but not used to back issued tokens (e.g. griefing collateral)
-    ActiveReplaceCollateral(DefaultVaultId<T>),
     /// User's issue griefing collateral
     UserGriefing(<T as frame_system::Config>::AccountId),
     /// Unlocked balance
@@ -61,8 +62,6 @@ impl<T: Config> CurrencySource<T> {
     pub fn account_id(&self) -> <T as frame_system::Config>::AccountId {
         match self {
             CurrencySource::Collateral(DefaultVaultId::<T> { account_id: x, .. })
-            | CurrencySource::AvailableReplaceCollateral(DefaultVaultId::<T> { account_id: x, .. })
-            | CurrencySource::ActiveReplaceCollateral(DefaultVaultId::<T> { account_id: x, .. })
             | CurrencySource::UserGriefing(x)
             | CurrencySource::FreeBalance(x)
             | CurrencySource::LiquidatedCollateral(DefaultVaultId::<T> { account_id: x, .. }) => x.clone(),
@@ -73,17 +72,6 @@ impl<T: Config> CurrencySource<T> {
     pub fn current_balance(&self, currency_id: CurrencyId<T>) -> Result<crate::Amount<T>, DispatchError> {
         let amount = match self {
             CurrencySource::Collateral(vault_id) => Pallet::<T>::get_backing_collateral(vault_id)?,
-            CurrencySource::AvailableReplaceCollateral(vault_id) => {
-                let vault = Pallet::<T>::get_vault_from_id(vault_id)?;
-                Amount::new(vault.replace_collateral, T::GetGriefingCollateralCurrencyId::get())
-            }
-            CurrencySource::ActiveReplaceCollateral(vault_id) => {
-                let vault = Pallet::<T>::get_vault_from_id(vault_id)?;
-                Amount::new(
-                    vault.active_replace_collateral,
-                    T::GetGriefingCollateralCurrencyId::get(),
-                )
-            }
             CurrencySource::UserGriefing(x) => ext::currency::get_reserved_balance::<T>(currency_id, x),
             CurrencySource::FreeBalance(x) => ext::currency::get_free_balance::<T>(currency_id, x),
             CurrencySource::LiquidatedCollateral(vault_id) => {
@@ -109,18 +97,80 @@ pub type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, Cur
 
 pub type DefaultVaultCurrencyPair<T> = VaultCurrencyPair<CurrencyId<T>>;
 
-pub mod v1 {
+mod v6 {
+    use super::*;
+    pub type DefaultVault<T> = Vault<
+        <T as frame_system::Config>::AccountId,
+        <T as frame_system::Config>::BlockNumber,
+        BalanceOf<T>,
+        CurrencyId<T>,
+        UnsignedFixedPoint<T>,
+    >;
+
+    #[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+    #[cfg_attr(feature = "std", derive(Debug))]
+    pub struct Vault<AccountId, BlockNumber, Balance, CurrencyId: Copy, UnsignedFixedPoint> {
+        /// Account identifier of the Vault
+        pub id: VaultId<AccountId, CurrencyId>,
+        /// Current status of the vault
+        pub status: VaultStatus,
+        /// Block height until which this Vault is banned from being used for
+        /// Issue, Redeem (except during automatic liquidation) and Replace.
+        pub banned_until: Option<BlockNumber>,
+        /// Custom secure collateral threshold
+        pub secure_collateral_threshold: Option<UnsignedFixedPoint>,
+        /// Number of tokens pending issue
+        pub to_be_issued_tokens: Balance,
+        /// Number of issued tokens
+        pub issued_tokens: Balance,
+        /// Number of tokens pending redeem
+        pub to_be_redeemed_tokens: Balance,
+        /// Number of tokens that have been requested for a replace through
+        /// `request_replace`, but that have not been accepted yet by a new_vault.
+        pub to_be_replaced_tokens: Balance,
+        /// Amount of collateral that is available as griefing collateral to vaults accepting
+        /// a replace request. It is to be payed out if the old_vault fails to call execute_replace.
+        pub replace_collateral: Balance,
+        /// Amount of collateral locked for accepted replace requests.
+        pub active_replace_collateral: Balance,
+        /// Amount of collateral that is locked for remaining to_be_redeemed
+        /// tokens upon liquidation.
+        pub liquidated_collateral: Balance,
+    }
+
+    #[frame_support::storage_alias]
+    pub(super) type Vaults<T: Config> = StorageMap<Pallet<T>, Blake2_128Concat, DefaultVaultId<T>, DefaultVault<T>>;
+}
+pub mod v7 {
     use super::*;
 
-    pub fn migrate_v1_to_v6<T: Config>() -> frame_support::weights::Weight {
-        // kintsugi is on V6 but interlay is still on V1
-        if !matches!(crate::StorageVersion::<T>::get(), Version::V1) {
+    pub fn migrate_v6_to_v7<T: Config>() -> frame_support::weights::Weight {
+        let mut weight = T::DbWeight::get().reads(1);
+
+        // kintsugi is on V6 but interlay is also on V6
+        if !matches!(crate::StorageVersion::<T>::get(), Version::V6) {
             log::info!("Not running vault storage migration");
-            return T::DbWeight::get().reads(1); // already upgraded; don't run migration
+            return weight; // already upgraded; don't run migration
         }
-        // nothing to do other than update version
-        crate::StorageVersion::<T>::put(Version::V6);
-        T::DbWeight::get().reads_writes(0, 1)
+
+        // update vault struct to remove replace pallet fields
+        crate::Vaults::<T>::translate(|_key, old: v6::DefaultVault<T>| {
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+            Some(crate::DefaultVault::<T> {
+                id: old.id,
+                status: old.status,
+                banned_until: old.banned_until,
+                secure_collateral_threshold: old.secure_collateral_threshold,
+                to_be_issued_tokens: old.to_be_issued_tokens,
+                issued_tokens: old.issued_tokens,
+                to_be_redeemed_tokens: old.to_be_redeemed_tokens,
+                liquidated_collateral: old.liquidated_collateral,
+            })
+        });
+
+        // update version
+        crate::StorageVersion::<T>::put(Version::V7);
+        weight.saturating_add(T::DbWeight::get().reads_writes(0, 1))
     }
 }
 
@@ -157,14 +207,6 @@ pub struct Vault<AccountId, BlockNumber, Balance, CurrencyId: Copy, UnsignedFixe
     pub issued_tokens: Balance,
     /// Number of tokens pending redeem
     pub to_be_redeemed_tokens: Balance,
-    /// Number of tokens that have been requested for a replace through
-    /// `request_replace`, but that have not been accepted yet by a new_vault.
-    pub to_be_replaced_tokens: Balance,
-    /// Amount of collateral that is available as griefing collateral to vaults accepting
-    /// a replace request. It is to be payed out if the old_vault fails to call execute_replace.
-    pub replace_collateral: Balance,
-    /// Amount of collateral locked for accepted replace requests.
-    pub active_replace_collateral: Balance,
     /// Amount of collateral that is locked for remaining to_be_redeemed
     /// tokens upon liquidation.
     pub liquidated_collateral: Balance,
@@ -204,11 +246,8 @@ impl<
             secure_collateral_threshold: Default::default(),
             issued_tokens: Default::default(),
             liquidated_collateral: Default::default(),
-            replace_collateral: Default::default(),
             to_be_issued_tokens: Default::default(),
             to_be_redeemed_tokens: Default::default(),
-            to_be_replaced_tokens: Default::default(),
-            active_replace_collateral: Default::default(),
         }
     }
 
@@ -380,10 +419,6 @@ impl<T: Config> RichVault<T> {
         Ok(Amount::new(amount, self.wrapped_currency()))
     }
 
-    pub(crate) fn to_be_replaced_tokens(&self) -> Amount<T> {
-        Amount::new(self.data.to_be_replaced_tokens, self.wrapped_currency())
-    }
-
     pub(crate) fn to_be_redeemed_tokens(&self) -> Amount<T> {
         Amount::new(self.data.to_be_redeemed_tokens, self.wrapped_currency())
     }
@@ -452,53 +487,6 @@ impl<T: Config> RichVault<T> {
         }
 
         self.issued_tokens().checked_sub(&self.to_be_redeemed_tokens())
-    }
-
-    pub(crate) fn set_to_be_replaced_amount(&mut self, tokens: &Amount<T>) -> DispatchResult {
-        self.update(|v| {
-            v.to_be_replaced_tokens = tokens.amount();
-            Ok(())
-        })
-    }
-
-    pub(crate) fn increase_available_replace_collateral(&mut self, amount: &Amount<T>) -> DispatchResult {
-        self.update(|v| {
-            v.replace_collateral = v
-                .replace_collateral
-                .checked_add(&amount.amount())
-                .ok_or(ArithmeticError::Overflow)?;
-            Ok(())
-        })
-    }
-
-    pub(crate) fn decrease_available_replace_collateral(&mut self, amount: &Amount<T>) -> DispatchResult {
-        self.update(|v| {
-            v.replace_collateral = v
-                .replace_collateral
-                .checked_sub(&amount.amount())
-                .ok_or(ArithmeticError::Underflow)?;
-            Ok(())
-        })
-    }
-
-    pub(crate) fn increase_active_replace_collateral(&mut self, amount: &Amount<T>) -> DispatchResult {
-        self.update(|v| {
-            v.active_replace_collateral = v
-                .active_replace_collateral
-                .checked_add(&amount.amount())
-                .ok_or(ArithmeticError::Overflow)?;
-            Ok(())
-        })
-    }
-
-    pub(crate) fn decrease_active_replace_collateral(&mut self, amount: &Amount<T>) -> DispatchResult {
-        self.update(|v| {
-            v.active_replace_collateral = v
-                .active_replace_collateral
-                .checked_sub(&amount.amount())
-                .ok_or(ArithmeticError::Underflow)?;
-            Ok(())
-        })
     }
 
     pub(crate) fn set_custom_secure_threshold(&mut self, threshold: Option<UnsignedFixedPoint<T>>) -> DispatchResult {
@@ -578,8 +566,6 @@ impl<T: Config> RichVault<T> {
                 .ok_or(Error::<T>::ThresholdNotSet)?,
         )?;
 
-        // Clear `to_be_replaced` tokens, since the vault will have no more `issued` or `to_be_issued` tokens.
-        let _ = Pallet::<T>::withdraw_replace_request(&self.data.id, &self.to_be_replaced_tokens())?;
         // the vault struct was modified in the call above - we need to re-fetch,
         // otherwise changes get overwritten below
         *self = Pallet::<T>::get_rich_vault_from_id(&vault_id)?;
@@ -814,5 +800,50 @@ impl<T: Config> From<&RichSystemVault<T>> for DefaultSystemVault<T> {
 impl<T: Config> From<DefaultSystemVault<T>> for RichSystemVault<T> {
     fn from(vault: DefaultSystemVault<T>) -> RichSystemVault<T> {
         RichSystemVault { data: vault }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::mock::{Test as T, *};
+
+    #[test]
+    fn migrating_from_v6_to_v7() {
+        run_test(|| {
+            crate::StorageVersion::<T>::put(Version::V6);
+
+            let old = v6::DefaultVault::<T> {
+                id: DefaultVaultId::<T>::new(123, Token(DOT), Token(IBTC)),
+                status: VaultStatus::Active(true),
+                banned_until: None,
+                secure_collateral_threshold: Default::default(),
+                to_be_issued_tokens: 0u32.into(),
+                issued_tokens: 0u32.into(),
+                to_be_redeemed_tokens: 0u32.into(),
+                to_be_replaced_tokens: 0u32.into(),
+                replace_collateral: 0u32.into(),
+                active_replace_collateral: 0u32.into(),
+                liquidated_collateral: 0u32.into(),
+            };
+            let key = DefaultVaultId::<T>::new(123, Token(DOT), Token(IBTC));
+
+            v6::Vaults::<T>::insert(key.clone(), old.clone());
+
+            v7::migrate_v6_to_v7::<T>();
+
+            assert_eq!(crate::StorageVersion::<T>::get(), Version::V7);
+
+            let new = crate::Vaults::<T>::get(key).unwrap();
+
+            assert!(old.id == new.id);
+            assert!(old.status == new.status);
+            assert!(old.banned_until == new.banned_until);
+            assert!(old.secure_collateral_threshold == new.secure_collateral_threshold);
+            assert!(old.to_be_issued_tokens == new.to_be_issued_tokens);
+            assert!(old.issued_tokens == new.issued_tokens);
+            assert!(old.to_be_redeemed_tokens == new.to_be_redeemed_tokens);
+            assert!(old.liquidated_collateral == new.liquidated_collateral);
+        });
     }
 }

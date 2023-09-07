@@ -154,6 +154,27 @@ pub fn assert_redeem_request_event() -> H256 {
     ids.last().unwrap().clone()
 }
 
+// returns punishment_fee that vault has paid for cancel replace
+pub fn get_punishment_fee() -> Amount<Runtime> {
+    let events = SystemPallet::events();
+    let ids = events
+        .iter()
+        .filter_map(|r| match r.event {
+            RuntimeEvent::Redeem(RedeemEvent::CancelReplace {
+                ref old_vault,
+                punishment_fee,
+                ..
+            }) => {
+                let fee = Amount::new(punishment_fee, old_vault.collateral_currency());
+                Some(fee)
+            }
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert!(ids.len() >= 1);
+    ids.last().unwrap().clone()
+}
+
 /// returns (fee, amount)
 pub fn assert_self_redeem_event() -> (Amount<Runtime>, Amount<Runtime>) {
     let events = SystemPallet::events();

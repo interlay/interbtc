@@ -1,12 +1,12 @@
 use crate::{ext, mock::*, Event, IssueRequest};
 
-use bitcoin::{merkle::PartialTransactionProof, types::FullTransactionProof};
+use bitcoin::{merkle::PartialTransactionProof, types::FullTransactionProof, Address};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use currency::Amount;
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use orml_traits::MultiCurrency;
-use primitives::issue::IssueRequestStatus;
+use primitives::{issue::IssueRequestStatus, AccountOrVault};
 use sp_arithmetic::FixedU128;
 use sp_core::H256;
 use sp_runtime::traits::One;
@@ -20,22 +20,30 @@ fn wrapped(amount: u128) -> Amount<Test> {
     Amount::new(amount, DEFAULT_WRAPPED_CURRENCY)
 }
 
-fn request_issue(origin: AccountId, amount: Balance, vault: DefaultVaultId<Test>) -> Result<H256, DispatchError> {
+fn request_issue(
+    origin: AccountId,
+    amount: Balance,
+    vault: DefaultVaultId<Test>,
+) -> Result<(H256, Address), DispatchError> {
     ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(get_dummy_request_id()));
 
     ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
     ext::vault_registry::register_deposit_address::<Test>
         .mock_safe(|_, _| MockResult::Return(Ok(BtcAddress::random())));
 
-    Issue::_request_issue(origin, amount, vault, DEFAULT_NATIVE_CURRENCY)
+    Issue::_request_issue(AccountOrVault::Account(origin), amount, vault, DEFAULT_NATIVE_CURRENCY)
 }
 
-fn request_issue_ok(origin: AccountId, amount: Balance, vault: DefaultVaultId<Test>) -> H256 {
+fn request_issue_ok(
+    origin: AccountOrVault<AccountId, CurrencyId>,
+    amount: Balance,
+    vault: DefaultVaultId<Test>,
+) -> H256 {
     request_issue_ok_with_address(origin, amount, vault, BtcAddress::random())
 }
 
 fn request_issue_ok_with_address(
-    origin: AccountId,
+    origin: AccountOrVault<AccountId, CurrencyId>,
     amount: Balance,
     vault: DefaultVaultId<Test>,
     address: BtcAddress,
@@ -51,7 +59,9 @@ fn request_issue_ok_with_address(
         ext::vault_registry::register_deposit_address::<Test>.mock_raw(|_, _| MockResult::Return(Ok(address)));
     }
 
-    Issue::_request_issue(origin, amount, vault, DEFAULT_NATIVE_CURRENCY).unwrap()
+    Issue::_request_issue(origin, amount, vault, DEFAULT_NATIVE_CURRENCY)
+        .unwrap()
+        .0
 }
 
 fn execute_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError> {
@@ -94,12 +104,9 @@ fn test_request_issue_banned_fails() {
             &VAULT,
             vault_registry::Vault {
                 id: VAULT,
-                to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                replace_collateral: 0,
-                active_replace_collateral: 0,
                 banned_until: Some(1),
                 secure_collateral_threshold: None,
                 status: VaultStatus::Active(true),
@@ -128,7 +135,8 @@ fn test_request_issue_succeeds() {
         ext::fee::get_issue_griefing_collateral::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(griefing(issue_griefing_collateral))));
 
-        let issue_id = request_issue_ok_with_address(origin, amount, vault.clone(), address.clone());
+        let issue_id =
+            request_issue_ok_with_address(AccountOrVault::Account(origin), amount, vault.clone(), address.clone());
 
         let request_issue_event = TestEvent::Issue(Event::RequestIssue {
             issue_id,
@@ -159,6 +167,7 @@ fn setup_execute(
     issue_fee: Balance,
     griefing_collateral: Balance,
     btc_transferred: Balance,
+    account: AccountOrVault<AccountId, CurrencyId>,
 ) -> H256 {
     ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| MockResult::Return(Ok(init_zero_vault(VAULT))));
     ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
@@ -168,7 +177,7 @@ fn setup_execute(
     ext::fee::get_issue_griefing_collateral::<Test>
         .mock_safe(move |_| MockResult::Return(Ok(griefing(griefing_collateral))));
 
-    let issue_id = request_issue_ok(USER, issue_amount, VAULT);
+    let issue_id = request_issue_ok(account, issue_amount, VAULT);
     <security::Pallet<Test>>::set_active_block_number(5);
 
     ext::btc_relay::get_and_verify_issue_payment::<Test, Balance>
@@ -180,7 +189,7 @@ fn setup_execute(
 #[test]
 fn test_execute_issue_succeeds() {
     run_test(|| {
-        let issue_id = setup_execute(3, 1, 1, 3);
+        let issue_id = setup_execute(3, 1, 1, 3, AccountOrVault::Account(USER));
         assert_ok!(execute_issue(USER, &issue_id));
 
         let execute_issue_event = TestEvent::Issue(Event::ExecuteIssue {
@@ -208,7 +217,7 @@ fn test_execute_issue_succeeds() {
 #[test]
 fn test_execute_issue_overpayment_succeeds() {
     run_test(|| {
-        let issue_id = setup_execute(3, 0, 0, 5);
+        let issue_id = setup_execute(3, 0, 0, 5, AccountOrVault::Account(USER));
         unsafe {
             let mut increase_tokens_called = false;
 
@@ -238,7 +247,7 @@ fn test_execute_issue_overpayment_succeeds() {
 #[test]
 fn test_execute_issue_overpayment_up_to_max_succeeds() {
     run_test(|| {
-        let issue_id = setup_execute(3, 0, 0, 10);
+        let issue_id = setup_execute(3, 0, 0, 10, AccountOrVault::Account(USER));
         unsafe {
             let mut increase_tokens_called = false;
 
@@ -268,7 +277,7 @@ fn test_execute_issue_overpayment_up_to_max_succeeds() {
 #[test]
 fn test_execute_issue_underpayment_succeeds() {
     run_test(|| {
-        let issue_id = setup_execute(10, 0, 20, 1);
+        let issue_id = setup_execute(10, 0, 20, 1, AccountOrVault::Account(USER));
         unsafe {
             let mut transfer_funds_called = false;
             ext::vault_registry::transfer_funds::<Test>.mock_raw(|from, to, amount| {
@@ -319,7 +328,7 @@ fn test_cancel_issue_not_expired_and_not_requester_fails() {
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault(VAULT))));
 
-        let issue_id = request_issue_ok(USER, 3, VAULT);
+        let issue_id = request_issue_ok(AccountOrVault::Account(USER), 3, VAULT);
         // issue period is 10, we issued at block 1, so at block 5 the cancel should fail
         <security::Pallet<Test>>::set_active_block_number(5);
         assert_noop!(cancel_issue(3, &issue_id), TestError::TimeNotExpired);
@@ -335,7 +344,7 @@ fn test_cancel_issue_not_expired_and_requester_succeeds() {
         ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(move |_| MockResult::Return(Ok(false)));
         ext::fee::get_issue_griefing_collateral::<Test>.mock_safe(move |_| MockResult::Return(Ok(griefing(100))));
 
-        let issue_id = request_issue_ok(USER, 300, VAULT);
+        let issue_id = request_issue_ok(AccountOrVault::Account(USER), 300, VAULT);
 
         unsafe {
             let mut transfer_called = false;
@@ -372,7 +381,7 @@ fn test_cancel_issue_expired_succeeds() {
         ext::fee::get_issue_griefing_collateral::<Test>.mock_safe(move |_| MockResult::Return(Ok(griefing(100))));
         ext::btc_relay::has_request_expired::<Test>.mock_safe(move |_, _, _| MockResult::Return(Ok(true)));
 
-        let issue_id = request_issue_ok(USER, 300, VAULT);
+        let issue_id = request_issue_ok(AccountOrVault::Account(USER), 300, VAULT);
 
         unsafe {
             // issue period is 10, we issued at block 1, so at block 12 the request has expired
@@ -402,4 +411,62 @@ fn test_set_issue_period_only_root() {
         );
         assert_ok!(Issue::set_issue_period(RuntimeOrigin::root(), 1));
     })
+}
+
+#[test]
+fn execute_issue_fails_for_replace_request() {
+    run_test(|| {
+        let issue_id = setup_execute(3, 1, 1, 3, AccountOrVault::Vault(OLD_VAULT));
+        assert_noop!(
+            execute_issue(USER, &issue_id),
+            TestError::ReplaceRequestCannotBeExecutedAsIssue
+        );
+    });
+}
+
+#[test]
+fn fail_to_cancel_completed_replace_issue_request() {
+    run_test(|| {
+        let issue_id = setup_execute(3, 1, 1, 3, AccountOrVault::Vault(OLD_VAULT));
+        assert_ok!(Issue::_complete_vault_issue(issue_id));
+        assert_eq!(
+            Issue::issue_requests(&issue_id).unwrap().status,
+            IssueRequestStatus::Completed
+        );
+        assert_noop!(cancel_issue(USER, &issue_id), TestError::IssueCompleted);
+    });
+}
+
+#[test]
+fn cancel_replace_issue_request() {
+    run_test(|| {
+        let griefing_collateral = 10;
+        let issue_id = setup_execute(3, 1, griefing_collateral, 3, AccountOrVault::Vault(OLD_VAULT));
+
+        ext::btc_relay::has_request_expired::<Test>.mock_safe(move |_, _, _| MockResult::Return(Ok(true)));
+        ext::vault_registry::decrease_to_be_issued_tokens::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
+
+        assert_ok!(Issue::_cancel_issue(USER, issue_id));
+
+        assert_eq!(
+            Issue::issue_requests(&issue_id).unwrap().status,
+            IssueRequestStatus::Cancelled
+        );
+
+        let request_issue_event = TestEvent::Issue(Event::CancelIssue {
+            issue_id,
+            requester: USER,
+            griefing_collateral: 0,
+        });
+        assert!(System::events().iter().any(|a| a.event == request_issue_event));
+    });
+}
+
+#[test]
+fn cancel_replace_issue_when_request_not_expired() {
+    run_test(|| {
+        let griefing_collateral = 10;
+        let issue_id = setup_execute(3, 1, griefing_collateral, 3, AccountOrVault::Vault(OLD_VAULT));
+        assert_noop!(cancel_issue(USER, &issue_id), TestError::TimeNotExpired);
+    });
 }

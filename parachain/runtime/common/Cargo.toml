@@ -37,7 +37,6 @@ loans = { path = "../../../crates/loans", default-features = false }
 nomination = { path = "../../../crates/nomination", default-features = false }
 oracle = { path = "../../../crates/oracle", default-features = false }
 redeem = { path = "../../../crates/redeem", default-features = false }
-replace = { path = "../../../crates/replace", default-features = false }
 reward = { path = "../../../crates/reward", default-features = false }
 security = { path = "../../../crates/security", default-features = false }
 staking = { path = "../../../crates/staking", default-features = false }
@@ -98,7 +97,6 @@ std = [
   "nomination/std",
   "oracle/std",
   "redeem/std",
-  "replace/std",
   "reward/std",
   "security/std",
   "staking/std",
@@ -141,7 +139,6 @@ try-runtime = [
   "nomination/try-runtime",
   "oracle/try-runtime",
   "redeem/try-runtime",
-  "replace/try-runtime",
   "reward/try-runtime",
   "security/try-runtime",
   "staking/try-runtime",

@@ -15,9 +15,6 @@ type Event = crate::Event<Test>;
 fn collateral(amount: u128) -> Amount<Test> {
     Amount::new(amount, DEFAULT_COLLATERAL_CURRENCY)
 }
-fn griefing(amount: u128) -> Amount<Test> {
-    Amount::new(amount, DEFAULT_NATIVE_CURRENCY)
-}
 fn wrapped(amount: u128) -> Amount<Test> {
     Amount::new(amount, DEFAULT_WRAPPED_CURRENCY)
 }
@@ -43,12 +40,9 @@ fn inject_redeem_request(key: H256, value: RedeemRequest<AccountId, BlockNumber,
 fn default_vault() -> DefaultVault<Test> {
     vault_registry::Vault {
         id: VAULT,
-        to_be_replaced_tokens: 0,
         to_be_issued_tokens: 0,
         issued_tokens: 10,
-        replace_collateral: 0,
         to_be_redeemed_tokens: 0,
-        active_replace_collateral: 0,
         banned_until: None,
         secure_collateral_threshold: None,
         status: VaultStatus::Active(true),
@@ -59,6 +53,8 @@ fn default_vault() -> DefaultVault<Test> {
 #[test]
 fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
     run_test(|| {
+        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(move |_vault_id| MockResult::Return(Ok(())));
+
         let amount = Amount::<Test>::new(2, <Test as currency::Config>::GetWrappedCurrencyId::get());
         amount.mint_to(&USER).unwrap();
         let amount = 10_000_000;
@@ -77,12 +73,9 @@ fn test_request_redeem_fails_with_amount_below_minimum() {
             &VAULT,
             vault_registry::Vault {
                 id: VAULT,
-                to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
-                replace_collateral: 0,
                 to_be_redeemed_tokens: 0,
-                active_replace_collateral: 0,
                 banned_until: None,
                 secure_collateral_threshold: None,
                 status: VaultStatus::Active(true),
@@ -149,12 +142,9 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
             &VAULT,
             vault_registry::Vault {
                 id: VAULT,
-                to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
-                replace_collateral: 0,
-                active_replace_collateral: 0,
                 banned_until: None,
                 secure_collateral_threshold: None,
                 status: VaultStatus::Active(true),
@@ -221,6 +211,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
                 transfer_fee_btc: Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
                     .unwrap()
                     .amount(),
+                issue_id: None,
             }
         );
     })
@@ -254,12 +245,9 @@ fn test_request_redeem_succeeds_with_self_redeem() {
             &VAULT,
             vault_registry::Vault {
                 id: VAULT,
-                to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
-                active_replace_collateral: 0,
-                replace_collateral: 0,
                 banned_until: None,
                 secure_collateral_threshold: None,
                 status: VaultStatus::Active(true),
@@ -324,6 +312,7 @@ fn test_request_redeem_succeeds_with_self_redeem() {
                 transfer_fee_btc: Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
                     .unwrap()
                     .amount(),
+                issue_id: None,
             }
         );
     })
@@ -395,12 +384,9 @@ fn test_execute_redeem_succeeds_with_another_account() {
             &VAULT,
             vault_registry::Vault {
                 id: VAULT,
-                to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 200,
                 to_be_redeemed_tokens: 200,
-                replace_collateral: 0,
-                active_replace_collateral: 0,
                 banned_until: None,
                 secure_collateral_threshold: None,
                 status: VaultStatus::Active(true),
@@ -426,6 +412,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
                 transfer_fee_btc: btc_fee.amount(),
+                issue_id: None,
             },
         );
 
@@ -472,12 +459,9 @@ fn test_execute_redeem_succeeds() {
             &VAULT,
             vault_registry::Vault {
                 id: VAULT,
-                to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 200,
                 to_be_redeemed_tokens: 200,
-                replace_collateral: 0,
-                active_replace_collateral: 0,
                 banned_until: None,
                 secure_collateral_threshold: None,
                 status: VaultStatus::Active(true),
@@ -503,6 +487,7 @@ fn test_execute_redeem_succeeds() {
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
                 transfer_fee_btc: btc_fee.amount(),
+                issue_id: None,
             },
         );
 
@@ -570,6 +555,7 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
                 transfer_fee_btc: Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
                     .unwrap()
                     .amount(),
+                issue_id: None,
             }))
         });
 
@@ -583,6 +569,7 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
 #[test]
 fn test_cancel_redeem_fails_with_unauthorized_caller() {
     run_test(|| {
+        ext::btc_relay::has_request_expired::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(true)));
         Security::<Test>::set_active_block_number(20);
 
         Redeem::get_open_redeem_request_from_id.mock_safe(|_| {
@@ -600,6 +587,7 @@ fn test_cancel_redeem_fails_with_unauthorized_caller() {
                 transfer_fee_btc: Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
                     .unwrap()
                     .amount(),
+                issue_id: None,
             }))
         });
 
@@ -629,6 +617,7 @@ fn test_cancel_redeem_succeeds() {
                 transfer_fee_btc: Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
                     .unwrap()
                     .amount(),
+                issue_id: None,
             },
         );
 
@@ -685,6 +674,7 @@ fn test_mint_tokens_for_reimbursed_redeem() {
             btc_height: 0,
             status: RedeemRequestStatus::Reimbursed(false),
             transfer_fee_btc: 1,
+            issue_id: None,
         };
         let redeem_request_clone = redeem_request.clone();
         inject_redeem_request(H256([0u8; 32]), redeem_request.clone());
@@ -742,6 +732,140 @@ fn test_set_redeem_period_only_root() {
     })
 }
 
+mod redeem_replace_tests {
+    use super::*;
+
+    fn setup_mocks() {
+        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
+        ext::vault_registry::transfer_funds::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
+        ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>
+            .mock_safe(move |_vault_id, _amount| MockResult::Return(Ok(())));
+        ext::security::get_secure_id::<Test>.mock_safe(move |_| MockResult::Return(H256([0; 32])));
+        ext::vault_registry::is_vault_below_premium_threshold::<Test>
+            .mock_safe(move |_vault_id| MockResult::Return(Ok(false)));
+        ext::vault_registry::is_vault_fully_replacing::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(false)));
+    }
+
+    fn setup_execute_redeem() {
+        let btc_address = BtcAddress::random();
+        let request_btc_address = btc_address.clone();
+
+        ext::issue::request_vault_issue::<Test>
+            .mock_safe(move |_, _, _, _| MockResult::Return(Ok((H256([1; 32]), request_btc_address))));
+        ext::issue::complete_vault_issue::<Test>.mock_safe(move |_| MockResult::Return(Ok(())));
+        ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
+            .mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
+        ext::btc_relay::has_request_expired::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(true)));
+        ext::issue::get_vault_from_issue_id::<Test>.mock_safe(|_| MockResult::Return(Ok(NEW_VAULT)));
+        ext::vault_registry::cancel_replace_tokens::<Test>.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
+        ext::vault_registry::transfer_funds_saturated::<Test>
+            .mock_safe(move |_, _, amount| MockResult::Return(Ok(amount.clone())));
+        ext::issue::cancel_issue::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+
+        let amount = 10;
+        assert_ok!(Redeem::request_replace(
+            RuntimeOrigin::signed(OLD_VAULT.account_id),
+            OLD_VAULT.currencies,
+            amount,
+            NEW_VAULT,
+            DEFAULT_NATIVE_CURRENCY
+        ));
+
+        ext::vault_registry::redeem_tokens::<Test>.mock_safe(move |vault, amount_wrapped, premium, redeemer| {
+            assert_eq!(vault, &OLD_VAULT);
+            assert_eq!(amount_wrapped, &wrapped(amount));
+            assert_eq!(premium, &collateral(0));
+            assert_eq!(redeemer, &NEW_VAULT.account_id);
+            MockResult::Return(Ok(()))
+        });
+    }
+
+    #[test]
+    fn test_request_replace() {
+        run_test(|| {
+            setup_mocks();
+            let btc_address = BtcAddress::random();
+            let request_btc_address = btc_address.clone();
+
+            ext::issue::request_vault_issue::<Test>
+                .mock_safe(move |_, _, _, _| MockResult::Return(Ok((H256([1; 32]), request_btc_address))));
+
+            let amount = 10;
+            assert_ok!(Redeem::request_replace(
+                RuntimeOrigin::signed(OLD_VAULT.account_id),
+                OLD_VAULT.currencies,
+                amount,
+                NEW_VAULT,
+                DEFAULT_NATIVE_CURRENCY
+            ));
+
+            assert_emitted!(Event::RequestRedeem {
+                redeem_id: H256([0; 32]),
+                redeemer: NEW_VAULT.account_id,
+                amount: amount,
+                fee: 0,
+                premium: 0,
+                vault_id: OLD_VAULT,
+                btc_address,
+                transfer_fee: 0
+            });
+        })
+    }
+
+    #[test]
+    fn test_execute_redeem_for_replace() {
+        run_test(|| {
+            setup_mocks();
+            setup_execute_redeem();
+
+            // call execute redeem
+            assert_ok!(Redeem::_execute_redeem(
+                H256([0u8; 32]),
+                get_some_unchecked_transaction()
+            ));
+
+            assert_emitted!(Event::ExecuteRedeem {
+                redeem_id: H256([0; 32]),
+                redeemer: NEW_VAULT.account_id,
+                vault_id: OLD_VAULT,
+                amount: 10,
+                fee: 0,
+                transfer_fee: 0,
+            });
+
+            assert_err!(
+                Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
+                TestError::RedeemCompleted,
+            );
+        });
+    }
+
+    #[test]
+    fn test_cancel_replace_redeem_request() {
+        run_test(|| {
+            setup_mocks();
+            setup_execute_redeem();
+
+            // call cancel redeem
+            assert_ok!(Redeem::_cancel_redeem(USER, H256([0; 32]), true,));
+
+            assert_emitted!(Event::CancelReplace {
+                redeem_id: H256([0; 32]),
+                issue_id: H256([1; 32]),
+                old_vault: OLD_VAULT,
+                new_vault: NEW_VAULT,
+                status: RedeemRequestStatus::Cancelled,
+                punishment_fee: 1,
+            });
+
+            assert_err!(
+                Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
+                TestError::RedeemCancelled,
+            );
+        })
+    }
+}
+
 mod spec_based_tests {
     use super::*;
 
@@ -762,14 +886,6 @@ mod spec_based_tests {
                 .mock_safe(move |_vault_id, _amount| MockResult::Return(Ok(())));
             ext::vault_registry::is_vault_below_premium_threshold::<Test>
                 .mock_safe(move |_vault_id| MockResult::Return(Ok(false)));
-            let redeem_fee = Fee::get_redeem_fee(&wrapped(amount_to_redeem)).unwrap();
-            let burned_tokens = wrapped(amount_to_redeem) - redeem_fee;
-
-            ext::vault_registry::decrease_to_be_replaced_tokens::<Test>.mock_safe(move |vault_id, tokens| {
-                assert_eq!(vault_id, &VAULT);
-                assert_eq!(tokens, &burned_tokens);
-                MockResult::Return(Ok((wrapped(0), griefing(0))))
-            });
 
             // The returned `replaceCollateral` MUST be released
             currency::Amount::unlock_on.mock_safe(move |collateral_amount, vault_id| {
@@ -831,11 +947,9 @@ mod spec_based_tests {
                 &VAULT,
                 vault_registry::Vault {
                     id: VAULT,
-                    to_be_replaced_tokens: 0,
                     to_be_issued_tokens: 0,
                     issued_tokens: 200,
                     to_be_redeemed_tokens: 200,
-                    replace_collateral: 0,
                     banned_until: None,
                     status: VaultStatus::Active(true),
                     ..default_vault()
@@ -857,6 +971,7 @@ mod spec_based_tests {
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
                 transfer_fee_btc: btc_fee.amount(),
+                issue_id: None,
             };
             inject_redeem_request(H256([0u8; 32]), redeem_request.clone());
 
@@ -915,6 +1030,7 @@ mod spec_based_tests {
                 transfer_fee_btc: Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
                     .unwrap()
                     .amount(),
+                issue_id: None,
             };
             inject_redeem_request(H256([0u8; 32]), redeem_request.clone());
 
@@ -983,6 +1099,7 @@ mod spec_based_tests {
                 transfer_fee_btc: Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY)
                     .unwrap()
                     .amount(),
+                issue_id: None,
             };
             inject_redeem_request(H256([0u8; 32]), redeem_request.clone());
 

@@ -8,7 +8,7 @@ use vault_registry::types::CurrencyId;
 use crate::Config;
 
 /// Storage version.
-#[derive(Encode, Decode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
+#[derive(Debug, Encode, Decode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
 pub enum Version {
     /// Initial version.
     V0,
@@ -20,6 +20,8 @@ pub enum Version {
     V3,
     /// Removed refund
     V4,
+    /// Updated `IssueRequest`, `requester` field to accept vault account
+    V5,
 }
 
 pub(crate) type BalanceOf<T> = <T as currency::Config>::Balance;

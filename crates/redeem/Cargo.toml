@@ -32,6 +32,7 @@ security = { path = "../security", default-features = false }
 vault-registry = { path = "../vault-registry", default-features = false }
 loans = { path = "../loans", default-features = false }
 primitives = { package = "interbtc-primitives", path = "../../primitives", default-features = false }
+issue = { path ="../issue", default-features = false }
 
 # Orml dependencies
 orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "dc39cfddefb10ef0de23655e2c3dcdab66a19404", default-features = false, optional = true }
@@ -78,6 +79,7 @@ std = [
 	"nomination/std",
 	"primitives/std",
 	"loans/std",
+	"issue/std",
 
 	"orml-tokens/std",
 	"orml-traits/std",

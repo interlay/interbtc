@@ -111,7 +111,7 @@ pub mod pallet {
         }
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            crate::types::v1::migrate_v1_to_v6::<T>()
+            types::v7::migrate_v6_to_v7::<T>()
         }
     }
 
@@ -479,10 +479,8 @@ pub mod pallet {
             issued_tokens: BalanceOf<T>,
             to_be_issued_tokens: BalanceOf<T>,
             to_be_redeemed_tokens: BalanceOf<T>,
-            to_be_replaced_tokens: BalanceOf<T>,
             backing_collateral: BalanceOf<T>,
             status: VaultStatus,
-            replace_collateral: BalanceOf<T>,
         },
         BanVault {
             vault_id: DefaultVaultId<T>,
@@ -889,16 +887,6 @@ impl<T: Config> Pallet<T> {
                 );
                 Self::slash_backing_collateral(vault_id, amount)?;
             }
-            CurrencySource::AvailableReplaceCollateral(ref vault_id) => {
-                let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-                vault.decrease_available_replace_collateral(amount)?;
-                amount.unlock_on(&from.account_id())?;
-            }
-            CurrencySource::ActiveReplaceCollateral(ref vault_id) => {
-                let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
-                vault.decrease_active_replace_collateral(amount)?;
-                amount.unlock_on(&from.account_id())?;
-            }
             CurrencySource::UserGriefing(_) => {
                 amount.unlock_on(&from.account_id())?;
             }
@@ -929,16 +917,6 @@ impl<T: Config> Pallet<T> {
                     Error::<T>::InvalidCurrency
                 );
                 Self::try_deposit_collateral(vault_id, amount)?;
-            }
-            CurrencySource::AvailableReplaceCollateral(ref vault_id) => {
-                let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-                vault.increase_available_replace_collateral(amount)?;
-                amount.lock_on(&to.account_id())?;
-            }
-            CurrencySource::ActiveReplaceCollateral(ref vault_id) => {
-                let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
-                vault.increase_active_replace_collateral(amount)?;
-                amount.lock_on(&to.account_id())?;
             }
             CurrencySource::UserGriefing(_) => {
                 amount.lock_on(&to.account_id())?;
@@ -996,72 +974,6 @@ impl<T: Config> Pallet<T> {
             address: btc_address,
         });
         Ok(btc_address)
-    }
-
-    /// returns the amount of tokens that a vault can request to be replaced on top of the
-    /// current to-be-replaced tokens
-    pub fn requestable_to_be_replaced_tokens(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
-        let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-
-        vault
-            .issued_tokens()
-            .checked_sub(&vault.to_be_replaced_tokens())?
-            .checked_sub(&vault.to_be_redeemed_tokens())
-    }
-
-    /// returns the new total to-be-replaced and replace-collateral
-    pub fn try_increase_to_be_replaced_tokens(
-        vault_id: &DefaultVaultId<T>,
-        tokens: &Amount<T>,
-    ) -> Result<Amount<T>, DispatchError> {
-        let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-
-        let new_to_be_replaced = vault.to_be_replaced_tokens().checked_add(&tokens)?;
-        let total_decreasing_tokens = new_to_be_replaced.checked_add(&vault.to_be_redeemed_tokens())?;
-
-        ensure!(
-            total_decreasing_tokens.le(&vault.issued_tokens())?,
-            Error::<T>::InsufficientTokensCommitted
-        );
-
-        vault.set_to_be_replaced_amount(&new_to_be_replaced)?;
-
-        Self::deposit_event(Event::<T>::IncreaseToBeReplacedTokens {
-            vault_id: vault.id(),
-            increase: tokens.amount(),
-        });
-
-        Ok(new_to_be_replaced)
-    }
-
-    pub fn decrease_to_be_replaced_tokens(
-        vault_id: &DefaultVaultId<T>,
-        tokens: &Amount<T>,
-    ) -> Result<(Amount<T>, Amount<T>), DispatchError> {
-        let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
-
-        let initial_to_be_replaced = Amount::new(vault.data.to_be_replaced_tokens, vault_id.wrapped_currency());
-        let initial_griefing_collateral =
-            Amount::new(vault.data.replace_collateral, T::GetGriefingCollateralCurrencyId::get());
-
-        let used_tokens = tokens.min(&initial_to_be_replaced)?;
-
-        let used_collateral =
-            Self::calculate_collateral(&initial_griefing_collateral, &used_tokens, &initial_to_be_replaced)?;
-
-        // make sure we don't use too much if a rounding error occurs
-        let used_collateral = used_collateral.min(&initial_griefing_collateral)?;
-
-        let new_to_be_replaced = initial_to_be_replaced.checked_sub(&used_tokens)?;
-
-        vault.set_to_be_replaced_amount(&new_to_be_replaced)?;
-
-        Self::deposit_event(Event::<T>::DecreaseToBeReplacedTokens {
-            vault_id: vault.id(),
-            decrease: tokens.amount(),
-        });
-
-        Ok((used_tokens, used_collateral))
     }
 
     /// Decreases the amount of tokens to be issued in the next issue request from the
@@ -1128,6 +1040,37 @@ impl<T: Config> Pallet<T> {
             increase: tokens.amount(),
         });
         Ok(())
+    }
+
+    /// Checks if redeeming a certain amount of tokens from a vault would fully replace the vault's locked tokens.
+    ///
+    /// # Arguments
+    /// * `vault_id` - the id of the vault to check
+    /// * `to_redeem_tokens` - the amount of tokens to be redeemed
+    ///
+    /// # Errors
+    /// * `VaultNotFound` - if no vault exists for the given `vault_id`
+    /// * `InsufficientTokensCommitted` - if the amount of to-be-redeemed tokens is too low
+    ///
+    /// # Returns
+    /// `Ok(true)` if redeeming the specified `to_redeem_tokens` would fully replace the vault's locked tokens.
+    /// `Ok(false)` otherwise.
+    pub fn is_vault_fully_replacing(
+        vault_id: &DefaultVaultId<T>,
+        to_redeem_tokens: &Amount<T>,
+    ) -> Result<bool, DispatchError> {
+        let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
+        let max_redeemable = vault.issued_tokens().checked_sub(&vault.to_be_redeemed_tokens())?;
+        ensure!(
+            max_redeemable.ge(&to_redeem_tokens)?,
+            Error::<T>::InsufficientTokensCommitted
+        );
+
+        if to_redeem_tokens == &max_redeemable {
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 
     /// Subtracts an amount tokens from the to-be-redeemed tokens balance of a vault.
@@ -1359,7 +1302,8 @@ impl<T: Config> Pallet<T> {
     pub fn cancel_replace_tokens(
         old_vault_id: &DefaultVaultId<T>,
         new_vault_id: &DefaultVaultId<T>,
-        tokens: &Amount<T>,
+        redeem_tokens: &Amount<T>,
+        issue_tokens: &Amount<T>,
     ) -> DispatchResult {
         let mut old_vault = Self::get_rich_vault_from_id(&old_vault_id)?;
         let mut new_vault = Self::get_rich_vault_from_id(&new_vault_id)?;
@@ -1367,7 +1311,7 @@ impl<T: Config> Pallet<T> {
         if old_vault.data.is_liquidated() {
             let to_be_transferred = Self::calculate_collateral(
                 &old_vault.liquidated_collateral(),
-                tokens,
+                redeem_tokens,
                 &old_vault.to_be_redeemed_tokens(),
             )?;
             old_vault.decrease_liquidated_collateral(&to_be_transferred)?;
@@ -1380,31 +1324,10 @@ impl<T: Config> Pallet<T> {
             )?;
         }
 
-        old_vault.cancel_redeem_tokens(tokens)?;
-        new_vault.cancel_issue_tokens(tokens)?;
+        old_vault.cancel_redeem_tokens(redeem_tokens)?;
+        new_vault.cancel_issue_tokens(issue_tokens)?;
 
         Ok(())
-    }
-
-    /// Withdraws an `amount` of tokens that were requested for replacement by `vault_id`
-    ///
-    /// # Arguments
-    /// * `vault_id` - the id of the vault
-    /// * `amount` - the amount of tokens to be withdrawn from replace requests
-    pub fn withdraw_replace_request(
-        vault_id: &DefaultVaultId<T>,
-        amount: &Amount<T>,
-    ) -> Result<(Amount<T>, Amount<T>), DispatchError> {
-        let (withdrawn_tokens, to_withdraw_collateral) = Self::decrease_to_be_replaced_tokens(&vault_id, &amount)?;
-
-        // release the used collateral
-        Self::transfer_funds(
-            CurrencySource::AvailableReplaceCollateral(vault_id.clone()),
-            CurrencySource::FreeBalance(vault_id.account_id.clone()),
-            &to_withdraw_collateral,
-        )?;
-
-        Ok((withdrawn_tokens, to_withdraw_collateral))
     }
 
     fn undercollateralized_vaults() -> impl Iterator<Item = DefaultVaultId<T>> {
@@ -1436,10 +1359,8 @@ impl<T: Config> Pallet<T> {
             issued_tokens: vault_orig.issued_tokens,
             to_be_issued_tokens: vault_orig.to_be_issued_tokens,
             to_be_redeemed_tokens: vault_orig.to_be_redeemed_tokens,
-            to_be_replaced_tokens: vault_orig.to_be_replaced_tokens,
             backing_collateral: backing_collateral.amount(),
             status: VaultStatus::Liquidated,
-            replace_collateral: vault_orig.replace_collateral,
         });
         Ok(to_slash)
     }
@@ -1910,25 +1831,8 @@ impl<T: Config> Pallet<T> {
 
     #[cfg(feature = "integration-tests")]
     pub fn collateral_integrity_check() {
-        let griefing_currency = T::GetGriefingCollateralCurrencyId::get();
         for (vault_id, vault) in Vaults::<T>::iter().filter(|(_, vault)| matches!(vault.status, VaultStatus::Active(_)))
         {
-            // check that there is enough griefing collateral
-            let active_griefing = CurrencySource::<T>::ActiveReplaceCollateral(vault_id.clone())
-                .current_balance(griefing_currency)
-                .unwrap();
-            let available_replace_collateral = CurrencySource::<T>::AvailableReplaceCollateral(vault_id.clone())
-                .current_balance(griefing_currency)
-                .unwrap();
-            let total_replace_collateral = active_griefing + available_replace_collateral.clone();
-            let reserved_balance = ext::currency::get_reserved_balance(griefing_currency, &vault_id.account_id);
-            assert!(reserved_balance.ge(&total_replace_collateral).unwrap());
-
-            if available_replace_collateral.is_zero() {
-                // we can't have reserved collateral for to_be_replaced tokens if there are no to-be-replaced tokens
-                assert!(vault.to_be_replaced_tokens.is_zero());
-            }
-
             let liquidated_collateral = CurrencySource::<T>::LiquidatedCollateral(vault_id.clone())
                 .current_balance(vault_id.collateral_currency())
                 .unwrap();

@@ -43,6 +43,22 @@ pub(crate) mod vault_registry {
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use vault_registry::types::{CurrencyId, CurrencySource, DefaultVault};
 
+    pub fn is_vault_fully_replacing<T: crate::Config>(
+        vault_id: &DefaultVaultId<T>,
+        to_redeem_tokens: &Amount<T>,
+    ) -> Result<bool, DispatchError> {
+        <vault_registry::Pallet<T>>::is_vault_fully_replacing(vault_id, to_redeem_tokens)
+    }
+
+    pub fn cancel_replace_tokens<T: crate::Config>(
+        old_vault_id: &DefaultVaultId<T>,
+        new_vault_id: &DefaultVaultId<T>,
+        redeem_tokens: &Amount<T>,
+        issue_tokens: &Amount<T>,
+    ) -> DispatchResult {
+        <vault_registry::Pallet<T>>::cancel_replace_tokens(old_vault_id, new_vault_id, redeem_tokens, issue_tokens)
+    }
+
     pub fn get_liquidated_collateral<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
     ) -> Result<Amount<T>, DispatchError> {
@@ -159,13 +175,6 @@ pub(crate) mod vault_registry {
     pub fn issue_tokens<T: crate::Config>(vault_id: &DefaultVaultId<T>, amount: &Amount<T>) -> DispatchResult {
         <vault_registry::Pallet<T>>::issue_tokens(vault_id, amount)
     }
-
-    pub fn decrease_to_be_replaced_tokens<T: crate::Config>(
-        vault_id: &DefaultVaultId<T>,
-        tokens: &Amount<T>,
-    ) -> Result<(Amount<T>, Amount<T>), DispatchError> {
-        <vault_registry::Pallet<T>>::decrease_to_be_replaced_tokens(vault_id, tokens)
-    }
 }
 
 #[cfg_attr(test, mockable)]
@@ -225,5 +234,35 @@ pub(crate) mod fee {
 
     pub fn get_premium_redeem_fee<T: crate::Config>(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
         <fee::Pallet<T>>::get_premium_redeem_fee(amount)
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod issue {
+    use crate::{types::BalanceOf, DefaultVaultId, DispatchError};
+    use bitcoin::Address;
+    use primitives::AccountOrVault;
+    use sp_core::H256;
+    use vault_registry::types::CurrencyId;
+
+    pub fn request_vault_issue<T: crate::Config>(
+        requester: AccountOrVault<T::AccountId, T::CurrencyId>,
+        amount_requested: BalanceOf<T>,
+        vault_id: DefaultVaultId<T>,
+        griefing_currency: CurrencyId<T>,
+    ) -> Result<(H256, Address), DispatchError> {
+        <issue::Pallet<T>>::_request_issue(requester, amount_requested, vault_id, griefing_currency)
+    }
+
+    pub fn complete_vault_issue<T: crate::Config>(issue_id: H256) -> Result<(), DispatchError> {
+        <issue::Pallet<T>>::_complete_vault_issue(issue_id)
+    }
+
+    pub fn get_vault_from_issue_id<T: crate::Config>(issue_id: &H256) -> Result<DefaultVaultId<T>, DispatchError> {
+        <issue::Pallet<T>>::get_vault_from_issue_id(issue_id)
+    }
+
+    pub fn cancel_issue<T: crate::Config>(issue_id: H256, redeemer: T::AccountId) -> Result<(), DispatchError> {
+        <issue::Pallet<T>>::_cancel_issue(redeemer, issue_id)
     }
 }

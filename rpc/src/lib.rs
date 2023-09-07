@@ -4,8 +4,8 @@
 //! capabilities that are specific to this project's runtime configuration.
 
 use primitives::{
-    issue::IssueRequest, redeem::RedeemRequest, replace::ReplaceRequest, AccountId, Balance, Block, BlockNumber,
-    CurrencyId, H256Le, Hash, Nonce, StablePoolId, VaultId,
+    issue::IssueRequest, redeem::RedeemRequest, AccountId, Balance, Block, BlockNumber, CurrencyId, H256Le, Hash,
+    Nonce, StablePoolId, VaultId,
 };
 use sc_consensus_manual_seal::rpc::{EngineCommand, ManualSeal, ManualSealApiServer};
 pub use sc_rpc_api::DenyUnsafe;
@@ -91,12 +91,6 @@ where
         H256,
         RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>,
     >,
-    C::Api: replace_rpc::ReplaceRuntimeApi<
-        Block,
-        AccountId,
-        H256,
-        ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>,
-    >,
     C::Api: escrow_rpc::EscrowRuntimeApi<Block, AccountId, BlockNumber, Balance>,
     C::Api: reward_rpc::RewardRuntimeApi<
         Block,
@@ -124,7 +118,6 @@ where
     use oracle_rpc::{Oracle, OracleApiServer};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
     use redeem_rpc::{Redeem, RedeemApiServer};
-    use replace_rpc::{Replace, ReplaceApiServer};
     use reward_rpc::{Reward, RewardApiServer};
     use substrate_frame_rpc_system::{System, SystemApiServer};
     use vault_registry_rpc::{VaultRegistry, VaultRegistryApiServer};
@@ -171,8 +164,6 @@ where
     module.merge(Issue::new(client.clone()).into_rpc())?;
 
     module.merge(Redeem::new(client.clone()).into_rpc())?;
-
-    module.merge(Replace::new(client.clone()).into_rpc())?;
 
     module.merge(Loans::new(client.clone()).into_rpc())?;
 

@@ -237,10 +237,6 @@ pub fn kintsugi_genesis(
             redeem_period: kintsugi_runtime::DAYS * 2,
             redeem_btc_dust_value: DEFAULT_DUST_VALUE,
         },
-        replace: kintsugi_runtime::ReplaceConfig {
-            replace_period: kintsugi_runtime::DAYS * 2,
-            replace_btc_dust_value: DEFAULT_DUST_VALUE,
-        },
         vault_registry: kintsugi_runtime::VaultRegistryConfig {
             minimum_collateral_vault: vec![(Token(KINT), 55 * KINT.one()), (Token(KSM), 3 * KSM.one())],
             punishment_delay: kintsugi_runtime::DAYS,

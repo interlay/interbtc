@@ -14,7 +14,6 @@ oracle-rpc = { path = "../crates/oracle/rpc" }
 vault-registry-rpc = { path = "../crates/vault-registry/rpc" }
 issue-rpc = { path = "../crates/issue/rpc" }
 redeem-rpc = { path = "../crates/redeem/rpc" }
-replace-rpc = { path = "../crates/replace/rpc" }
 escrow-rpc = { path = "../crates/escrow/rpc" }
 reward-rpc = { path = "../crates/reward/rpc" }
 loans-rpc = { path = "../crates/loans/rpc" }

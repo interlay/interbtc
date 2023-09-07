@@ -174,7 +174,7 @@ impl Contains<RuntimeCall> for SafeCallFilter {
                 // these calls can recurse - disallow
                 false
             }
-            RuntimeCall::Issue(..) | RuntimeCall::Replace(..) | RuntimeCall::Redeem(..) | RuntimeCall::BTCRelay(..) => {
+            RuntimeCall::Issue(..) | RuntimeCall::Redeem(..) | RuntimeCall::BTCRelay(..) => {
                 // disallow anything to do with btc transactions since btc tx may be unbounded
                 false
             }

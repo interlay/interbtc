@@ -111,11 +111,6 @@ pub trait RuntimeApiCollection:
         AccountId,
         H256,
         redeem::RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>,
-    > + replace_rpc_runtime_api::ReplaceApi<
-        Block,
-        AccountId,
-        H256,
-        replace::ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>,
     > + reward_rpc_runtime_api::RewardApi<
         Block,
         AccountId,
@@ -159,11 +154,6 @@ where
             AccountId,
             H256,
             redeem::RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>,
-        > + replace_rpc_runtime_api::ReplaceApi<
-            Block,
-            AccountId,
-            H256,
-            replace::ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>,
         > + reward_rpc_runtime_api::RewardApi<
             Block,
             AccountId,

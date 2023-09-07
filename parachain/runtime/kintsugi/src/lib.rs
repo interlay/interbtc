@@ -1156,13 +1156,6 @@ impl redeem::Config for Runtime {
     type WeightInfo = weights::redeem::WeightInfo<Runtime>;
 }
 
-pub use replace::ReplaceRequest;
-
-impl replace::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = weights::replace::WeightInfo<Runtime>;
-}
-
 pub use nomination::Event as NominationEvent;
 
 impl nomination::Config for Runtime {
@@ -1254,7 +1247,7 @@ construct_runtime! {
         Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>} = 62,
         Issue: issue::{Pallet, Call, Config<T>, Storage, Event<T>} = 63,
         Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>} = 64,
-        Replace: replace::{Pallet, Call, Config<T>, Storage, Event<T>} = 65,
+        // Replace: 65
         Fee: fee::{Pallet, Call, Config<T>, Storage} = 66,
         // Refund: 67
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>} = 68,
@@ -1435,7 +1428,6 @@ mod benches {
         [nomination, Nomination]
         [oracle, Oracle]
         [redeem, Redeem]
-        [replace, Replace]
         [security, Security]
         [supply, Supply]
         [tx_pause, TxPause]
@@ -1817,21 +1809,6 @@ impl_runtime_apis! {
 
         fn get_vault_redeem_requests(account_id: AccountId) -> Vec<H256> {
             Redeem::get_redeem_requests_for_vault(account_id)
-        }
-    }
-
-    impl replace_rpc_runtime_api::ReplaceApi<
-        Block,
-        AccountId,
-        H256,
-        ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId>
-    > for Runtime {
-        fn get_old_vault_replace_requests(vault_id: AccountId) -> Vec<H256> {
-            Replace::get_replace_requests_for_old_vault(vault_id)
-        }
-
-        fn get_new_vault_replace_requests(vault_id: AccountId) -> Vec<H256> {
-            Replace::get_replace_requests_for_new_vault(vault_id)
         }
     }
 

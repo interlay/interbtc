@@ -15,7 +15,7 @@ pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
     testing::{Header, TestXt},
-    traits::{BlakeTwo256, IdentityLookup, Zero},
+    traits::{BlakeTwo256, Convert, IdentityLookup, Zero},
 };
 
 type TestExtrinsic = TestXt<RuntimeCall, ()>;
@@ -49,6 +49,7 @@ frame_support::construct_runtime!(
         Currency: currency::{Pallet},
         Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>},
         Loans: loans::{Pallet, Storage, Call, Event<T>, Config},
+        Issue: issue::{Pallet, Call, Config<T>, Storage, Event<T>},
     }
 );
 
@@ -269,6 +270,25 @@ impl loans::Config for Test {
     type OnExchangeRateChange = ();
 }
 
+parameter_types! {
+    pub const TreasuryPalletId: PalletId = PalletId(*b"mod/trsy");
+}
+
+pub struct BlockNumberToBalance;
+
+impl Convert<BlockNumber, Balance> for BlockNumberToBalance {
+    fn convert(a: BlockNumber) -> Balance {
+        a.into()
+    }
+}
+
+impl issue::Config for Test {
+    type TreasuryPalletId = TreasuryPalletId;
+    type RuntimeEvent = RuntimeEvent;
+    type BlockNumberToBalance = BlockNumberToBalance;
+    type WeightInfo = ();
+}
+
 impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
@@ -288,6 +308,23 @@ pub const VAULT: VaultId<AccountId, CurrencyId> = VaultId {
 };
 pub const CAROL: AccountId = 3;
 
+pub const OLD_VAULT: VaultId<AccountId, CurrencyId> = VaultId {
+    account_id: 4,
+    currencies: VaultCurrencyPair {
+        collateral: DEFAULT_COLLATERAL_CURRENCY,
+        wrapped: DEFAULT_WRAPPED_CURRENCY,
+    },
+};
+pub const NEW_VAULT: VaultId<AccountId, CurrencyId> = VaultId {
+    account_id: 5,
+    currencies: VaultCurrencyPair {
+        collateral: DEFAULT_COLLATERAL_CURRENCY,
+        wrapped: DEFAULT_WRAPPED_CURRENCY,
+    },
+};
+
+pub const OLD_VAULT_BALANCE: u128 = 1_000_000;
+pub const NEW_VAULT_BALANCE: u128 = 1_000_000;
 pub const ALICE_BALANCE: u128 = 1_005_000;
 pub const VAULT_BALANCE: u128 = 1_005_000;
 pub const CAROL_BALANCE: u128 = 1_005_000;
@@ -367,6 +404,8 @@ impl ExtBuilder {
                 (USER, Token(IBTC), ALICE_BALANCE),
                 (VAULT.account_id, Token(IBTC), VAULT_BALANCE),
                 (CAROL, Token(IBTC), CAROL_BALANCE),
+                (OLD_VAULT.account_id, Token(DOT), OLD_VAULT_BALANCE),
+                (NEW_VAULT.account_id, Token(DOT), NEW_VAULT_BALANCE),
             ],
         })
     }

@@ -269,7 +269,7 @@ impl traits::NominationApi<VaultId<AccountId, CurrencyId>, currency::Amount<Test
 
         Ok(())
     }
-    fn ensure_opted_in_to_nomination(vault_id: &VaultId<AccountId, CurrencyId>) -> Result<(), DispatchError> {
+    fn ensure_opted_in_to_nomination(_vault_id: &VaultId<AccountId, CurrencyId>) -> Result<(), DispatchError> {
         Ok(())
     }
     #[cfg(any(feature = "runtime-benchmarks", test))]

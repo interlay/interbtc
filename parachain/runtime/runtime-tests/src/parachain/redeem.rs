@@ -44,20 +44,6 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     test_with(LendToken(1), Token(IBTC), None);
 }
 
-/// to-be-replaced & replace_collateral are decreased in request_redeem
-fn consume_to_be_replaced(vault: &mut CoreVaultData, amount_btc: Amount<Runtime>) {
-    let to_be_replaced_decrease = amount_btc.min(&vault.to_be_replaced).unwrap();
-    let released_replace_collateral = griefing(
-        (vault.replace_collateral.amount() * to_be_replaced_decrease.amount()) / vault.to_be_replaced.amount(),
-    );
-
-    vault.replace_collateral -= released_replace_collateral;
-    vault.griefing_collateral -= released_replace_collateral;
-    *vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() += released_replace_collateral;
-
-    vault.to_be_replaced -= to_be_replaced_decrease;
-}
-
 mod spec_based_tests {
     use primitives::VaultCurrencyPair;
 
@@ -116,7 +102,6 @@ mod spec_based_tests {
                             redeem.amount_btc() + redeem.transfer_fee_btc() + redeem.fee();
                         (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).locked +=
                             redeem.amount_btc() + redeem.transfer_fee_btc() + redeem.fee();
-                        consume_to_be_replaced(vault, redeem.amount_btc());
                     })
                 );
             });
@@ -643,7 +628,7 @@ mod spec_based_tests {
             test_with(|vault_id| {
                 set_redeem_period(1000);
                 let redeem_id = request_redeem(&vault_id);
-                mine_blocks(12);
+                mine_blocks(100);
                 SecurityPallet::set_active_block_number(1100);
                 assert_noop!(
                     RuntimeCall::Redeem(RedeemCall::cancel_redeem {
@@ -871,8 +856,6 @@ mod spec_based_tests {
                         to_be_issued: vault_id.wrapped(0),
                         to_be_redeemed: consumed_issued_tokens * 4,
                         backing_collateral: collateral_vault,
-                        to_be_replaced: vault_id.wrapped(0),
-                        replace_collateral: griefing(0),
                         ..default_vault_state(&vault_id)
                     },
                 );
@@ -938,8 +921,6 @@ mod spec_based_tests {
                         to_be_issued: vault_id.wrapped(0),
                         to_be_redeemed: consumed_issued_tokens * 4,
                         backing_collateral: collateral_vault,
-                        to_be_replaced: vault_id.wrapped(0),
-                        replace_collateral: griefing(0),
                         ..default_vault_state(&vault_id)
                     },
                 );
@@ -1163,7 +1144,6 @@ fn integration_test_redeem_execute_succeeds() {
                 vault.issued -= redeem.amount_btc() + redeem.transfer_fee_btc();
                 (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free -= issued_tokens;
                 *fee_pool.rewards_for(&vault_id) += redeem.fee();
-                consume_to_be_replaced(vault, redeem.amount_btc() + redeem.transfer_fee_btc());
             })
         );
     });
@@ -1247,7 +1227,6 @@ fn integration_test_premium_redeem_wrapped_execute() {
                 // premium is moved from vault to user
                 vault.backing_collateral -= redeem.premium().unwrap();
                 (*user.balances.get_mut(&currency_id).unwrap()).free += redeem.premium().unwrap();
-                consume_to_be_replaced(vault, burned_amount);
             })
         );
 
@@ -1451,8 +1430,6 @@ fn integration_test_redeem_wrapped_cancel_reimburse_sufficient_collateral_for_wr
                 (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free -= amount_btc;
 
                 *fee_pool.rewards_for(&vault_id) += redeem.fee();
-
-                consume_to_be_replaced(vault, redeem.amount_btc() + redeem.transfer_fee_btc());
             })
         );
     });
@@ -1504,8 +1481,6 @@ fn integration_test_redeem_wrapped_cancel_reimburse_insufficient_collateral_for_
                 (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free -= amount_btc;
 
                 *fee_pool.rewards_for(&vault_id) += redeem.fee();
-
-                consume_to_be_replaced(vault, redeem.amount_btc() + redeem.transfer_fee_btc());
             })
         );
 
@@ -1563,8 +1538,6 @@ fn integration_test_redeem_wrapped_cancel_no_reimburse() {
                 (*user.balances.get_mut(&currency_id).unwrap()).free += punishment_fee;
 
                 vault.backing_collateral -= punishment_fee;
-
-                consume_to_be_replaced(vault, redeem.amount_btc() + redeem.transfer_fee_btc());
             })
         );
     });
@@ -1590,8 +1563,6 @@ fn integration_test_liquidation_redeem_with_cancel_redeem() {
                 to_be_issued: vault_id.wrapped(0),
                 to_be_redeemed: consumed_issued_tokens,
                 backing_collateral: collateral_vault,
-                to_be_replaced: vault_id.wrapped(0),
-                replace_collateral: griefing(0),
                 ..default_vault_state(&vault_id)
             },
         );
@@ -1693,8 +1664,6 @@ fn integration_test_redeem_wrapped_cancel_liquidated_no_reimburse() {
                 to_be_issued: vault_id.wrapped(0),
                 to_be_redeemed: consumed_issued_tokens * 4,
                 backing_collateral: collateral_vault,
-                to_be_replaced: vault_id.wrapped(0),
-                replace_collateral: griefing(0),
                 ..default_vault_state(&vault_id)
             },
         );
@@ -1755,8 +1724,6 @@ fn integration_test_redeem_wrapped_cancel_liquidated_reimburse() {
                 to_be_issued: vault_id.wrapped(0),
                 to_be_redeemed: consumed_issued_tokens * 4,
                 backing_collateral: collateral_vault,
-                to_be_replaced: vault_id.wrapped(0),
-                replace_collateral: griefing(0),
                 ..default_vault_state(&vault_id)
             },
         );
@@ -1819,8 +1786,6 @@ fn integration_test_redeem_wrapped_execute_liquidated() {
                 to_be_issued: vault_id.wrapped(0),
                 to_be_redeemed: consumed_issued_tokens * 4,
                 backing_collateral: collateral_vault,
-                to_be_replaced: vault_id.wrapped(0),
-                replace_collateral: griefing(0),
                 ..default_vault_state(&vault_id)
             },
         );
@@ -2018,7 +1983,6 @@ mod self_redeem {
                     vault.issued -= consumed_issued_tokens;
                     (*vault.free_balance.get_mut(&vault_id.wrapped_currency()).unwrap()) -= issued_tokens;
                     *fee_pool.rewards_for(&vault_id) += fee;
-                    consume_to_be_replaced(vault, consumed_issued_tokens);
                 })
             );
         });
@@ -2041,7 +2005,6 @@ mod self_redeem {
                 ParachainState::get_default(&vault_id).with_changes(|_, vault, _, _| {
                     vault.issued -= issued_tokens;
                     (*vault.free_balance.get_mut(&vault_id.wrapped_currency()).unwrap()) -= issued_tokens;
-                    consume_to_be_replaced(vault, issued_tokens);
                 })
             );
         });
