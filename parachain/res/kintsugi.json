@@ -3,6 +3,9 @@
   "id": "kusama",
   "chainType": "Live",
   "bootNodes": [
+    "/dns/kintsugi-01.kintsugi.interlay.io/tcp/30333/p2p/12D3KooWNPtxom3R7zezRmFFhGqiWE7gCpjSjqBKuWD46fFxWHrT",
+    "/dns/kintsugi-02.kintsugi.interlay.io/tcp/30333/p2p/12D3KooWCptYHUmsQwsCExVaRDj7uVbP2RttpuhpbETgiAVnsrwK",
+    "/dns/kintsugi-03.kintsugi.interlay.io/tcp/30333/p2p/12D3KooWQgh9z6TuD7H5ixMPsa2RR6FoKp35SToCD1c2DNJqyEjU",
     "/ip4/64.225.82.241/tcp/30334/p2p/12D3KooWBrXv59QdJ3XKTUWcRa5zcDpWYCqCB77xPAKJqUGNnTGQ",
     "/dns4/bootnodes.kintsugi.interlay.io/tcp/30335/p2p/12D3KooWCC7bcYLxCwPcU53FPGU3K4EmnffEMByRBVzC6GzkUnT5",
     "/ip4/35.213.18.84/tcp/30333/p2p/12D3KooWQvS49jo865cP7VrAeE9zzLWBtGhRzWgoSfzr8AvjC5AX",
