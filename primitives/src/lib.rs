@@ -17,7 +17,6 @@ use scale_decode::DecodeAsType;
 #[cfg(feature = "std")]
 use scale_encode::EncodeAsType;
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 pub use bitcoin::types::H256Le;
@@ -77,15 +76,19 @@ mod arithmetic {
     }
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, std::hash::Hash))]
+#[derive(
+    Serialize, Deserialize, Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, TypeInfo, MaxEncodedLen,
+)]
+#[cfg_attr(feature = "std", derive(std::hash::Hash))]
 pub struct VaultCurrencyPair<CurrencyId: Copy> {
     pub collateral: CurrencyId,
     pub wrapped: CurrencyId,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, std::hash::Hash))]
+#[derive(
+    Serialize, Deserialize, Encode, Decode, Clone, PartialEq, Eq, Debug, PartialOrd, Ord, TypeInfo, MaxEncodedLen,
+)]
+#[cfg_attr(feature = "std", derive(std::hash::Hash))]
 pub struct VaultId<AccountId, CurrencyId: Copy> {
     pub account_id: AccountId,
     pub currencies: VaultCurrencyPair<CurrencyId>,
@@ -124,9 +127,9 @@ impl<AccountId, CurrencyId: Copy> From<(AccountId, VaultCurrencyPair<CurrencyId>
 pub mod issue {
     use super::*;
 
-    #[derive(Encode, Decode, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
-    #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-    #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+    #[derive(Serialize, Deserialize, Encode, Decode, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
+    #[cfg_attr(feature = "std", derive(Debug))]
+    #[serde(rename_all = "camelCase")]
     pub enum IssueRequestStatus {
         /// opened, but not yet executed or cancelled
         Pending,
@@ -144,8 +147,8 @@ pub mod issue {
 
     // Due to a known bug in serde we need to specify how u128 is (de)serialized.
     // See https://github.com/paritytech/substrate/issues/4641
-    #[derive(Encode, Decode, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
-    #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+    #[derive(Serialize, Deserialize, Encode, Decode, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
+    #[cfg_attr(feature = "std", derive(Debug))]
     pub struct IssueRequest<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
         /// the vault associated with this issue request
         pub vault: VaultId<AccountId, CurrencyId>,
@@ -186,9 +189,8 @@ pub mod issue {
     }
 }
 
-#[derive(Eq, PartialEq, Encode, Decode, Default, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Encode, Decode, Default, TypeInfo)]
+#[serde(rename_all = "camelCase")]
 /// a wrapper around a balance, used in RPC to workaround a bug where using u128
 /// in runtime-apis fails. See <https://github.com/paritytech/substrate/issues/4641>
 pub struct BalanceWrapper<T> {
@@ -214,9 +216,9 @@ fn deserialize_from_string<'de, D: Deserializer<'de>, T: std::str::FromStr>(dese
 pub mod redeem {
     use super::*;
 
-    #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
-    #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-    #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+    #[derive(Serialize, Deserialize, Encode, Decode, Clone, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
+    #[cfg_attr(feature = "std", derive(Debug))]
+    #[serde(rename_all = "camelCase")]
     pub enum RedeemRequestStatus {
         /// opened, but not yet executed or cancelled
         Pending,
@@ -236,8 +238,8 @@ pub mod redeem {
 
     // Due to a known bug in serde we need to specify how u128 is (de)serialized.
     // See https://github.com/paritytech/substrate/issues/4641
-    #[derive(Encode, Decode, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
-    #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+    #[derive(Serialize, Deserialize, Encode, Decode, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
+    #[cfg_attr(feature = "std", derive(Debug))]
     pub struct RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
         /// the vault associated with this redeem request
         pub vault: VaultId<AccountId, CurrencyId>,
@@ -283,9 +285,9 @@ pub mod redeem {
 pub mod replace {
     use super::*;
 
-    #[derive(Encode, Decode, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
-    #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize, Eq))]
-    #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+    #[derive(Serialize, Deserialize, Encode, Decode, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
+    #[cfg_attr(feature = "std", derive(Debug, Eq))]
+    #[serde(rename_all = "camelCase")]
     pub enum ReplaceRequestStatus {
         /// accepted, but not yet executed or cancelled
         Pending,
@@ -303,8 +305,8 @@ pub mod replace {
 
     // Due to a known bug in serde we need to specify how u128 is (de)serialized.
     // See https://github.com/paritytech/substrate/issues/4641
-    #[derive(Encode, Decode, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
-    #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize, Eq))]
+    #[derive(Serialize, Deserialize, Encode, Decode, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
+    #[cfg_attr(feature = "std", derive(Eq, Debug))]
     pub struct ReplaceRequest<AccountId, BlockNumber, Balance, CurrencyId: Copy> {
         /// the vault which has requested to be replaced
         pub old_vault: VaultId<AccountId, CurrencyId>,
@@ -344,9 +346,8 @@ pub mod replace {
 pub mod oracle {
     use super::*;
 
-    #[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-    #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+    #[derive(Serialize, Deserialize, Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+    #[serde(rename_all = "camelCase")]
     pub enum Key {
         ExchangeRate(CurrencyId),
         FeeEstimation,
@@ -503,8 +504,7 @@ macro_rules! create_currency_id {
 }
 
 create_currency_id! {
-    #[derive(Encode, Decode, Eq, Hash, PartialEq, Copy, Clone, Debug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
-    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    #[derive(Serialize, Deserialize,Encode, Decode, Eq, Hash, PartialEq, Copy, Clone, Debug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
     #[cfg_attr(feature = "std", derive(EncodeAsType,DecodeAsType))]
     #[repr(u8)]
     pub enum TokenSymbol {
@@ -518,9 +518,23 @@ create_currency_id! {
     }
 }
 
-#[derive(Encode, Decode, Eq, Hash, PartialEq, Copy, Clone, Debug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+#[derive(
+    Serialize,
+    Deserialize,
+    Encode,
+    Decode,
+    Eq,
+    Hash,
+    PartialEq,
+    Copy,
+    Clone,
+    Debug,
+    PartialOrd,
+    Ord,
+    TypeInfo,
+    MaxEncodedLen,
+)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "std", derive(EncodeAsType, DecodeAsType))]
 pub enum LpToken {
     Token(TokenSymbol),
@@ -528,9 +542,23 @@ pub enum LpToken {
     StableLpToken(StablePoolId),
 }
 
-#[derive(Encode, Decode, Eq, Hash, PartialEq, Copy, Clone, Debug, PartialOrd, Ord, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
+#[derive(
+    Serialize,
+    Deserialize,
+    Encode,
+    Decode,
+    Eq,
+    Hash,
+    PartialEq,
+    Copy,
+    Clone,
+    Debug,
+    PartialOrd,
+    Ord,
+    TypeInfo,
+    MaxEncodedLen,
+)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "std", derive(EncodeAsType, DecodeAsType))]
 pub enum CurrencyId {
     Token(TokenSymbol),

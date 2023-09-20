@@ -1,5 +1,5 @@
 use crate::setup::{assert_eq, *};
-use pallet_contracts::Determinism;
+use pallet_contracts::{CollectEvents, DebugInfo, Determinism};
 use pallet_contracts_primitives::Code;
 use sp_runtime::traits::Hash;
 
@@ -66,7 +66,8 @@ fn test_basic_contract() {
             Code::Existing(blob_hash),
             input,
             vec![],
-            true,
+            DebugInfo::Skip,
+            CollectEvents::Skip,
         );
         let result = ret.result.unwrap();
 
@@ -97,7 +98,8 @@ fn test_basic_contract() {
             GAS_LIMIT,
             None,
             do_something_on_runtime_selector,
-            false,
+            DebugInfo::Skip,
+            CollectEvents::Skip,
             Determinism::Enforced,
         );
         assert_ok!(result.result);
@@ -138,7 +140,8 @@ fn test_btc_swap_contract() {
             Code::Existing(blob_hash),
             input,
             vec![],
-            true,
+            DebugInfo::Skip,
+            CollectEvents::Skip,
         );
         let result = ret.result.unwrap();
 
@@ -160,7 +163,8 @@ fn test_btc_swap_contract() {
             GAS_LIMIT,
             None,
             create_trade,
-            false,
+            DebugInfo::Skip,
+            CollectEvents::Skip,
             Determinism::Enforced,
         );
         assert_ok!(result.result);
@@ -180,7 +184,8 @@ fn test_btc_swap_contract() {
                 GAS_LIMIT,
                 None,
                 execute_trade,
-                false,
+                DebugInfo::Skip,
+                CollectEvents::Skip,
                 Determinism::Enforced,
             );
             assert_eq!(result.result.unwrap().flags.bits(), 0); // checks that result is ok, and no error flags are set
@@ -198,7 +203,8 @@ fn test_btc_swap_contract() {
             GAS_LIMIT,
             None,
             execute_trade,
-            false,
+            DebugInfo::Skip,
+            CollectEvents::Skip,
             Determinism::Enforced,
         );
         assert_err!(result.result, ContractsError::ContractTrapped);

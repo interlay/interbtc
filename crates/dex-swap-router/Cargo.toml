@@ -6,7 +6,7 @@ edition = "2021"
 license = "Apache 2.0"
 
 [dependencies]
-serde = { version = "1.0.119", optional = true }
+serde = { version = "1.0.119", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false }
 scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
 
@@ -36,7 +36,7 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "
 [features]
 default = ["std"]
 std = [
-    "serde",
+    "serde/std",
     "codec/std",
     "scale-info/std",
     "sp-core/std",

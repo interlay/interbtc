@@ -95,7 +95,7 @@ pub mod pallet {
     }
 
     #[pallet::hooks]
-    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
     /// Flag indicating whether this feature is enabled
     #[pallet::storage]
@@ -112,21 +112,14 @@ pub mod pallet {
         StorageMap<_, Blake2_128Concat, DefaultVaultId<T>, BalanceOf<T>, ValueQuery>;
 
     #[pallet::genesis_config]
-    pub struct GenesisConfig {
+    #[derive(frame_support::DefaultNoBound)]
+    pub struct GenesisConfig<T: Config> {
         pub is_nomination_enabled: bool,
-    }
-
-    #[cfg(feature = "std")]
-    impl Default for GenesisConfig {
-        fn default() -> Self {
-            Self {
-                is_nomination_enabled: Default::default(),
-            }
-        }
+        pub _marker: PhantomData<T>,
     }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             {
                 NominationEnabled::<T>::put(self.is_nomination_enabled);
@@ -198,7 +191,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             vault_id: DefaultVaultId<T>,
             amount: Option<BalanceOf<T>>,
-            index: Option<T::Index>,
+            index: Option<T::Nonce>,
         ) -> DispatchResultWithPostInfo {
             let nominator_id = ensure_signed(origin)?;
             Self::_withdraw_collateral(&vault_id, &nominator_id, amount, index.unwrap_or_default())?;
@@ -229,7 +222,7 @@ impl<T: Config> Pallet<T> {
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
         maybe_amount: Option<BalanceOf<T>>,
-        index: T::Index,
+        index: T::Nonce,
     ) -> DispatchResult {
         let nonce = ext::staking::nonce::<T>(vault_id);
         let index = sp_std::cmp::min(index, nonce);

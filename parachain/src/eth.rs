@@ -8,7 +8,7 @@ use primitives::Block;
 use sc_client_api::{BlockchainEvents, StateBackendFor};
 use sc_executor::NativeExecutionDispatch;
 use sc_network_sync::SyncingService;
-use sc_service::{error::Error as ServiceError, BasePath, Configuration, TaskManager};
+use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_transaction_pool::{ChainApi, Pool};
 use sp_api::{ConstructRuntimeApi, ProvideRuntimeApi};
 use sp_runtime::traits::{BlakeTwo256, Block as BlockT};
@@ -23,12 +23,7 @@ use std::{
 pub type FrontierBackend = fc_db::Backend<Block>;
 
 pub fn db_config_dir(config: &Configuration) -> PathBuf {
-    let application = &config.impl_name;
-    config
-        .base_path
-        .as_ref()
-        .map(|base_path| base_path.config_dir(config.chain_spec.id()))
-        .unwrap_or_else(|| BasePath::from_project("", "", application).config_dir(config.chain_spec.id()))
+    config.base_path.config_dir(config.chain_spec.id())
 }
 
 pub fn open_frontier_backend<C>(

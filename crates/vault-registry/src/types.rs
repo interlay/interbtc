@@ -6,6 +6,7 @@ use frame_support::{
     ensure,
     traits::Get,
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 pub use primitives::{VaultCurrencyPair, VaultId};
 use scale_info::TypeInfo;
 use sp_core::H256;
@@ -170,8 +171,8 @@ pub struct Vault<AccountId, BlockNumber, Balance, CurrencyId: Copy, UnsignedFixe
     pub liquidated_collateral: Balance,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(Debug, serde::Serialize, serde::Deserialize))]
+#[derive(serde::Serialize, serde::Deserialize, Encode, Decode, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub struct SystemVault<Balance, CurrencyId: Copy> {
     // Number of tokens pending issue
     pub to_be_issued_tokens: Balance,
@@ -223,7 +224,7 @@ impl<
 
 pub type DefaultVault<T> = Vault<
     <T as frame_system::Config>::AccountId,
-    <T as frame_system::Config>::BlockNumber,
+    BlockNumberFor<T>,
     BalanceOf<T>,
     CurrencyId<T>,
     UnsignedFixedPoint<T>,
@@ -640,7 +641,7 @@ impl<T: Config> RichVault<T> {
         }
     }
 
-    pub fn ban_until(&mut self, height: T::BlockNumber) {
+    pub fn ban_until(&mut self, height: BlockNumberFor<T>) {
         let _ = self.update(|v| {
             v.banned_until = Some(height);
             Ok(())

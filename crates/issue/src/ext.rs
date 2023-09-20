@@ -6,6 +6,7 @@ pub(crate) mod btc_relay {
     use bitcoin::types::{FullTransactionProof, Value};
     use btc_relay::BtcAddress;
     use frame_support::dispatch::DispatchError;
+    use frame_system::pallet_prelude::BlockNumberFor;
     use sp_std::convert::TryFrom;
 
     pub fn get_and_verify_issue_payment<T: crate::Config, V: TryFrom<Value>>(
@@ -24,9 +25,9 @@ pub(crate) mod btc_relay {
     }
 
     pub fn has_request_expired<T: crate::Config>(
-        opentime: T::BlockNumber,
+        opentime: BlockNumberFor<T>,
         btc_open_height: u32,
-        period: T::BlockNumber,
+        period: BlockNumberFor<T>,
     ) -> Result<bool, DispatchError> {
         <btc_relay::Pallet<T>>::has_request_expired(opentime, btc_open_height, period)
     }
@@ -115,13 +116,14 @@ pub(crate) mod vault_registry {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
+    use frame_system::pallet_prelude::BlockNumberFor;
     use sp_core::H256;
 
     pub fn get_secure_id<T: crate::Config>(id: &T::AccountId) -> H256 {
         <security::Pallet<T>>::get_secure_id(id)
     }
 
-    pub fn active_block_number<T: crate::Config>() -> T::BlockNumber {
+    pub fn active_block_number<T: crate::Config>() -> BlockNumberFor<T> {
         <security::Pallet<T>>::active_block_number()
     }
 }

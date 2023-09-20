@@ -1,7 +1,6 @@
 pub use crate::utils::*;
 use bitcoin::merkle::PartialTransactionProof;
 pub use codec::Encode;
-use frame_support::traits::GenesisBuild;
 pub use frame_support::{assert_noop, assert_ok, traits::Currency, BoundedVec};
 pub use frame_system::RawOrigin;
 pub use orml_traits::{location::RelativeLocations, Change, GetByKey, MultiCurrency};
@@ -12,7 +11,6 @@ pub use sp_runtime::{
     AccountId32, DispatchError, DispatchResult, FixedPointNumber, MultiAddress, Perbill, Permill,
 };
 pub use xcm::latest::prelude::*;
-pub use xcm_emulator::XcmExecutor;
 
 #[cfg(not(feature = "with-interlay-runtime"))]
 pub use kintsugi_imports::*;
@@ -63,8 +61,8 @@ pub struct ExtBuilder {
 
 impl ExtBuilder {
     pub fn build() -> Self {
-        let mut storage = frame_system::GenesisConfig::default()
-            .build_storage::<Runtime>()
+        let mut storage = frame_system::GenesisConfig::<Runtime>::default()
+            .build_storage()
             .unwrap();
 
         let balances = vec![
@@ -180,6 +178,14 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
+        loans::GenesisConfig::<Runtime> {
+            max_exchange_rate: Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE),
+            min_exchange_rate: Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE),
+            _marker: Default::default(),
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
         supply::GenesisConfig::<Runtime> {
             initial_supply: token_distribution::INITIAL_ALLOCATION,
             start_height: YEARS * 5,
@@ -187,22 +193,11 @@ impl ExtBuilder {
         }
         .assimilate_storage(&mut storage)
         .unwrap();
-
-        GenesisBuild::<Runtime>::assimilate_storage(
-            &loans::GenesisConfig {
-                max_exchange_rate: Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE),
-                min_exchange_rate: Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE),
-            },
-            &mut storage,
-        )
-        .unwrap();
-
-        <pallet_xcm::GenesisConfig as GenesisBuild<Runtime>>::assimilate_storage(
-            &pallet_xcm::GenesisConfig {
-                safe_xcm_version: Some(2),
-            },
-            &mut storage,
-        )
+        pallet_xcm::GenesisConfig::<Runtime> {
+            safe_xcm_version: Some(2),
+            _config: Default::default(),
+        }
+        .assimilate_storage(&mut storage)
         .unwrap();
 
         Self {

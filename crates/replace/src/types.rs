@@ -2,6 +2,7 @@ use crate::Config;
 use codec::{Decode, Encode, MaxEncodedLen};
 use currency::Amount;
 use frame_support::traits::Get;
+use frame_system::pallet_prelude::BlockNumberFor;
 pub use primitives::replace::{ReplaceRequest, ReplaceRequestStatus};
 use primitives::VaultId;
 use scale_info::TypeInfo;
@@ -33,12 +34,8 @@ pub(crate) struct ReplaceRequestV0<AccountId, BlockNumber, Balance> {
     pub completed: bool,
 }
 
-pub type DefaultReplaceRequest<T> = ReplaceRequest<
-    <T as frame_system::Config>::AccountId,
-    <T as frame_system::Config>::BlockNumber,
-    BalanceOf<T>,
-    CurrencyId<T>,
->;
+pub type DefaultReplaceRequest<T> =
+    ReplaceRequest<<T as frame_system::Config>::AccountId, BlockNumberFor<T>, BalanceOf<T>, CurrencyId<T>>;
 
 pub trait ReplaceRequestExt<T: Config> {
     fn amount(&self) -> Amount<T>;

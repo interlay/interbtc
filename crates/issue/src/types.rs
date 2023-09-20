@@ -1,5 +1,6 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use currency::Amount;
+use frame_system::pallet_prelude::BlockNumberFor;
 pub use primitives::issue::{IssueRequest, IssueRequestStatus};
 use primitives::VaultId;
 use scale_info::TypeInfo;
@@ -26,12 +27,8 @@ pub(crate) type BalanceOf<T> = <T as currency::Config>::Balance;
 
 pub(crate) type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, CurrencyId<T>>;
 
-pub type DefaultIssueRequest<T> = IssueRequest<
-    <T as frame_system::Config>::AccountId,
-    <T as frame_system::Config>::BlockNumber,
-    BalanceOf<T>,
-    CurrencyId<T>,
->;
+pub type DefaultIssueRequest<T> =
+    IssueRequest<<T as frame_system::Config>::AccountId, BlockNumberFor<T>, BalanceOf<T>, CurrencyId<T>>;
 
 pub trait IssueRequestExt<T: Config> {
     fn amount(&self) -> Amount<T>;

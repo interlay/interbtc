@@ -3,7 +3,7 @@ use frame_support::{
     assert_ok,
     traits::{Currency, Get},
 };
-use frame_system::RawOrigin;
+use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use orml_traits::MultiCurrency;
 use orml_vesting::VestingSchedule;
 use primitives::CurrencyId;
@@ -22,7 +22,7 @@ pub fn lookup_of_account<T: Config>(
 
 pub(crate) type BalanceOf<T> =
     <<T as orml_vesting::Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-pub(crate) type VestingScheduleOf<T> = VestingSchedule<<T as frame_system::Config>::BlockNumber, BalanceOf<T>>;
+pub(crate) type VestingScheduleOf<T> = VestingSchedule<BlockNumberFor<T>, BalanceOf<T>>;
 
 fn dummy_schedule<T: Config>() -> VestingScheduleOf<T> {
     VestingSchedule {

@@ -4,6 +4,5 @@
 
 mod bitcoin_data;
 mod parachain;
-mod relaychain;
 mod setup;
 mod utils;

@@ -34,21 +34,16 @@ use primitives::{
     DOT, IBTC, INTR, KBTC, KINT, KSM,
 };
 use sp_core::H256;
-use sp_runtime::{testing::Header, traits::IdentityLookup, AccountId32, FixedI128};
-use sp_std::vec::Vec;
+use sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage, FixedI128};
 use traits::OracleApi;
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 construct_runtime!(
-    pub enum Test where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum Test
     {
-        System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
-        Loans: loans::{Pallet, Storage, Call, Event<T>, Config},
+        System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Loans: loans::{Pallet, Call, Storage, Event<T>, Config<T>},
         TimestampPallet: pallet_timestamp::{Pallet, Call, Storage, Inherent},
         Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>},
         Currency: currency::{Pallet},
@@ -71,13 +66,12 @@ impl frame_system::Config for Test {
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
-    type Index = u64;
-    type BlockNumber = BlockNumber;
+    type Nonce = u64;
+    type Block = Block;
     type Hash = H256;
     type Hashing = ::sp_runtime::traits::BlakeTwo256;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
@@ -313,15 +307,14 @@ pub(crate) fn set_mock_balances() {
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
     use mocktopus::mocking::Mockable;
 
-    let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+    let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
-    GenesisBuild::<Test>::assimilate_storage(
-        &loans::GenesisConfig {
-            max_exchange_rate: Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE),
-            min_exchange_rate: Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE),
-        },
-        &mut t,
-    )
+    loans::GenesisConfig::<Test> {
+        max_exchange_rate: Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE),
+        min_exchange_rate: Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE),
+        _marker: Default::default(),
+    }
+    .assimilate_storage(&mut t)
     .unwrap();
 
     let mut ext = sp_io::TestExternalities::new(t);
@@ -354,15 +347,14 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 pub(crate) fn new_test_ext_no_markets() -> sp_io::TestExternalities {
     use mocktopus::mocking::Mockable;
 
-    let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+    let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
-    GenesisBuild::<Test>::assimilate_storage(
-        &loans::GenesisConfig {
-            max_exchange_rate: Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE),
-            min_exchange_rate: Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE),
-        },
-        &mut t,
-    )
+    loans::GenesisConfig::<Test> {
+        max_exchange_rate: Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE),
+        min_exchange_rate: Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE),
+        _marker: Default::default(),
+    }
+    .assimilate_storage(&mut t)
     .unwrap();
 
     let mut ext = sp_io::TestExternalities::new(t);

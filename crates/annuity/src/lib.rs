@@ -24,6 +24,7 @@ use frame_support::{
     weights::Weight,
     PalletId,
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::traits::{AccountIdConversion, CheckedDiv, Convert, Saturating};
 use sp_std::cmp::min;
 
@@ -55,11 +56,11 @@ pub mod pallet {
         type BlockRewardProvider: BlockRewardProvider<Self::AccountId, Currency = Self::Currency>;
 
         /// Convert the block number into a balance.
-        type BlockNumberToBalance: Convert<Self::BlockNumber, BalanceOf<Self, I>>;
+        type BlockNumberToBalance: Convert<BlockNumberFor<Self>, BalanceOf<Self, I>>;
 
         /// The emission period for block rewards.
         #[pallet::constant]
-        type EmissionPeriod: Get<Self::BlockNumber>;
+        type EmissionPeriod: Get<BlockNumberFor<Self>>;
 
         /// The total amount of the wrapped asset.
         type TotalWrapped: Get<BalanceOf<Self, I>>;
@@ -79,8 +80,8 @@ pub mod pallet {
     pub enum Error<T, I = ()> {}
 
     #[pallet::hooks]
-    impl<T: Config<I>, I: 'static> Hooks<T::BlockNumber> for Pallet<T, I> {
-        fn on_initialize(n: T::BlockNumber) -> Weight {
+    impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+        fn on_initialize(n: BlockNumberFor<T>) -> Weight {
             if let Err(e) = Self::begin_block(n) {
                 sp_runtime::print(e);
             }
@@ -154,7 +155,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         }
     }
 
-    pub(crate) fn begin_block(_height: T::BlockNumber) -> DispatchResult {
+    pub(crate) fn begin_block(_height: BlockNumberFor<T>) -> DispatchResult {
         let reward_per_block = Self::min_reward_per_block();
         Self::deposit_event(Event::<T, I>::BlockReward(reward_per_block));
         T::BlockRewardProvider::distribute_block_reward(&Self::account_id(), reward_per_block)

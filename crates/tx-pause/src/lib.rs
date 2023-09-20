@@ -190,26 +190,15 @@ pub mod pallet {
 
     /// Configure the initial state of this pallet in the genesis block.
     #[pallet::genesis_config]
+    #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T: Config> {
         /// The initially paused calls.
         pub paused: Vec<FullNameOf<T>>,
         pub _phantom: PhantomData<T>,
     }
 
-    #[cfg(feature = "std")]
-    impl<T: Config> Default for GenesisConfig<T> {
-        // NOTE: `derive(Default)` does not work together with `#[pallet::genesis_config]`.
-        // We therefore need to add a trivial default impl.
-        fn default() -> Self {
-            Self {
-                paused: Default::default(),
-                _phantom: PhantomData,
-            }
-        }
-    }
-
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             for (pallet_name, maybe_call_name) in &self.paused {
                 PausedCalls::<T>::insert((pallet_name, maybe_call_name), ());

@@ -56,7 +56,7 @@ pub(crate) mod vault_registry {
             vault_id: &DefaultVaultId<T>,
             nominator_id: &T::AccountId,
             maybe_amount: Option<Amount<T>>,
-            nonce: Option<<T as frame_system::Config>::Index>,
+            nonce: Option<<T as frame_system::Config>::Nonce>,
         ) -> Result<Amount<T>, DispatchError> {
             <vault_registry::PoolManager<T>>::withdraw_collateral(vault_id, nominator_id, maybe_amount, nonce)
         }
@@ -74,7 +74,7 @@ pub(crate) mod staking {
     use staking::{RewardsApi, StakingApi};
     use vault_registry::DefaultVaultId;
 
-    pub fn nonce<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> T::Index {
+    pub fn nonce<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> T::Nonce {
         T::VaultStaking::nonce(vault_id)
     }
 

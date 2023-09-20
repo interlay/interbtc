@@ -531,13 +531,13 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn reward_supply_state)]
     pub type RewardSupplyState<T: Config> =
-        StorageMap<_, Blake2_128Concat, CurrencyId<T>, RewardMarketState<T::BlockNumber, BalanceOf<T>>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, CurrencyId<T>, RewardMarketState<BlockNumberFor<T>, BalanceOf<T>>, ValueQuery>;
 
     /// The Reward market borrow state for each market
     #[pallet::storage]
     #[pallet::getter(fn reward_borrow_state)]
     pub type RewardBorrowState<T: Config> =
-        StorageMap<_, Blake2_128Concat, CurrencyId<T>, RewardMarketState<T::BlockNumber, BalanceOf<T>>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, CurrencyId<T>, RewardMarketState<BlockNumberFor<T>, BalanceOf<T>>, ValueQuery>;
 
     /// The incentive reward index for each market for each supplier as of the last time they accrued Reward
     #[pallet::storage]
@@ -577,23 +577,15 @@ pub mod pallet {
     pub(crate) type StorageVersion<T: Config> = StorageValue<_, Versions, ValueQuery, DefaultVersion<T>>;
 
     #[pallet::genesis_config]
-    pub struct GenesisConfig {
+    #[derive(frame_support::DefaultNoBound)]
+    pub struct GenesisConfig<T: Config> {
         pub max_exchange_rate: Rate,
         pub min_exchange_rate: Rate,
-    }
-
-    #[cfg(feature = "std")]
-    impl Default for GenesisConfig {
-        fn default() -> Self {
-            Self {
-                max_exchange_rate: Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE),
-                min_exchange_rate: Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE),
-            }
-        }
+        pub _marker: PhantomData<T>,
     }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             MaxExchangeRate::<T>::put(&self.max_exchange_rate);
             MinExchangeRate::<T>::put(&self.min_exchange_rate);

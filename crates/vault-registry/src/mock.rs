@@ -3,7 +3,7 @@ use crate::{Config, Error};
 use currency::CurrencyConversion;
 use frame_support::{
     parameter_types,
-    traits::{ConstU32, Everything, GenesisBuild},
+    traits::{ConstU32, Everything},
     PalletId,
 };
 use frame_system::EnsureRoot;
@@ -14,23 +14,19 @@ use primitives::{Rate, VaultCurrencyPair, VaultId};
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
-    testing::{Header, TestXt},
+    testing::TestXt,
     traits::{BlakeTwo256, IdentityLookup, One, Zero},
-    DispatchError,
+    BuildStorage, DispatchError,
 };
 
 pub(crate) type Extrinsic = TestXt<RuntimeCall, ()>;
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
-    pub enum Test where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum Test
     {
-        System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
+        System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 
         // Tokens & Balances
@@ -46,7 +42,7 @@ frame_support::construct_runtime!(
         Oracle: oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Fee: fee::{Pallet, Call, Config<T>, Storage},
         Currency: currency::{Pallet},
-        Loans: loans::{Pallet, Storage, Call, Event<T>, Config},
+        Loans: loans::{Pallet, Call, Storage, Event<T>, Config<T>},
     }
 );
 
@@ -55,7 +51,7 @@ pub type Balance = u128;
 pub type RawAmount = i128;
 pub type BlockNumber = u64;
 pub type Moment = u64;
-pub type Index = u64;
+pub type Nonce = u64;
 pub type SignedFixedPoint = FixedI128;
 pub type SignedInner = i128;
 pub type UnsignedFixedPoint = FixedU128;
@@ -72,13 +68,12 @@ impl frame_system::Config for Test {
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
-    type Index = Index;
-    type BlockNumber = BlockNumber;
+    type Nonce = Nonce;
+    type Block = Block;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
@@ -269,7 +264,7 @@ impl traits::NominationApi<VaultId<AccountId, CurrencyId>, currency::Amount<Test
 
         Ok(())
     }
-    fn ensure_opted_in_to_nomination(vault_id: &VaultId<AccountId, CurrencyId>) -> Result<(), DispatchError> {
+    fn ensure_opted_in_to_nomination(_vault_id: &VaultId<AccountId, CurrencyId>) -> Result<(), DispatchError> {
         Ok(())
     }
     #[cfg(any(feature = "runtime-benchmarks", test))]
@@ -330,18 +325,9 @@ pub const MULTI_VAULT_TEST_COLLATERAL: u128 = 100000;
 
 impl ExtBuilder {
     pub fn build_with(conf: orml_tokens::GenesisConfig<Test>) -> sp_io::TestExternalities {
-        let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+        let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
         conf.assimilate_storage(&mut storage).unwrap();
-
-        GenesisBuild::<Test>::assimilate_storage(
-            &loans::GenesisConfig {
-                max_exchange_rate: Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE),
-                min_exchange_rate: Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE),
-            },
-            &mut storage,
-        )
-        .unwrap();
 
         // Parameters to be set in tests
         vault_registry::GenesisConfig::<Test> {
@@ -363,6 +349,14 @@ impl ExtBuilder {
                 (DEFAULT_CURRENCY_PAIR, UnsignedFixedPoint::one()),
                 (WORST_CASE_CURRENCY_PAIR, UnsignedFixedPoint::one()),
             ],
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        loans::GenesisConfig::<Test> {
+            max_exchange_rate: Rate::from_inner(DEFAULT_MAX_EXCHANGE_RATE),
+            min_exchange_rate: Rate::from_inner(DEFAULT_MIN_EXCHANGE_RATE),
+            _marker: Default::default(),
         }
         .assimilate_storage(&mut storage)
         .unwrap();

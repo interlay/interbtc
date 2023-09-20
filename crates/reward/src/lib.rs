@@ -28,8 +28,8 @@ use sp_std::{cmp::PartialOrd, convert::TryInto, fmt::Debug};
 
 pub(crate) type SignedFixedPoint<T, I = ()> = <T as Config<I>>::SignedFixedPoint;
 
+use frame_system::pallet_prelude::*;
 pub use pallet::*;
-
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -104,7 +104,7 @@ pub mod pallet {
     }
 
     #[pallet::hooks]
-    impl<T: Config<I>, I: 'static> Hooks<T::BlockNumber> for Pallet<T, I> {}
+    impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {}
 
     /// The total stake deposited to this reward pool.
     #[pallet::storage]

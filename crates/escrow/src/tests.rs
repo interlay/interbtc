@@ -29,11 +29,11 @@ fn should_lock_and_degrade_power() {
         let slope = amount / max_time;
         let bias = slope * (end_time - start_time);
 
-        create_lock(ALICE, amount, end_time);
+        create_lock(ALICE, amount.into(), end_time);
 
         for current_time in [0, 50, 100] {
             let balance = bias - (slope * (current_time - start_time));
-            assert_eq!(Escrow::balance_at(&ALICE, Some(current_time)), balance);
+            assert_eq!(Escrow::balance_at(&ALICE, Some(current_time)), balance.into());
         }
     })
 }
@@ -92,18 +92,18 @@ fn should_increase_unlock_height() {
             TestError::LockHasExpired
         );
 
-        create_lock(ALICE, amount, max_time);
+        create_lock(ALICE, amount.into(), max_time);
 
         let half_time = max_time / 2;
         System::set_block_number(half_time);
-        assert_eq!(Escrow::balance_at(&ALICE, Some(half_time)), amount / 2);
+        assert_eq!(Escrow::balance_at(&ALICE, Some(half_time)), (amount / 2).into());
 
         assert_ok!(Escrow::increase_unlock_height(
             RuntimeOrigin::signed(ALICE),
             half_time + max_time
         ));
 
-        assert_eq!(Escrow::balance_at(&ALICE, Some(half_time)), amount);
+        assert_eq!(Escrow::balance_at(&ALICE, Some(half_time)), amount.into());
     })
 }
 
@@ -225,9 +225,9 @@ fn should_not_allow_amount_smaller_than_max_period() {
         let end_time = MaxPeriod::get();
         let amount = end_time / 2;
 
-        <Balances as Currency<AccountId>>::make_free_balance_be(&ALICE, amount);
+        <Balances as Currency<AccountId>>::make_free_balance_be(&ALICE, amount.into());
         assert_err!(
-            Escrow::create_lock(RuntimeOrigin::signed(ALICE), amount, end_time),
+            Escrow::create_lock(RuntimeOrigin::signed(ALICE), amount.into(), end_time),
             TestError::LockAmountTooLow
         );
     })

@@ -20,7 +20,7 @@ impl<T: Config> PoolManager<T> {
         vault_id: &DefaultVaultId<T>,
         nominator_id: &T::AccountId,
         maybe_amount: Option<Amount<T>>,
-        nonce: Option<<T as frame_system::Config>::Index>,
+        nonce: Option<<T as frame_system::Config>::Nonce>,
     ) -> Result<Amount<T>, DispatchError> {
         ext::fee::distribute_all_vault_rewards::<T>(vault_id)?;
         let amount = ext::staking::withdraw_stake(vault_id, nominator_id, maybe_amount, nonce)?;

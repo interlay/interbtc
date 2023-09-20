@@ -5,6 +5,8 @@ use frame_support::{
 use pallet_ethereum::{Transaction, TransactionAction};
 use sp_core::Get;
 use sp_runtime::Permill;
+#[cfg(feature = "try-runtime")]
+use sp_runtime::TryRuntimeError;
 use sp_std::marker::PhantomData;
 
 pub mod precompiles;
@@ -60,12 +62,12 @@ where
     }
 
     #[cfg(feature = "try-runtime")]
-    fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, &'static str> {
+    fn pre_upgrade() -> Result<sp_std::vec::Vec<u8>, TryRuntimeError> {
         Ok(Default::default())
     }
 
     #[cfg(feature = "try-runtime")]
-    fn post_upgrade(_: sp_std::vec::Vec<u8>) -> Result<(), &'static str> {
+    fn post_upgrade(_: sp_std::vec::Vec<u8>) -> Result<(), TryRuntimeError> {
         Ok(())
     }
 }

@@ -35,7 +35,6 @@ impl Convert<Weight, Balance> for DummyWeightPrice {
 // contracts
 parameter_types! {
     pub const DeletionQueueDepth: u32 = 10;
-    pub const DeletionWeightLimit: Weight = Weight::from_parts(100000000, 0);
     pub const DepositPerByte: Balance = 1;
     pub const DepositPerItem: Balance = 1;
      // can't increase much beyond 400k unless we decrease max call stack height
@@ -277,4 +276,5 @@ impl pallet_contracts::Config for Runtime {
     type MaxStorageKeyLen = MaxStorageKeyLen;
     type UnsafeUnstableInterface = UnsafeUnstableInterface;
     type MaxDebugBufferLen = MaxDebugBufferLen;
+    type Migrations = ();
 }

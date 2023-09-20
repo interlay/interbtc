@@ -130,7 +130,7 @@ pub mod pallet {
             amount: BalanceOf<T>,
         },
         RedeemPeriodChange {
-            period: T::BlockNumber,
+            period: BlockNumberFor<T>,
         },
         SelfRedeem {
             vault_id: DefaultVaultId<T>,
@@ -166,7 +166,7 @@ pub mod pallet {
     /// punish a vault for inactivity or stealing BTC.
     #[pallet::storage]
     #[pallet::getter(fn redeem_period)]
-    pub(super) type RedeemPeriod<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+    pub(super) type RedeemPeriod<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     /// Users create redeem requests to receive BTC in return for their previously issued tokens.
     /// This mapping provides access from a unique hash redeemId to a Redeem struct.
@@ -197,25 +197,15 @@ pub mod pallet {
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery, DefaultForStorageVersion>;
 
     #[pallet::genesis_config]
+    #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T: Config> {
-        pub redeem_period: T::BlockNumber,
+        pub redeem_period: BlockNumberFor<T>,
         pub redeem_btc_dust_value: BalanceOf<T>,
         pub redeem_transaction_size: u32,
     }
 
-    #[cfg(feature = "std")]
-    impl<T: Config> Default for GenesisConfig<T> {
-        fn default() -> Self {
-            Self {
-                redeem_period: Default::default(),
-                redeem_btc_dust_value: Default::default(),
-                redeem_transaction_size: Default::default(),
-            }
-        }
-    }
-
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             RedeemPeriod::<T>::put(self.redeem_period);
             RedeemBtcDustValue::<T>::put(self.redeem_btc_dust_value);
@@ -224,7 +214,7 @@ pub mod pallet {
     }
 
     #[pallet::hooks]
-    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
@@ -338,7 +328,7 @@ pub mod pallet {
         #[pallet::call_index(4)]
         #[pallet::weight(<T as Config>::WeightInfo::set_redeem_period())]
         #[transactional]
-        pub fn set_redeem_period(origin: OriginFor<T>, period: T::BlockNumber) -> DispatchResultWithPostInfo {
+        pub fn set_redeem_period(origin: OriginFor<T>, period: BlockNumberFor<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             <RedeemPeriod<T>>::set(period);
             Self::deposit_event(Event::RedeemPeriodChange { period });

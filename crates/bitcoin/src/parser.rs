@@ -346,7 +346,7 @@ fn parse_transaction_input(raw_input: &[u8], version: i32) -> Result<(Transactio
 
     // fail if transaction is coinbase and previous index is not 0xffffffff
     // previous_hash
-    if is_coinbase && previous_index != u32::max_value() {
+    if is_coinbase && previous_index != u32::MAX {
         return Err(Error::MalformedTransaction);
     }
 
@@ -559,7 +559,7 @@ pub(crate) mod tests {
         let previous_hash = H256Le::from_hex_le("7b1eabe0209b1fe794124575ef807057c77ada2138ae4fa8d6c4de0398a14f3f");
 
         assert!(matches!(input.source, TransactionInputSource::FromOutput(hash, 0) if hash == previous_hash));
-        assert_eq!(input.sequence, u32::max_value());
+        assert_eq!(input.sequence, u32::MAX);
         assert_eq!(input.script.len(), 73);
     }
 

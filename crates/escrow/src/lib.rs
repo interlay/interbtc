@@ -37,6 +37,7 @@ use frame_support::{
     },
     transactional,
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use reward::RewardsApi;
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -140,18 +141,18 @@ pub mod pallet {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// Convert the block number into a balance.
-        type BlockNumberToBalance: Convert<Self::BlockNumber, BalanceOf<Self>>;
+        type BlockNumberToBalance: Convert<BlockNumberFor<Self>, BalanceOf<Self>>;
 
         /// The currency trait.
-        type Currency: LockableCurrency<Self::AccountId, Moment = Self::BlockNumber>;
+        type Currency: LockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self>>;
 
         /// All future times are rounded by this.
         #[pallet::constant]
-        type Span: Get<Self::BlockNumber>;
+        type Span: Get<BlockNumberFor<Self>>;
 
         /// The maximum time for locks.
         #[pallet::constant]
-        type MaxPeriod: Get<Self::BlockNumber>;
+        type MaxPeriod: Get<BlockNumberFor<Self>>;
 
         /// Escrow reward pool.
         type EscrowRewards: reward::RewardsApi<(), Self::AccountId, BalanceOf<Self>>;
@@ -167,7 +168,7 @@ pub mod pallet {
         Deposit {
             who: T::AccountId,
             amount: BalanceOf<T>,
-            unlock_height: T::BlockNumber,
+            unlock_height: BlockNumberFor<T>,
         },
         Withdraw {
             who: T::AccountId,
@@ -206,7 +207,7 @@ pub mod pallet {
     }
 
     #[pallet::hooks]
-    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
     #[pallet::storage]
     #[pallet::getter(fn reserved_balance)]
@@ -215,14 +216,14 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn locked_balance)]
     pub type Locked<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, LockedBalance<BalanceOf<T>, T::BlockNumber>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, T::AccountId, LockedBalance<BalanceOf<T>, BlockNumberFor<T>>, ValueQuery>;
 
     #[pallet::storage]
-    pub type Epoch<T: Config> = StorageValue<_, T::Index, ValueQuery>;
+    pub type Epoch<T: Config> = StorageValue<_, T::Nonce, ValueQuery>;
 
     #[pallet::storage]
     pub type PointHistory<T: Config> =
-        StorageMap<_, Identity, T::Index, Point<BalanceOf<T>, T::BlockNumber>, ValueQuery>;
+        StorageMap<_, Identity, T::Nonce, Point<BalanceOf<T>, BlockNumberFor<T>>, ValueQuery>;
 
     #[pallet::storage]
     pub type UserPointHistory<T: Config> = StorageDoubleMap<
@@ -230,20 +231,20 @@ pub mod pallet {
         Blake2_128Concat,
         T::AccountId,
         Identity,
-        T::Index,
-        Point<BalanceOf<T>, T::BlockNumber>,
+        T::Nonce,
+        Point<BalanceOf<T>, BlockNumberFor<T>>,
         ValueQuery,
     >;
 
     #[pallet::storage]
-    pub type UserPointEpoch<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, T::Index, ValueQuery>;
+    pub type UserPointEpoch<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, T::Nonce, ValueQuery>;
 
     #[pallet::storage]
-    pub type SlopeChanges<T: Config> = StorageMap<_, Blake2_128Concat, T::BlockNumber, BalanceOf<T>, ValueQuery>;
+    pub type SlopeChanges<T: Config> = StorageMap<_, Blake2_128Concat, BlockNumberFor<T>, BalanceOf<T>, ValueQuery>;
 
     // Accounts that are limited in how much they can mint.
     #[pallet::storage]
-    pub type Limits<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, (T::BlockNumber, T::BlockNumber)>;
+    pub type Limits<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, (BlockNumberFor<T>, BlockNumberFor<T>)>;
 
     // Accounts that are prohibited from locking tokens for voting.
     #[pallet::storage]
@@ -261,7 +262,7 @@ pub mod pallet {
         pub fn create_lock(
             origin: OriginFor<T>,
             #[pallet::compact] amount: BalanceOf<T>,
-            unlock_height: T::BlockNumber,
+            unlock_height: BlockNumberFor<T>,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
             let now = Self::current_height();
@@ -309,7 +310,7 @@ pub mod pallet {
         #[pallet::call_index(2)]
         #[pallet::weight(<T as Config>::WeightInfo::increase_unlock_height())]
         #[transactional]
-        pub fn increase_unlock_height(origin: OriginFor<T>, unlock_height: T::BlockNumber) -> DispatchResult {
+        pub fn increase_unlock_height(origin: OriginFor<T>, unlock_height: BlockNumberFor<T>) -> DispatchResult {
             let who = ensure_signed(origin)?;
             let locked_balance = Self::locked_balance(&who);
             let now = Self::current_height();
@@ -348,8 +349,8 @@ pub mod pallet {
         pub fn set_account_limit(
             origin: OriginFor<T>,
             who: T::AccountId,
-            start: T::BlockNumber,
-            end: T::BlockNumber,
+            start: BlockNumberFor<T>,
+            end: BlockNumberFor<T>,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             <Limits<T>>::insert(&who, (start, end));
@@ -382,16 +383,16 @@ pub mod pallet {
     }
 }
 
-type DefaultPoint<T> = Point<BalanceOf<T>, <T as frame_system::Config>::BlockNumber>;
-type DefaultLockedBalance<T> = LockedBalance<BalanceOf<T>, <T as frame_system::Config>::BlockNumber>;
+type DefaultPoint<T> = Point<BalanceOf<T>, BlockNumberFor<T>>;
+type DefaultLockedBalance<T> = LockedBalance<BalanceOf<T>, BlockNumberFor<T>>;
 
 // "Internal" functions, callable by code.
 impl<T: Config> Pallet<T> {
-    fn current_height() -> T::BlockNumber {
+    fn current_height() -> BlockNumberFor<T> {
         frame_system::Pallet::<T>::block_number()
     }
 
-    fn round_height(height: T::BlockNumber) -> T::BlockNumber {
+    fn round_height(height: BlockNumberFor<T>) -> BlockNumberFor<T> {
         let span = T::Span::get();
         (height / span) * span
     }
@@ -508,7 +509,7 @@ impl<T: Config> Pallet<T> {
         total_stakable.saturating_sub(used)
     }
 
-    fn deposit_for(who: &T::AccountId, amount: BalanceOf<T>, unlock_height: T::BlockNumber) -> DispatchResult {
+    fn deposit_for(who: &T::AccountId, amount: BalanceOf<T>, unlock_height: BlockNumberFor<T>) -> DispatchResult {
         let old_locked = Self::locked_balance(who);
         let mut new_locked = old_locked.clone();
         new_locked.amount.saturating_accrue(amount);
@@ -548,7 +549,7 @@ impl<T: Config> Pallet<T> {
     pub fn round_height_and_deposit_for(
         who: &T::AccountId,
         amount: BalanceOf<T>,
-        unlock_height: T::BlockNumber,
+        unlock_height: BlockNumberFor<T>,
     ) -> DispatchResult {
         Self::deposit_for(who, amount, Self::round_height(unlock_height))
     }
@@ -567,7 +568,7 @@ impl<T: Config> Pallet<T> {
         Self::checkpoint(who, old_locked, Default::default());
 
         T::Currency::remove_lock(LOCK_ID, &who);
-        let _ = <UserPointHistory<T>>::clear_prefix(who, u32::max_value(), None);
+        let _ = <UserPointHistory<T>>::clear_prefix(who, u32::MAX, None);
 
         Self::deposit_event(Event::<T>::Withdraw {
             who: who.clone(),
@@ -578,13 +579,13 @@ impl<T: Config> Pallet<T> {
     }
 
     /// vKINT/vINTR balance at given height
-    pub fn balance_at(who: &T::AccountId, height: Option<T::BlockNumber>) -> BalanceOf<T> {
+    pub fn balance_at(who: &T::AccountId, height: Option<BlockNumberFor<T>>) -> BalanceOf<T> {
         let height = height.unwrap_or(Self::current_height());
         let last_point = <UserPointHistory<T>>::get(who, <UserPointEpoch<T>>::get(who));
         last_point.balance_at::<T::BlockNumberToBalance>(height)
     }
 
-    pub fn supply_at(point: DefaultPoint<T>, height: T::BlockNumber) -> BalanceOf<T> {
+    pub fn supply_at(point: DefaultPoint<T>, height: BlockNumberFor<T>) -> BalanceOf<T> {
         let mut last_point = point;
 
         let mut t_i = Self::round_height(last_point.ts);
@@ -612,7 +613,7 @@ impl<T: Config> Pallet<T> {
         last_point.bias
     }
 
-    pub fn total_supply(height: Option<T::BlockNumber>) -> BalanceOf<T> {
+    pub fn total_supply(height: Option<BlockNumberFor<T>>) -> BalanceOf<T> {
         let height = height.unwrap_or(Self::current_height());
         let last_point = <PointHistory<T>>::get(<Epoch<T>>::get());
         Self::supply_at(last_point, height)

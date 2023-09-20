@@ -10,13 +10,12 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use std::time::SystemTime;
 
-use frame_support::{assert_ok, pallet_prelude::GenesisBuild, parameter_types, traits::Contains, PalletId};
+use frame_support::{assert_ok, parameter_types, traits::Contains, PalletId};
 use frame_system::RawOrigin;
 use sp_core::H256;
 use sp_runtime::{
-    testing::Header,
     traits::{BlakeTwo256, IdentityLookup, Zero},
-    RuntimeDebug,
+    BuildStorage, RuntimeDebug,
 };
 
 use crate as dex_stable;
@@ -26,7 +25,6 @@ use crate::{
 };
 use orml_traits::{parameter_type_with_key, MultiCurrency};
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 parameter_types! {
@@ -58,8 +56,21 @@ impl Contains<AccountId> for MockDustRemovalWhitelist {
     }
 }
 
-#[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, MaxEncodedLen, Ord, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(
+    Serialize,
+    Deserialize,
+    Encode,
+    Decode,
+    Eq,
+    PartialEq,
+    Copy,
+    Clone,
+    RuntimeDebug,
+    PartialOrd,
+    MaxEncodedLen,
+    Ord,
+    TypeInfo,
+)]
 pub enum CurrencyId {
     Forbidden(TokenSymbol),
     Token(TokenSymbol),
@@ -78,15 +89,41 @@ impl From<u32> for CurrencyId {
     }
 }
 
-#[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, MaxEncodedLen, Ord, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(
+    Serialize,
+    Deserialize,
+    Encode,
+    Decode,
+    Eq,
+    PartialEq,
+    Copy,
+    Clone,
+    RuntimeDebug,
+    PartialOrd,
+    MaxEncodedLen,
+    Ord,
+    TypeInfo,
+)]
 pub enum PoolToken {
     Token(TokenSymbol),
     StablePoolLp(PoolId),
 }
 
-#[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, MaxEncodedLen, Ord, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(
+    Serialize,
+    Deserialize,
+    Encode,
+    Decode,
+    Eq,
+    PartialEq,
+    Copy,
+    Clone,
+    RuntimeDebug,
+    PartialOrd,
+    MaxEncodedLen,
+    Ord,
+    TypeInfo,
+)]
 pub enum PoolType {
     P2(PoolToken, PoolToken),
     P3(PoolToken, PoolToken, PoolToken),
@@ -98,14 +135,13 @@ pub enum PoolType {
 impl frame_system::Config for Test {
     type BaseCallFilter = frame_support::traits::Everything;
     type RuntimeOrigin = RuntimeOrigin;
-    type Index = u64;
+    type Nonce = u64;
+    type Block = Block;
     type RuntimeCall = RuntimeCall;
-    type BlockNumber = u64;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = u128;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type DbWeight = ();
@@ -146,7 +182,7 @@ impl pallet_balances::Config for Test {
     type MaxLocks = ();
     type MaxReserves = MaxReserves;
     type ReserveIdentifier = [u8; 8];
-    type HoldIdentifier = ();
+    type RuntimeHoldReason = ();
     type FreezeIdentifier = ();
     type MaxFreezes = ();
     type MaxHolds = ();
@@ -181,8 +217,7 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
-        let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-
+        let storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
         storage.into()
     }
 }
@@ -223,12 +258,9 @@ where
 }
 
 frame_support::construct_runtime!(
-    pub enum Test where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum Test
     {
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>} = 0,
+        System: frame_system::{Pallet, Call, Storage, Config<T>, Event<T>} = 0,
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 1,
 
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 8,
@@ -259,10 +291,7 @@ pub const TOKEN3_UNIT: u128 = 1_000_000;
 pub const TOKEN4_UNIT: u128 = 1_000_000;
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
-    let mut t = frame_system::GenesisConfig::default()
-        .build_storage::<Test>()
-        .unwrap()
-        .into();
+    let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
     pallet_balances::GenesisConfig::<Test> {
         balances: vec![(ALICE, u128::MAX)],
     }

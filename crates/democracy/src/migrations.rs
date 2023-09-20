@@ -40,7 +40,7 @@ mod v0 {
         Pallet<T>,
         Identity,
         <T as frame_system::Config>::Hash,
-        PreimageStatus<<T as frame_system::Config>::AccountId, BalanceOf<T>, <T as frame_system::Config>::BlockNumber>,
+        PreimageStatus<<T as frame_system::Config>::AccountId, BalanceOf<T>, BlockNumberFor<T>>,
     >;
 
     #[cfg(feature = "try-runtime")]
@@ -49,19 +49,22 @@ mod v0 {
         Pallet<T>,
         frame_support::Twox64Concat,
         ReferendumIndex,
-        ReferendumInfo<<T as frame_system::Config>::BlockNumber, <T as frame_system::Config>::Hash, BalanceOf<T>>,
+        ReferendumInfo<BlockNumberFor<T>, <T as frame_system::Config>::Hash, BalanceOf<T>>,
     >;
 }
 
 pub mod v1 {
     use super::*;
+    use frame_system::pallet_prelude::BlockNumberFor;
+    #[cfg(feature = "try-runtime")]
+    use sp_runtime::TryRuntimeError;
 
     /// Migration for translating bare `Hash`es into `Bounded<Call>`s.
     pub struct Migration<T>(sp_std::marker::PhantomData<T>);
 
     impl<T: Config + frame_system::Config<Hash = H256>> OnRuntimeUpgrade for Migration<T> {
         #[cfg(feature = "try-runtime")]
-        fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
             assert_eq!(StorageVersion::get::<Pallet<T>>(), 0, "can only upgrade from version 0");
 
             let props_count = v0::PublicProps::<T>::get().len();
@@ -86,7 +89,7 @@ pub mod v1 {
                 return weight;
             }
 
-            ReferendumInfoOf::<T>::translate(|index, old: ReferendumInfo<T::BlockNumber, T::Hash, BalanceOf<T>>| {
+            ReferendumInfoOf::<T>::translate(|index, old: ReferendumInfo<BlockNumberFor<T>, T::Hash, BalanceOf<T>>| {
                 weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
                 log::info!(target: TARGET, "migrating referendum #{:?}", &index);
                 Some(match old {
@@ -154,7 +157,7 @@ pub mod v1 {
         }
 
         #[cfg(feature = "try-runtime")]
-        fn post_upgrade(state: Vec<u8>) -> Result<(), &'static str> {
+        fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
             assert_eq!(StorageVersion::get::<Pallet<T>>(), 1, "must upgrade");
 
             let (old_props_count, old_ref_count): (u32, u32) =

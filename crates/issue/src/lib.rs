@@ -90,7 +90,7 @@ pub mod pallet {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// Convert the block number into a balance.
-        type BlockNumberToBalance: Convert<Self::BlockNumber, BalanceOf<Self>>;
+        type BlockNumberToBalance: Convert<BlockNumberFor<Self>, BalanceOf<Self>>;
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
@@ -129,7 +129,7 @@ pub mod pallet {
             griefing_collateral: BalanceOf<T>,
         },
         IssuePeriodChange {
-            period: T::BlockNumber,
+            period: BlockNumberFor<T>,
         },
     }
 
@@ -167,7 +167,7 @@ pub mod pallet {
     /// to prevent griefing of vault collateral.
     #[pallet::storage]
     #[pallet::getter(fn issue_period)]
-    pub(super) type IssuePeriod<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+    pub(super) type IssuePeriod<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     /// The minimum amount of btc that is required for issue requests; lower values would
     /// risk the rejection of payment on Bitcoin.
@@ -185,23 +185,14 @@ pub mod pallet {
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery, DefaultForStorageVersion>;
 
     #[pallet::genesis_config]
+    #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T: Config> {
-        pub issue_period: T::BlockNumber,
+        pub issue_period: BlockNumberFor<T>,
         pub issue_btc_dust_value: BalanceOf<T>,
     }
 
-    #[cfg(feature = "std")]
-    impl<T: Config> Default for GenesisConfig<T> {
-        fn default() -> Self {
-            Self {
-                issue_period: Default::default(),
-                issue_btc_dust_value: Default::default(),
-            }
-        }
-    }
-
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             IssuePeriod::<T>::put(self.issue_period);
             IssueBtcDustValue::<T>::put(self.issue_btc_dust_value);
@@ -285,7 +276,7 @@ pub mod pallet {
         #[pallet::call_index(3)]
         #[pallet::weight(<T as Config>::WeightInfo::set_issue_period())]
         #[transactional]
-        pub fn set_issue_period(origin: OriginFor<T>, period: T::BlockNumber) -> DispatchResultWithPostInfo {
+        pub fn set_issue_period(origin: OriginFor<T>, period: BlockNumberFor<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             <IssuePeriod<T>>::set(period);
             Self::deposit_event(Event::IssuePeriodChange { period });

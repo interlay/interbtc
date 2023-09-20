@@ -7,6 +7,7 @@ use vault_registry::types::CurrencyId;
 use crate::Config;
 use codec::{Decode, Encode, MaxEncodedLen};
 use currency::Amount;
+use frame_system::pallet_prelude::BlockNumberFor;
 
 /// Storage version.
 #[derive(Encode, Decode, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
@@ -19,12 +20,8 @@ pub(crate) type BalanceOf<T> = <T as currency::Config>::Balance;
 
 pub(crate) type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, CurrencyId<T>>;
 
-pub type DefaultRedeemRequest<T> = RedeemRequest<
-    <T as frame_system::Config>::AccountId,
-    <T as frame_system::Config>::BlockNumber,
-    BalanceOf<T>,
-    CurrencyId<T>,
->;
+pub type DefaultRedeemRequest<T> =
+    RedeemRequest<<T as frame_system::Config>::AccountId, BlockNumberFor<T>, BalanceOf<T>, CurrencyId<T>>;
 
 pub trait RedeemRequestExt<T: Config> {
     fn amount_btc(&self) -> Amount<T>;
@@ -33,7 +30,7 @@ pub trait RedeemRequestExt<T: Config> {
     fn transfer_fee_btc(&self) -> Amount<T>;
 }
 
-impl<T: Config> RedeemRequestExt<T> for RedeemRequest<T::AccountId, T::BlockNumber, BalanceOf<T>, CurrencyId<T>> {
+impl<T: Config> RedeemRequestExt<T> for RedeemRequest<T::AccountId, BlockNumberFor<T>, BalanceOf<T>, CurrencyId<T>> {
     fn amount_btc(&self) -> Amount<T> {
         Amount::new(self.amount_btc, self.vault.wrapped_currency())
     }
