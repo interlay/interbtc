@@ -140,8 +140,11 @@ pub mod benchmarks {
             }
         }
 
+        BtcRelay::<T>::insert_block_hash(0, DIFFICULTY_ADJUSTMENT_INTERVAL, init_block_hash);
+
         // new fork up to block before swapping the main chain
-        for _ in 1..(BestBlockHeight::<T>::get() + SECURE_BITCOIN_CONFIRMATIONS) {
+        for chain_id in 1..(BestBlockHeight::<T>::get() + SECURE_BITCOIN_CONFIRMATIONS) {
+            BtcRelay::<T>::insert_block_hash(chain_id, DIFFICULTY_ADJUSTMENT_INTERVAL, init_block_hash);
             let block = add_new_block_to_relay::<T>(caller.clone(), init_block_hash, f as usize);
             init_block_hash = block.header.hash;
         }

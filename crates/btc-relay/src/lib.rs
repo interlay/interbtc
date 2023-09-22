@@ -65,6 +65,7 @@ use frame_support::{
     transactional,
 };
 use frame_system::{ensure_signed, pallet_prelude::BlockNumberFor};
+use sp_arithmetic::traits::Saturating;
 use sp_core::{H256, U256};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedSub, One};
 use sp_std::{
@@ -320,6 +321,11 @@ pub mod pallet {
         InvalidCoinbasePosition,
     }
 
+    /// Store ChainWork
+    /// mapping block hash -> chain work
+    #[pallet::storage]
+    pub(super) type ChainWork<T: Config> = StorageMap<_, Blake2_128Concat, H256Le, u32, OptionQuery>;
+
     /// Store Bitcoin block headers
     #[pallet::storage]
     pub(super) type BlockHeaders<T: Config> =
@@ -398,6 +404,8 @@ pub mod pallet {
             StableParachainConfirmations::<T>::put(self.parachain_confirmations);
             DisableDifficultyCheck::<T>::put(self.disable_difficulty_check);
             DisableInclusionCheck::<T>::put(self.disable_inclusion_check);
+            // ToDo: insert genesis block hash and block work as zero
+            ChainWork::<T>::insert(H256Le::zero(), 0);
         }
     }
 }
@@ -767,6 +775,14 @@ impl<T: Config> Pallet<T> {
         ChainCounter::<T>::get()
     }
 
+    fn get_block_chainwork(block_hash: H256Le) -> Option<u32> {
+        ChainWork::<T>::get(block_hash)
+    }
+
+    fn set_block_chainwork(block_hash: H256Le, chain_work: u32) {
+        ChainWork::<T>::insert(block_hash, chain_work)
+    }
+
     /// Get a block hash from a blockchain
     ///
     /// # Arguments
@@ -780,8 +796,35 @@ impl<T: Config> Pallet<T> {
         Ok(ChainsHashes::<T>::get(chain_id, block_height))
     }
 
+    fn get_block_hash_from_forks(chain_id: u32, block_height: u32) -> Result<H256Le, DispatchError> {
+        // Get the blockchain associated with the given chain_id.
+        let chain = Self::get_block_chain_from_id(chain_id)?;
+
+        // If the requested block height is before the chain's start height,
+        // recursively fetch the block hash from the previous chain.
+        if block_height < chain.start_height {
+            // Get the hash of the block at the start height of the current chain.
+            let start_height_hash = Self::get_block_hash(chain_id, chain.start_height)?;
+
+            // Get the previous block's header from its hash.
+            let prev_hash = Self::get_block_header_from_hash(start_height_hash)?
+                .block_header
+                .hash_prev_block;
+
+            // Get the chain_id of the previous chain.
+            let prev_chain_id = Self::get_block_header_from_hash(prev_hash)?.chain_id;
+
+            // Recursively call the function for the previous chain and requested block height.
+            Self::get_block_hash_from_forks(prev_chain_id, block_height)
+        } else {
+            // If the requested block height is within the current chain's range,
+            // directly fetch the block hash from the current chain.
+            Self::get_block_hash(chain_id, block_height)
+        }
+    }
+
     /// Get a block header from its hash
-    fn get_block_header_from_hash(block_hash: H256Le) -> Result<RichBlockHeader<BlockNumberFor<T>>, DispatchError> {
+    pub fn get_block_header_from_hash(block_hash: H256Le) -> Result<RichBlockHeader<BlockNumberFor<T>>, DispatchError> {
         BlockHeaders::<T>::try_get(block_hash).or(Err(Error::<T>::BlockNotFound.into()))
     }
 
@@ -877,7 +920,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    fn insert_block_hash(chain_id: u32, block_height: u32, block_hash: H256Le) {
+    pub fn insert_block_hash(chain_id: u32, block_height: u32, block_hash: H256Le) {
         ChainsHashes::<T>::insert(chain_id, block_height, block_hash);
     }
 
@@ -1181,7 +1224,17 @@ impl<T: Config> Pallet<T> {
                     // and the current height is more than the
                     // STABLE_TRANSACTION_CONFIRMATIONS ahead
                     // we are swapping the main chain
-                    if prev_height.saturating_add(Self::get_stable_transaction_confirmations()) <= current_height {
+                    let current_chain_id = Self::get_chain_id_from_position(current_position)?;
+                    let current_fork_work = Self::get_chainwork(Self::get_block_chain_from_id(current_chain_id)?)?;
+
+                    let prev_chain_id = Self::get_chain_id_from_position(prev_position)?;
+                    let prev_fork_work = Self::get_chainwork(Self::get_block_chain_from_id(prev_chain_id)?)?;
+                    // update: ensure_no_ongoing_fork
+                    if prev_height.saturating_add(Self::get_stable_transaction_confirmations()) <= current_height
+                        &&
+                        // We should only reorg when the fork has more or equal work  than the current main chain
+                        current_fork_work >= prev_fork_work
+                    {
                         // Swap the mainchain. As an optimization, this function returns the
                         // new best block hash and its height
                         let (new_chain_tip_hash, new_chain_tip_height) = Self::swap_main_blockchain(&fork)?;
@@ -1216,6 +1269,115 @@ impl<T: Config> Pallet<T> {
         }
 
         Ok(())
+    }
+
+    /// The target value represents the mining difficulty required to mine a block with the specified hash.
+    ///
+    /// # Parameters
+    ///
+    /// * `block_hash`: A 256-bit block hash.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<u32, DispatchError>`: A `Result` containing the retrieved target value as a `u32` if successful, or a
+    ///   `DispatchError` if an error occurs during the retrieval.
+    fn get_target(block_hash: H256Le) -> Result<u32, DispatchError> {
+        let block_header = Self::get_block_header_from_hash(block_hash)?;
+        // Fixme: Should this be kept as a U256 type and other u32 type can be converted to U256?
+        // Currently taking low_u32/as_u32 loses precision
+        Ok(block_header.block_header.target.low_u32())
+    }
+
+    /// Calculates the chainwork of a block header at a given height based on the provided block hash.
+    /// Reference: https://github.com/spesmilo/electrum/blob/cee22abcb5544c5a6fa7f8a8108ccda9c32c2e29/electrum/blockchain.py#L582-L588
+    ///
+    /// # Arguments
+    ///
+    /// * `block_hash`: A 256-bit block hash.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<u32, DispatchError>`: A `Result` containing the calculated chainwork as a `u32` if successful, or a
+    ///   `DispatchError` if an error occurs during target retrieval.
+    fn chainwork_of_header_at_height(block_hash: H256Le) -> Result<u32, DispatchError> {
+        let target = Self::get_target(block_hash)?;
+        let work = (2_u32.saturating_pow(256).saturating_sub(target).saturating_less_one())
+            .saturating_div(target.saturating_plus_one())
+            .saturating_plus_one();
+        Ok(work)
+    }
+
+    /// The chainwork is a measure of the total computational work done by the chain up to a certain point.
+    /// Reference: https://github.com/spesmilo/electrum/blob/cee22abcb5544c5a6fa7f8a8108ccda9c32c2e29/electrum/blockchain.py#L589-L614
+    ///
+    /// # Parameters
+    ///
+    /// * `chain`: new blockchain element
+    ///
+    /// # Returns
+    ///
+    /// * `Result<u32, DispatchError>`: A `Result` containing the calculated cumulative chainwork as a `u32` if
+    ///   successful, or a `DispatchError` if an error occurs during the calculation.
+    fn get_chainwork(chain: BlockChain) -> Result<u32, DispatchError> {
+        // Calculate the height of the last retarget point.
+        let last_retarget = chain
+            .max_height
+            .saturating_div(DIFFICULTY_ADJUSTMENT_INTERVAL)
+            .saturating_mul(DIFFICULTY_ADJUSTMENT_INTERVAL)
+            .saturating_less_one();
+
+        let mut cached_height = last_retarget;
+
+        // Iterate backward to find the last block with known chainwork.
+        while Self::get_block_chainwork(Self::get_block_hash_from_forks(chain.chain_id, cached_height)?).is_none() {
+            if cached_height == 0 {
+                break;
+            }
+            cached_height = cached_height.saturating_sub(DIFFICULTY_ADJUSTMENT_INTERVAL)
+        }
+
+        // Get the chainwork of the last known block.
+        let cache_chain_work =
+            Self::get_block_chainwork(Self::get_block_hash_from_forks(chain.chain_id, cached_height)?);
+
+        let mut running_total = if let Some(chain_work) = cache_chain_work {
+            chain_work
+        } else {
+            // Genesis chain work should be 0.
+            0_u32
+        };
+
+        // Loop to calculate chainwork for blocks between 'cached_height' and 'last_retarget' (0 to 2015).
+        while cached_height < last_retarget {
+            cached_height = cached_height.saturating_add(DIFFICULTY_ADJUSTMENT_INTERVAL);
+
+            let cached_block_hash = Self::get_block_hash_from_forks(chain.chain_id, cached_height)?;
+
+            // Calculate the chainwork for a single header at the current height.
+            let work_in_single_header = Self::chainwork_of_header_at_height(cached_block_hash)?;
+
+            // Calculate the chainwork for a chunk of blocks (DIFFICULTY_ADJUSTMENT_INTERVAL) at the current height.
+            let work_in_chunk = DIFFICULTY_ADJUSTMENT_INTERVAL.saturating_mul(work_in_single_header);
+
+            // Update the running total chainwork.
+            running_total = running_total.saturating_add(work_in_chunk);
+
+            // Store the calculated chainwork for the block.
+            Self::set_block_chainwork(cached_block_hash, running_total);
+        }
+
+        // Move to the next height.
+        cached_height = cached_height.saturating_add(DIFFICULTY_ADJUSTMENT_INTERVAL);
+
+        // Calculate the chainwork for the last partial chunk of blocks.
+        let work_in_single_header =
+            Self::chainwork_of_header_at_height(Self::get_block_hash_from_forks(chain.chain_id, cached_height)?)?;
+
+        let work_in_last_partial_chunk = ((chain.max_height % DIFFICULTY_ADJUSTMENT_INTERVAL).saturating_plus_one())
+            .saturating_mul(work_in_single_header);
+
+        // Return the total chainwork, which is the running total plus the chain work of the last partial chunk.
+        Ok(running_total.saturating_add(work_in_last_partial_chunk))
     }
 
     /// Insert a new fork into the Chains mapping sorted by its max height

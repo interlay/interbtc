@@ -370,6 +370,13 @@ mod store_block_header_tests {
 
             let mut blocks = vec![a2];
 
+            BTCRelay::get_target.mock_safe(|_| MockResult::Return(Ok(0_u32)));
+            BTCRelay::get_block_hash_from_forks.mock_safe(move |chain_id, height| {
+                assert!(matches!(chain_id, 0 | 1));
+                assert!(matches!(height, 0 | DIFFICULTY_ADJUSTMENT_INTERVAL));
+                MockResult::Return(Ok(H256Le::zero()))
+            });
+
             // create a new fork, and make it overtake the main chain
             let mut prev = genesis.hash;
             for i in 0..10 {
@@ -421,6 +428,13 @@ mod store_block_header_tests {
 
             let mut genesis = sample_block_header();
             genesis.update_hash().unwrap();
+
+            BTCRelay::get_target.mock_safe(|_| MockResult::Return(Ok(0_u32)));
+            BTCRelay::get_block_hash_from_forks.mock_safe(move |chain_id, height| {
+                assert!(matches!(chain_id, 0 | 1 | 2));
+                assert!(matches!(height, 0 | DIFFICULTY_ADJUSTMENT_INTERVAL));
+                MockResult::Return(Ok(H256Le::zero()))
+            });
 
             // create the following tree shape:
             // f1 --> temp_fork_1
@@ -553,6 +567,13 @@ mod store_block_header_tests {
                 "03000000b01d7251bb00e0798ef7fac2cbbe022e3093a8b006709d0b0000000000000000e58c392166f00accd7f773b4ca12fa1b2c1ccba33b8daca3274eb0f36394dd89456097558e41161839fc9a66",
                 // "030000005fbd386a5032a0aa1c428416d2d0a9e62b3f31021bb695000000000000000000c46349cf6bddc4451f5df490ad53a83a58018e519579755800845fd4b0e39e79f46197558e41161884eabd86",
             ].into_iter().map(parse_from_hex).collect();
+
+            BTCRelay::get_target.mock_safe(|_| MockResult::Return(Ok(0_u32)));
+            BTCRelay::get_block_hash_from_forks.mock_safe(move |chain_id, height| {
+                assert!(matches!(chain_id, 0 | 1));
+                assert!(matches!(height, 0 | DIFFICULTY_ADJUSTMENT_INTERVAL));
+                MockResult::Return(Ok(H256Le::zero()))
+            });
 
             for (idx, block) in reorg_blocks.iter().take(11).enumerate() {
                 store_header_and_check_invariants(block);
@@ -688,6 +709,20 @@ fn check_and_do_reorg_new_fork_is_main_chain() {
 
         BTCRelay::swap_main_blockchain.mock_safe(move |_| MockResult::Return(Ok((best_block_hash, fork_block_height))));
 
+        BTCRelay::swap_main_blockchain.mock_safe(move |_| MockResult::Return(Ok((best_block_hash, fork_block_height))));
+
+        BTCRelay::get_chainwork.mock_safe(move |chain| {
+            if chain.chain_id == fork_chain_id {
+                assert_eq!(chain.start_height, main_start_height);
+                assert_eq!(chain.max_height, fork_block_height);
+                MockResult::Return(Ok(fork_chain_id))
+            } else {
+                assert_eq!(chain.start_height, main_start_height);
+                assert_eq!(chain.max_height, main_block_height);
+                MockResult::Return(Ok(main_chain_id))
+            }
+        });
+
         assert_ok!(BTCRelay::reorganize_chains(&fork));
         // assert that the new main chain is set
         let reorg_event = TestEvent::BTCRelay(Event::ChainReorg {
@@ -729,6 +764,18 @@ fn check_and_do_reorg_new_fork_below_stable_transaction_confirmations() {
         assert_eq!(current_position, fork_position);
 
         BTCRelay::swap_main_blockchain.mock_safe(move |_| MockResult::Return(Ok((best_block_hash, fork_block_height))));
+
+        BTCRelay::get_chainwork.mock_safe(move |chain| {
+            if chain.chain_id == fork_chain_id {
+                assert_eq!(chain.start_height, main_start_height);
+                assert_eq!(chain.max_height, fork_block_height);
+                MockResult::Return(Ok(fork_chain_id))
+            } else {
+                assert_eq!(chain.start_height, main_start_height);
+                assert_eq!(chain.max_height, main_block_height);
+                MockResult::Return(Ok(main_chain_id))
+            }
+        });
 
         assert_ok!(BTCRelay::reorganize_chains(&fork));
         // assert that the fork has not overtaken the main chain
