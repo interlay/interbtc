@@ -8,7 +8,8 @@
     "/dns/interlay-03.interlay.interlay.io/tcp/30333/p2p/12D3KooWRXVqAn6xNkUbs1g2KhugSMCRDRxWVXq7ZRnvqjUQ71cr",
     "/dns/interlay-04.interlay.interlay.io/tcp/30333/p2p/12D3KooWHJW8vqWTbVJsJPYMDypm14Qrwf2rdKrW7t1TuAUbKEZw",
     "/dns/interlay-05.interlay.interlay.io/tcp/30333/p2p/12D3KooWQWUe64Cmqg3ygRNhxtZFaQHtoPBrCsJW6bUucuyiiR78",
-    "/dns/interlay-06.interlay.interlay.io/tcp/30333/p2p/12D3KooWEUYPLnp1mVHZmitDLUiu4PHwMD2FxEx5GvEfMN8tiSLq"
+    "/dns/interlay-06.interlay.interlay.io/tcp/30333/p2p/12D3KooWEUYPLnp1mVHZmitDLUiu4PHwMD2FxEx5GvEfMN8tiSLq",
+    "/dns/interlay-07.interlay.interlay.io/tcp/30333/p2p/12D3KooWQsTnGMPF2uoHvF3p9yTxLsRiWfgVMQZvmq974ebkrqVX"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
