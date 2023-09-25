@@ -3,16 +3,13 @@
   "id": "interlay",
   "chainType": "Live",
   "bootNodes": [
-    "/dns4/bootnodes.interbtc.interlay.io/tcp/30335/p2p/12D3KooWGD9FgkiKWQTp5t6VLJgTKYqex7AY8CHTs7PGpARLTSZr",
-    "/dns4/bootnodes.interbtc.interlay.io/tcp/30336/p2p/12D3KooWJ8Ga38UfUWcBuKCVjJFNCyFAd5YrLnDikTvinE4QG8TG",
-    "/ip4/35.208.32.176/tcp/30333/p2p/12D3KooWQsTnGMPF2uoHvF3p9yTxLsRiWfgVMQZvmq974ebkrqVX",
-    "/ip6/2600:1900:4000:5990::/tcp/30333/p2p/12D3KooWQsTnGMPF2uoHvF3p9yTxLsRiWfgVMQZvmq974ebkrqVX",
-    "/ip4/35.213.38.240/tcp/30333/p2p/12D3KooWQWUe64Cmqg3ygRNhxtZFaQHtoPBrCsJW6bUucuyiiR78",
-    "/ip6/2600:1900:4050:14bb::/tcp/30333/p2p/12D3KooWQWUe64Cmqg3ygRNhxtZFaQHtoPBrCsJW6bUucuyiiR78",
-    "/ip4/35.214.170.23/tcp/30333/p2p/12D3KooWHJW8vqWTbVJsJPYMDypm14Qrwf2rdKrW7t1TuAUbKEZw",
-    "/ip6/2600:1900:4060:6b80::/tcp/30333/p2p/12D3KooWHJW8vqWTbVJsJPYMDypm14Qrwf2rdKrW7t1TuAUbKEZw",
-    "/ip4/35.208.144.72/tcp/30333/p2p/12D3KooWEUYPLnp1mVHZmitDLUiu4PHwMD2FxEx5GvEfMN8tiSLq",
-    "/ip6/2600:1900:4000:5990:0:2::/tcp/30333/p2p/12D3KooWEUYPLnp1mVHZmitDLUiu4PHwMD2FxEx5GvEfMN8tiSLq"
+    "/dns/interlay-01.interlay.interlay.io/tcp/30333/p2p/12D3KooWGD9FgkiKWQTp5t6VLJgTKYqex7AY8CHTs7PGpARLTSZr",
+    "/dns/interlay-02.interlay.interlay.io/tcp/30333/p2p/12D3KooWJ8Ga38UfUWcBuKCVjJFNCyFAd5YrLnDikTvinE4QG8TG",
+    "/dns/interlay-03.interlay.interlay.io/tcp/30333/p2p/12D3KooWRXVqAn6xNkUbs1g2KhugSMCRDRxWVXq7ZRnvqjUQ71cr",
+    "/dns/interlay-04.interlay.interlay.io/tcp/30333/p2p/12D3KooWHJW8vqWTbVJsJPYMDypm14Qrwf2rdKrW7t1TuAUbKEZw",
+    "/dns/interlay-05.interlay.interlay.io/tcp/30333/p2p/12D3KooWQWUe64Cmqg3ygRNhxtZFaQHtoPBrCsJW6bUucuyiiR78",
+    "/dns/interlay-06.interlay.interlay.io/tcp/30333/p2p/12D3KooWEUYPLnp1mVHZmitDLUiu4PHwMD2FxEx5GvEfMN8tiSLq",
+    "/dns/interlay-07.interlay.interlay.io/tcp/30333/p2p/12D3KooWQsTnGMPF2uoHvF3p9yTxLsRiWfgVMQZvmq974ebkrqVX"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
