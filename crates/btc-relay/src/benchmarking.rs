@@ -63,6 +63,46 @@ pub mod benchmarks {
     }
 
     #[benchmark]
+    pub fn set_chainwork_for_block() {
+        let caller: T::AccountId = whitelisted_caller();
+
+        let init_block = initialize_relay::<T>(caller.clone());
+        let init_block_hash = init_block.header.hash;
+
+        migration::v1::migrate_from_v0_to_v1::<T>();
+
+        let block = add_new_block_to_relay::<T>(caller.clone(), init_block_hash, 0);
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(caller), block.header.hash);
+
+        // make sure chain work is stored
+        assert_eq!(BtcRelay::<T>::contains_chainwork(block.header.hash), true);
+    }
+
+    #[benchmark]
+    pub fn store_block_header_when_adding_chainwork() {
+        let caller: T::AccountId = whitelisted_caller();
+
+        let init_block = initialize_relay::<T>(caller.clone());
+        let init_block_hash = init_block.header.hash;
+
+        migration::v1::migrate_from_v0_to_v1::<T>();
+
+        let block = new_block::<T>(init_block_hash, 0);
+
+        #[extrinsic_call]
+        store_block_header(RawOrigin::Signed(caller), block.header, u32::MAX);
+
+        // make sure block is stored
+        let rich_header = BtcRelay::<T>::get_block_header_from_hash(block.header.hash).unwrap();
+        assert_eq!(rich_header.chain_id, MAIN_CHAIN_ID);
+
+        // make sure chain work is stored
+        assert_eq!(BtcRelay::<T>::contains_chainwork(block.header.hash), true);
+    }
+
+    #[benchmark]
     pub fn store_block_header() {
         let caller: T::AccountId = whitelisted_caller();
 
@@ -140,11 +180,8 @@ pub mod benchmarks {
             }
         }
 
-        BtcRelay::<T>::insert_block_hash(0, DIFFICULTY_ADJUSTMENT_INTERVAL, init_block_hash);
-
         // new fork up to block before swapping the main chain
-        for chain_id in 1..(BestBlockHeight::<T>::get() + SECURE_BITCOIN_CONFIRMATIONS) {
-            BtcRelay::<T>::insert_block_hash(chain_id, DIFFICULTY_ADJUSTMENT_INTERVAL, init_block_hash);
+        for _ in 1..(BestBlockHeight::<T>::get() + SECURE_BITCOIN_CONFIRMATIONS) {
             let block = add_new_block_to_relay::<T>(caller.clone(), init_block_hash, f as usize);
             init_block_hash = block.header.hash;
         }
@@ -156,6 +193,56 @@ pub mod benchmarks {
         // we can benchmark the worst-case complexity for swapping
         // since we know how many blocks are required
         let block = new_block::<T>(init_block_hash, f as usize);
+
+        #[extrinsic_call]
+        store_block_header(RawOrigin::Signed(caller), block.header, u32::MAX);
+
+        // make sure reorg occurred
+        assert_eq!(
+            BestBlockHeight::<T>::get(),
+            prev_best_block_height + SECURE_BITCOIN_CONFIRMATIONS
+        );
+        let rich_header = BtcRelay::<T>::get_block_header_from_hash(block.header.hash).unwrap();
+        assert_eq!(rich_header.chain_id, MAIN_CHAIN_ID);
+    }
+
+    #[benchmark]
+    pub fn store_block_header_reorganize_chains_based_on_chainwork(f: Linear<3, 6>) {
+        let caller: T::AccountId = whitelisted_caller();
+        StableBitcoinConfirmations::<T>::put(SECURE_BITCOIN_CONFIRMATIONS);
+
+        let init_block = initialize_relay::<T>(caller.clone());
+        let mut init_block_hash = init_block.header.hash;
+
+        migration::v1::migrate_from_v0_to_v1::<T>();
+
+        for i in 1..f {
+            let mut block_hash = init_block_hash;
+            for _ in 0..SECURE_BITCOIN_CONFIRMATIONS {
+                let block = add_new_block_to_relay::<T>(caller.clone(), block_hash, i as usize);
+                block_hash = block.header.hash;
+            }
+        }
+
+        // new fork up to block before swapping the main chain
+        for _ in 1..(BestBlockHeight::<T>::get() + SECURE_BITCOIN_CONFIRMATIONS) {
+            let block = add_new_block_to_relay::<T>(caller.clone(), init_block_hash, f as usize);
+            init_block_hash = block.header.hash;
+        }
+
+        let prev_best_block_height = BestBlockHeight::<T>::get();
+        assert_eq!(prev_best_block_height, SECURE_BITCOIN_CONFIRMATIONS);
+        assert_eq!(ChainsIndex::<T>::iter().collect::<Vec<_>>().len(), f as usize);
+
+        let mut last_entered_block = BtcRelay::<T>::get_block_header_from_hash(init_block_hash).unwrap();
+        last_entered_block.block_header.target = U256::max_value();
+        BlockHeaders::<T>::insert(last_entered_block.block_header.hash, last_entered_block);
+
+        // we can benchmark the worst-case complexity for swapping
+        // since we know how many blocks are required
+        let mut block = new_block::<T>(init_block_hash, f as usize);
+        block.header.target = U256::max_value();
+        block.header.update_hash().unwrap();
 
         #[extrinsic_call]
         store_block_header(RawOrigin::Signed(caller), block.header, u32::MAX);

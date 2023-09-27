@@ -165,9 +165,6 @@ fn integration_test_submit_fork_headers() {
             assert_store_main_chain_header_event(index as u32, header.hash, account_of(ALICE));
         }
 
-        BTCRelayPallet::insert_block_hash(0, DIFFICULTY_ADJUSTMENT_INTERVAL, genesis_header.hash);
-        BTCRelayPallet::insert_block_hash(FORK_ID, DIFFICULTY_ADJUSTMENT_INTERVAL, test_data[1].hash);
-
         // submit future main chain without genesis
         for (index, header) in test_data.iter().enumerate().skip(1 + NUM_FORK_HEADERS as usize) {
             SecurityPallet::set_active_block_number(index as u32);
