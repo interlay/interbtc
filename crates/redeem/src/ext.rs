@@ -76,6 +76,18 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::get_vault_from_id(vault_id)
     }
 
+    pub fn vault_to_be_backed_tokens<T: crate::Config>(
+        vault_id: &DefaultVaultId<T>,
+    ) -> Result<Amount<T>, DispatchError> {
+        <vault_registry::Pallet<T>>::vault_to_be_backed_tokens(vault_id)
+    }
+
+    pub fn vault_capacity_at_secure_threshold<T: crate::Config>(
+        vault_id: &DefaultVaultId<T>,
+    ) -> Result<Amount<T>, DispatchError> {
+        <vault_registry::Pallet<T>>::vault_capacity_at_secure_threshold(vault_id)
+    }
+
     pub fn try_increase_to_be_redeemed_tokens<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
         amount: &Amount<T>,

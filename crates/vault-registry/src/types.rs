@@ -381,6 +381,18 @@ impl<T: Config> RichVault<T> {
         Ok(Amount::new(amount, self.wrapped_currency()))
     }
 
+    /// the number of issued tokens if all issues and redeems execute successfully
+    pub(crate) fn to_be_backed_tokens(&self) -> Result<Amount<T>, DispatchError> {
+        let amount = self
+            .data
+            .issued_tokens
+            .checked_add(&self.data.to_be_issued_tokens)
+            .ok_or(ArithmeticError::Overflow)?
+            .checked_sub(&self.data.to_be_redeemed_tokens)
+            .ok_or(ArithmeticError::Underflow)?;
+        Ok(Amount::new(amount, self.wrapped_currency()))
+    }
+
     pub(crate) fn to_be_replaced_tokens(&self) -> Amount<T> {
         Amount::new(self.data.to_be_replaced_tokens, self.wrapped_currency())
     }
