@@ -44,6 +44,55 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     test_with(LendToken(1), Token(IBTC), None);
 }
 
+fn test_setup_for_premium_redeem<R>(execute: impl Fn(VaultId) -> R) {
+    let test_with = |collateral_id, wrapped_id, extra_vault_currency: Option<CurrencyId>| {
+        ExtBuilder::build().execute_with(|| {
+            let secure = FixedU128::checked_from_rational(200, 100).unwrap();
+            let premium = FixedU128::checked_from_rational(160, 100).unwrap();
+            let liquidation = FixedU128::checked_from_rational(110, 100).unwrap();
+
+            let vault_id = PrimitiveVaultId::new(account_of(VAULT), collateral_id, wrapped_id);
+            SecurityPallet::set_active_block_number(1);
+            for currency_id in iter_collateral_currencies().filter(|c| !c.is_lend_token()) {
+                assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::from(2)));
+            }
+            if wrapped_id != DEFAULT_WRAPPED_CURRENCY {
+                assert_ok!(OraclePallet::_set_exchange_rate(wrapped_id, FixedU128::one()));
+            }
+
+            activate_lending_and_mint(Token(DOT), LendToken(1));
+
+            // Set custom thresholds
+            VaultRegistryPallet::_set_secure_collateral_threshold(vault_id.currencies.clone(), secure);
+            VaultRegistryPallet::_set_premium_redeem_threshold(vault_id.currencies.clone(), premium);
+            VaultRegistryPallet::_set_liquidation_collateral_threshold(vault_id.currencies.clone(), liquidation);
+
+            LiquidationVaultData::force_to(default_liquidation_vault_state(&vault_id.currencies));
+            UserData::force_to(USER, default_user_state());
+            CoreVaultData::force_to(&vault_id, default_vault_state(&vault_id));
+            // additional vault in order to prevent the edge case where the fee pool does not
+            // get additional funds because there are no non-liquidated vaults left
+            let carol_vault_id = PrimitiveVaultId::new(account_of(CAROL), collateral_id, wrapped_id);
+            CoreVaultData::force_to(&carol_vault_id, default_vault_state(&carol_vault_id));
+
+            if let Some(other_currency) = extra_vault_currency {
+                assert_ok!(OraclePallet::_set_exchange_rate(other_currency, FixedU128::one()));
+                // check that having other vault with the same account id does not influence tests
+                let other_vault_id = vault_id_of(VAULT, other_currency);
+                CoreVaultData::force_to(&other_vault_id, default_vault_state(&other_vault_id));
+            }
+            execute(vault_id)
+        })
+    };
+
+    test_with(Token(DOT), Token(KBTC), None);
+    test_with(Token(DOT), Token(IBTC), None);
+    test_with(Token(DOT), Token(IBTC), Some(Token(KSM)));
+    test_with(Token(KSM), Token(IBTC), None);
+    test_with(ForeignAsset(1), Token(IBTC), None);
+    test_with(LendToken(1), Token(IBTC), None);
+}
+
 /// to-be-replaced & replace_collateral are decreased in request_redeem
 fn consume_to_be_replaced(vault: &mut CoreVaultData, amount_btc: Amount<Runtime>) {
     let to_be_replaced_decrease = amount_btc.min(&vault.to_be_replaced).unwrap();
@@ -56,6 +105,115 @@ fn consume_to_be_replaced(vault: &mut CoreVaultData, amount_btc: Amount<Runtime>
     *vault.free_balance.get_mut(&DEFAULT_GRIEFING_CURRENCY).unwrap() += released_replace_collateral;
 
     vault.to_be_replaced -= to_be_replaced_decrease;
+}
+
+mod premium_redeem_tests {
+    use super::{assert_eq, *};
+
+    fn setup_vault_below_secure_threshold(vault_id: VaultId) {
+        // with 2000 collateral and exchange rate at 2, the vault is at:
+        //     - secure threshold (200%) when it has 2000/2/2 = 500 tokens
+        //     - premium threshold (160%) when it has 2000/2/1.6 = 625 tokens
+
+        // we award premium redeem only for the amount needed for (issued + to_be_issued - to_be_redeemed)
+        // to reach the secure threshold
+
+        // setup the vault such that (issued + to_be_issued - to_be_redeemed) = (450 + 250 - 50) = 650
+        // (everything scaled by 1000 to prevent getting dust amount errors)
+        CoreVaultData::force_to(
+            &vault_id,
+            CoreVaultData {
+                issued: vault_id.wrapped(450_000),
+                to_be_issued: vault_id.wrapped(250_000),
+                to_be_redeemed: vault_id.wrapped(50_000),
+                backing_collateral: vault_id.collateral(2_000_000),
+                to_be_replaced: vault_id.wrapped(0),
+                replace_collateral: griefing(0),
+                ..default_vault_state(&vault_id)
+            },
+        );
+    }
+
+    #[test]
+    fn integration_test_premium_redeem_with_reward_for_only_part_of_the_request() {
+        test_setup_for_premium_redeem(|vault_id| {
+            setup_vault_below_secure_threshold(vault_id.clone());
+
+            assert!(!VaultRegistryPallet::is_vault_below_secure_threshold(&vault_id).unwrap());
+            assert!(VaultRegistryPallet::is_vault_below_premium_threshold(&vault_id).unwrap());
+
+            let redeem_id = setup_redeem(vault_id.wrapped(400_000), USER, &vault_id);
+
+            assert!(!VaultRegistryPallet::is_vault_below_secure_threshold(&vault_id).unwrap());
+            assert!(!VaultRegistryPallet::is_vault_below_premium_threshold(&vault_id).unwrap());
+
+            let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+            // we should get rewarded only for 150_000 + 3750 tokens (that's when we reach nearer to secure threshold)
+            let expected_premium = FeePallet::get_premium_redeem_fee(
+                &vault_id
+                    .wrapped(150_000 + 3750) // need to add 0.375 = 153.750
+                    .convert_to(vault_id.collateral_currency())
+                    .unwrap(),
+            )
+            .unwrap();
+            assert_eq!(vault_id.collateral(redeem.premium), expected_premium);
+
+            // Execute redeem
+            execute_redeem(redeem_id);
+
+            let compute_collateral = VaultRegistryPallet::compute_collateral(&vault_id).unwrap().amount();
+            assert_eq!(compute_collateral, 2000000 - 15375); //15.355 COL tokens lost as premium fees
+
+            // Setup another redeem request
+            let redeem_id = setup_redeem(vault_id.wrapped(2_000), USER, &vault_id);
+
+            let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+
+            // No premium should be given for this request
+            assert_eq!(redeem.premium, 0);
+
+            // Execute redeem
+            execute_redeem(redeem_id);
+
+            // initially 400 tokens, 1st redeem consumed 398 tokens , 2nd redeem consumed 1.99 tokens, remaining 0.01
+            let get_free_redeemable_tokens = VaultRegistryPallet::get_free_redeemable_tokens(&vault_id)
+                .unwrap()
+                .amount();
+            assert_eq!(get_free_redeemable_tokens, 10);
+        });
+    }
+
+    #[test]
+    fn integration_test_premium_redeem_with_reward_for_full_request() {
+        test_setup_for_premium_redeem(|vault_id| {
+            setup_vault_below_secure_threshold(vault_id.clone());
+
+            assert!(!VaultRegistryPallet::is_vault_below_secure_threshold(&vault_id).unwrap());
+            assert!(VaultRegistryPallet::is_vault_below_premium_threshold(&vault_id).unwrap());
+
+            let redeem_id = setup_redeem(vault_id.wrapped(100_000), USER, &vault_id);
+
+            assert!(!VaultRegistryPallet::is_vault_below_secure_threshold(&vault_id).unwrap());
+            assert!(!VaultRegistryPallet::is_vault_below_premium_threshold(&vault_id).unwrap());
+
+            let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+
+            // we should get rewarded for the full amount, since we did not reach secure threshold
+            let expected_premium = FeePallet::get_premium_redeem_fee(
+                &vault_id
+                    .wrapped(redeem.amount_btc)
+                    .convert_to(vault_id.collateral_currency())
+                    .unwrap(),
+            )
+            .unwrap();
+            assert_eq!(vault_id.collateral(redeem.premium), expected_premium);
+
+            let get_free_redeemable_tokens = VaultRegistryPallet::get_free_redeemable_tokens(&vault_id)
+                .unwrap()
+                .amount();
+            assert_eq!(get_free_redeemable_tokens, 300500); //300.5
+        });
+    }
 }
 
 mod spec_based_tests {

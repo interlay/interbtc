@@ -1897,6 +1897,16 @@ impl<T: Config> Pallet<T> {
         Self::calculate_max_wrapped_from_collateral_for_threshold(&collateral, wrapped_currency, threshold)
     }
 
+    pub fn vault_capacity_at_secure_threshold_based_on_collateral(
+        vault_id: &DefaultVaultId<T>,
+        collateral: Amount<T>,
+    ) -> Result<Amount<T>, DispatchError> {
+        let threshold = Self::secure_collateral_threshold(&vault_id.currencies).ok_or(Error::<T>::ThresholdNotSet)?;
+        let wrapped_currency = vault_id.wrapped_currency();
+
+        Self::calculate_max_wrapped_from_collateral_for_threshold(&collateral, wrapped_currency, threshold)
+    }
+
     pub fn vault_to_be_backed_tokens(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
         let vault = Self::get_active_rich_vault_from_id(vault_id)?;
         vault.to_be_backed_tokens()

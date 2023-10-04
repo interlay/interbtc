@@ -44,6 +44,10 @@ pub(crate) mod vault_registry {
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use vault_registry::types::{CurrencyId, CurrencySource, DefaultVault};
 
+    pub fn get_backing_collateral<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
+        <vault_registry::Pallet<T>>::get_backing_collateral(vault_id)
+    }
+
     pub fn get_liquidated_collateral<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
     ) -> Result<Amount<T>, DispatchError> {
@@ -86,6 +90,13 @@ pub(crate) mod vault_registry {
         vault_id: &DefaultVaultId<T>,
     ) -> Result<Amount<T>, DispatchError> {
         <vault_registry::Pallet<T>>::vault_capacity_at_secure_threshold(vault_id)
+    }
+
+    pub fn vault_capacity_at_secure_threshold_based_on_collateral<T: crate::Config>(
+        vault_id: &DefaultVaultId<T>,
+        collateral: Amount<T>,
+    ) -> Result<Amount<T>, DispatchError> {
+        <vault_registry::Pallet<T>>::vault_capacity_at_secure_threshold_based_on_collateral(vault_id, collateral)
     }
 
     pub fn try_increase_to_be_redeemed_tokens<T: crate::Config>(

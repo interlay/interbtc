@@ -505,20 +505,37 @@ impl<T: Config> Pallet<T> {
         let currency_id = vault_id.collateral_currency();
 
         let premium_collateral = if below_premium_redeem {
-            // we only award a premium on the amount ok tokens required to bring
-            // `issued + to_be_issued - to_be_redeemed` back to the secure threshold
+            // Calculate the secure vault capacity
+            let secure_vault_capacity = ext::vault_registry::vault_capacity_at_secure_threshold(&vault_id)?;
+            let issued_tokens = ext::vault_registry::vault_to_be_backed_tokens(&vault_id)?;
+            let difference_in_tokens_to_reach_secure_threshold =
+                issued_tokens.saturating_sub(&secure_vault_capacity)?;
 
-            let capacity = ext::vault_registry::vault_capacity_at_secure_threshold(&vault_id)?;
-            let to_be_backed_tokens = ext::vault_registry::vault_to_be_backed_tokens(&vault_id)?;
+            // Calculate collateral after paying the premium redeem fee
+            let backing_collateral = ext::vault_registry::get_backing_collateral(&vault_id)?;
+            let premium_redeem_fee = ext::fee::get_premium_redeem_fee::<T>(
+                &difference_in_tokens_to_reach_secure_threshold.convert_to(currency_id)?,
+            )?;
 
-            // the amount of tokens that we can give a premium for
-            let max_premium_tokens = to_be_backed_tokens.saturating_sub(&capacity)?;
-            // the actual amount of tokens redeemed that we give a premium for
-            let actual_premium_tokens = max_premium_tokens.min(&user_to_be_received_btc)?;
-            // converted to collateral..
+            let collateral_after_premium_redeem = backing_collateral.saturating_sub(&premium_redeem_fee)?;
+
+            // Calculate the issued tokens that can be backed after paying the premium redeem fee
+            let issue_backed_after_premium_redeem =
+                ext::vault_registry::vault_capacity_at_secure_threshold_based_on_collateral(
+                    &vault_id,
+                    collateral_after_premium_redeem.clone(),
+                )?;
+
+            let tokens_remaining_after_premium_redeem =
+                issued_tokens.saturating_sub(&issue_backed_after_premium_redeem)?;
+
+            // Calculate the actual premium tokens and convert to collateral
+            let actual_premium_tokens = tokens_remaining_after_premium_redeem.min(&user_to_be_received_btc)?;
             let premium_tokens_in_collateral = actual_premium_tokens.convert_to(currency_id)?;
 
-            ext::fee::get_premium_redeem_fee::<T>(&premium_tokens_in_collateral)?
+            // Calculate the premium redeem fee for the premium tokens in collateral
+            let premium_collateral = ext::fee::get_premium_redeem_fee::<T>(&premium_tokens_in_collateral)?;
+            premium_collateral
         } else {
             Amount::zero(currency_id)
         };
