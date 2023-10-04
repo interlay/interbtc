@@ -9,29 +9,14 @@ fn test_with<R>(execute: impl Fn(VaultId) -> R) {
     let test_with = |collateral_id, wrapped_id, extra_vault_currency| {
         ExtBuilder::build().execute_with(|| {
             let vault_id = PrimitiveVaultId::new(account_of(VAULT), collateral_id, wrapped_id);
-            SecurityPallet::set_active_block_number(1);
-            for currency_id in iter_collateral_currencies().filter(|c| !c.is_lend_token()) {
-                assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::one()));
-            }
-            if wrapped_id != DEFAULT_WRAPPED_CURRENCY {
-                assert_ok!(OraclePallet::_set_exchange_rate(wrapped_id, FixedU128::one()));
-            }
-            activate_lending_and_mint(Token(DOT), LendToken(1));
-            set_default_thresholds();
-            LiquidationVaultData::force_to(default_liquidation_vault_state(&vault_id.currencies));
-            UserData::force_to(USER, default_user_state());
-            CoreVaultData::force_to(&vault_id, default_vault_state(&vault_id));
-            // additional vault in order to prevent the edge case where the fee pool does not
-            // get additional funds because there are no non-liquidated vaults left
-            let carol_vault_id = PrimitiveVaultId::new(account_of(CAROL), collateral_id, wrapped_id);
-            CoreVaultData::force_to(&carol_vault_id, default_vault_state(&carol_vault_id));
-
-            if let Some(other_currency) = extra_vault_currency {
-                assert_ok!(OraclePallet::_set_exchange_rate(other_currency, FixedU128::one()));
-                // check that having other vault with the same account id does not influence tests
-                let other_vault_id = vault_id_of(VAULT, other_currency);
-                CoreVaultData::force_to(&other_vault_id, default_vault_state(&other_vault_id));
-            }
+            common_setup::<R>(
+                wrapped_id,
+                extra_vault_currency,
+                collateral_id,
+                vault_id.clone(),
+                FixedU128::one(),
+                None,
+            );
             execute(vault_id)
         })
     };
@@ -52,35 +37,14 @@ fn test_setup_for_premium_redeem<R>(execute: impl Fn(VaultId) -> R) {
             let liquidation = FixedU128::checked_from_rational(110, 100).unwrap();
 
             let vault_id = PrimitiveVaultId::new(account_of(VAULT), collateral_id, wrapped_id);
-            SecurityPallet::set_active_block_number(1);
-            for currency_id in iter_collateral_currencies().filter(|c| !c.is_lend_token()) {
-                assert_ok!(OraclePallet::_set_exchange_rate(currency_id, FixedU128::from(2)));
-            }
-            if wrapped_id != DEFAULT_WRAPPED_CURRENCY {
-                assert_ok!(OraclePallet::_set_exchange_rate(wrapped_id, FixedU128::one()));
-            }
-
-            activate_lending_and_mint(Token(DOT), LendToken(1));
-
-            // Set custom thresholds
-            VaultRegistryPallet::_set_secure_collateral_threshold(vault_id.currencies.clone(), secure);
-            VaultRegistryPallet::_set_premium_redeem_threshold(vault_id.currencies.clone(), premium);
-            VaultRegistryPallet::_set_liquidation_collateral_threshold(vault_id.currencies.clone(), liquidation);
-
-            LiquidationVaultData::force_to(default_liquidation_vault_state(&vault_id.currencies));
-            UserData::force_to(USER, default_user_state());
-            CoreVaultData::force_to(&vault_id, default_vault_state(&vault_id));
-            // additional vault in order to prevent the edge case where the fee pool does not
-            // get additional funds because there are no non-liquidated vaults left
-            let carol_vault_id = PrimitiveVaultId::new(account_of(CAROL), collateral_id, wrapped_id);
-            CoreVaultData::force_to(&carol_vault_id, default_vault_state(&carol_vault_id));
-
-            if let Some(other_currency) = extra_vault_currency {
-                assert_ok!(OraclePallet::_set_exchange_rate(other_currency, FixedU128::one()));
-                // check that having other vault with the same account id does not influence tests
-                let other_vault_id = vault_id_of(VAULT, other_currency);
-                CoreVaultData::force_to(&other_vault_id, default_vault_state(&other_vault_id));
-            }
+            common_setup::<R>(
+                wrapped_id,
+                extra_vault_currency,
+                collateral_id,
+                vault_id.clone(),
+                FixedU128::from(2),
+                Some((secure, premium, liquidation)),
+            );
             execute(vault_id)
         })
     };
@@ -91,6 +55,46 @@ fn test_setup_for_premium_redeem<R>(execute: impl Fn(VaultId) -> R) {
     test_with(Token(KSM), Token(IBTC), None);
     test_with(ForeignAsset(1), Token(IBTC), None);
     test_with(LendToken(1), Token(IBTC), None);
+}
+
+fn common_setup<R>(
+    wrapped_id: CurrencyId,
+    extra_vault_currency: Option<CurrencyId>,
+    collateral_id: CurrencyId,
+    vault_id: VaultId,
+    exchange_rate: FixedU128,
+    custom_thresholds: Option<(FixedU128, FixedU128, FixedU128)>,
+) {
+    SecurityPallet::set_active_block_number(1);
+    for currency_id in iter_collateral_currencies().filter(|c| !c.is_lend_token()) {
+        assert_ok!(OraclePallet::_set_exchange_rate(currency_id, exchange_rate));
+    }
+    if wrapped_id != DEFAULT_WRAPPED_CURRENCY {
+        assert_ok!(OraclePallet::_set_exchange_rate(wrapped_id, FixedU128::one()));
+    }
+
+    activate_lending_and_mint(Token(DOT), LendToken(1));
+
+    if let Some((secure, premium, liquidation)) = custom_thresholds {
+        set_custom_thresholds(secure, premium, liquidation);
+    } else {
+        set_default_thresholds();
+    }
+
+    LiquidationVaultData::force_to(default_liquidation_vault_state(&vault_id.currencies));
+    UserData::force_to(USER, default_user_state());
+    CoreVaultData::force_to(&vault_id, default_vault_state(&vault_id));
+    // additional vault in order to prevent the edge case where the fee pool does not
+    // get additional funds because there are no non-liquidated vaults left
+    let carol_vault_id = PrimitiveVaultId::new(account_of(CAROL), collateral_id, wrapped_id);
+    CoreVaultData::force_to(&carol_vault_id, default_vault_state(&carol_vault_id));
+
+    if let Some(other_currency) = extra_vault_currency {
+        assert_ok!(OraclePallet::_set_exchange_rate(other_currency, FixedU128::one()));
+        // check that having other vault with the same account id does not influence tests
+        let other_vault_id = vault_id_of(VAULT, other_currency);
+        CoreVaultData::force_to(&other_vault_id, default_vault_state(&other_vault_id));
+    }
 }
 
 /// to-be-replaced & replace_collateral are decreased in request_redeem
