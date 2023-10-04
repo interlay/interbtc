@@ -215,7 +215,7 @@ mod premium_redeem_tests {
             let get_free_redeemable_tokens = VaultRegistryPallet::get_free_redeemable_tokens(&vault_id)
                 .unwrap()
                 .amount();
-            assert_eq!(get_free_redeemable_tokens, 300500); //300.5
+            assert_eq!(get_free_redeemable_tokens, 300500);
         });
     }
 }
