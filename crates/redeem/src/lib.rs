@@ -679,7 +679,7 @@ impl<T: Config> Pallet<T> {
             amount_to_slash
         };
 
-        // first update the issued tokens; this logic is the same regardless of whether or not the vault is liquidated
+        // first update the issued tokens
         let new_status = if reimburse {
             // Transfer the transaction fee to the pool. Even though the redeem was not
             // successful, the user receives a premium in collateral, so it's OK to take the fee.
@@ -688,7 +688,14 @@ impl<T: Config> Pallet<T> {
             fee.transfer(&redeem.redeemer, &ext::fee::fee_pool_account_id::<T>())?;
             ext::fee::distribute_rewards::<T>(&fee)?;
 
-            if ext::vault_registry::is_vault_below_secure_threshold::<T>(&redeem.vault)? {
+            if vault.is_liquidated() {
+                // In this situation, tokens are burned and the collateral gets transferred
+                // to the user. This is similar to what happens in a liquidation_redeem.
+                vault_to_be_burned_tokens.burn_from(&redeemer)?;
+                ext::vault_registry::decrease_tokens::<T>(&redeem.vault, &redeem.redeemer, &vault_to_be_burned_tokens)?;
+                // set to Reimbursed(true) such that the vault can't mint the ibtc/kbtc later on
+                Self::set_redeem_status(redeem_id, RedeemRequestStatus::Reimbursed(true))
+            } else if ext::vault_registry::is_vault_below_secure_threshold::<T>(&redeem.vault)? {
                 // vault can not afford to back the tokens that it would receive, so we burn it
                 vault_to_be_burned_tokens.burn_from(&redeemer)?;
                 ext::vault_registry::decrease_tokens::<T>(&redeem.vault, &redeem.redeemer, &vault_to_be_burned_tokens)?;

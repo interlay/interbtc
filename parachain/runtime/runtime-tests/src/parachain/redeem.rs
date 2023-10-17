@@ -963,16 +963,14 @@ mod spec_based_tests {
                         // to-be-redeemed decreased, forwarding to liquidation vault
                         vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
                         liquidation_vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
+                        liquidation_vault.issued -= redeem.amount_btc() + redeem.transfer_fee_btc();
 
                         *fee_pool.rewards_for(&vault_id) += redeem.fee();
 
                         // the collateral that remained with the vault to back this redeem is now transferred to the
-                        // liquidation vault
+                        // user
                         let collateral_for_this_redeem = collateral_vault / 4;
                         vault.liquidated_collateral -= collateral_for_this_redeem;
-
-                        *vault.free_balance.get_mut(&vault_id.wrapped_currency()).unwrap() +=
-                            redeem.amount_btc() + redeem.transfer_fee_btc();
 
                         // user's tokens get unlocked
                         (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).locked -=
@@ -1780,10 +1778,12 @@ fn integration_test_redeem_wrapped_cancel_liquidated_reimburse() {
                 // to-be-redeemed decreased, forwarding to liquidation vault
                 vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
                 liquidation_vault.to_be_redeemed -= redeem.amount_btc() + redeem.transfer_fee_btc();
+                // decrease issued tokens on the liquidation vault by the same amount, s.t. the
+                // effective exchange rate (i.e. the one accounting for to_be_redeemed tokens)
+                // of the liquidation vault does not change.
+                liquidation_vault.issued -= redeem.amount_btc() + redeem.transfer_fee_btc();
 
                 // tokens are given to the vault, minus a fee that is given to the fee pool
-                *vault.free_balance.get_mut(&vault_id.wrapped_currency()).unwrap() +=
-                    redeem.amount_btc() + redeem.transfer_fee_btc();
                 *fee_pool.rewards_for(&vault_id) += redeem.fee();
 
                 // the collateral that remained with the vault to back this redeem is transferred to the user
