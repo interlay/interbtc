@@ -102,7 +102,7 @@ impl<T: Config> CurrencySource<T> {
 
 pub(crate) type BalanceOf<T> = <T as currency::Config>::Balance;
 
-pub(crate) type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
+pub type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
 
 pub type CurrencyId<T> = <T as orml_tokens::Config>::CurrencyId;
 

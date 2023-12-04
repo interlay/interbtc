@@ -111,6 +111,8 @@ pub mod pallet {
         TryIntoIntError,
         /// Value exceeds the expected upper bound for storage fields in this pallet.
         AboveMaxExpectedValue,
+        /// Subtraction of the premium redeem fee from a value failed.
+        PremiumRedeemSubtractionFailed,
     }
 
     #[pallet::hooks]
@@ -425,6 +427,19 @@ impl<T: Config> Pallet<T> {
     /// * `amount` - amount in collateral (at current exchange rate)
     pub fn get_premium_redeem_fee(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
         amount.checked_rounded_mul(&<PremiumRedeemFee<T>>::get(), Rounding::NearestPrefUp)
+    }
+
+    /// Apply a premium redeem discount to the given unsigned fixed-point value
+    ///
+    /// # Arguments
+    ///
+    /// * `amount` - amount in collateral (at current exchange rate)
+    pub fn apply_premium_redeem_discount(
+        amount: &UnsignedFixedPoint<T>,
+    ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
+        Ok(amount
+            .checked_sub(&<PremiumRedeemFee<T>>::get())
+            .ok_or(Error::<T>::PremiumRedeemSubtractionFailed)?)
     }
 
     /// Calculate punishment fee for a Vault that fails to execute a redeem

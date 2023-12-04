@@ -32,7 +32,7 @@ pub use crate::types::{DefaultRedeemRequest, RedeemRequest, RedeemRequestStatus}
 use crate::types::{BalanceOf, RedeemRequestExt, Version};
 use bitcoin::types::FullTransactionProof;
 use btc_relay::BtcAddress;
-use currency::Amount;
+use currency::{Amount, Rounding};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
@@ -456,6 +456,7 @@ mod self_redeem {
         Ok(())
     }
 }
+
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
@@ -507,35 +508,31 @@ impl<T: Config> Pallet<T> {
         let premium_collateral = if below_premium_redeem {
             // Calculate the secure vault capacity
             let secure_vault_capacity = ext::vault_registry::vault_capacity_at_secure_threshold(&vault_id)?;
-            let issued_tokens = ext::vault_registry::vault_to_be_backed_tokens(&vault_id)?;
+            let to_be_backed_tokens = ext::vault_registry::vault_to_be_backed_tokens(&vault_id)?;
             let difference_in_tokens_to_reach_secure_threshold =
-                issued_tokens.saturating_sub(&secure_vault_capacity)?;
+                to_be_backed_tokens.saturating_sub(&secure_vault_capacity)?;
 
-            // Calculate collateral after paying the premium redeem fee
-            let backing_collateral = ext::vault_registry::get_backing_collateral(&vault_id)?;
-            let premium_redeem_fee = ext::fee::get_premium_redeem_fee::<T>(
-                &difference_in_tokens_to_reach_secure_threshold.convert_to(currency_id)?,
-            )?;
+            if difference_in_tokens_to_reach_secure_threshold.gt(&user_to_be_received_btc)? {
+                let premium_tokens_in_collateral = user_to_be_received_btc.convert_to(currency_id)?;
 
-            let collateral_after_premium_redeem = backing_collateral.saturating_sub(&premium_redeem_fee)?;
+                ext::fee::get_premium_redeem_fee::<T>(&premium_tokens_in_collateral)?
+            } else {
+                // Formula = max_premium_collateral = (FEE * (oldTokens * EXCH * SECURE - oldCol)) / (SECURE - FEE)
 
-            // Calculate the issued tokens that can be backed after paying the premium redeem fee
-            let issue_backed_after_premium_redeem =
-                ext::vault_registry::vault_capacity_at_secure_threshold_based_on_collateral(
-                    &vault_id,
-                    collateral_after_premium_redeem.clone(),
-                )?;
+                let backing_collateral = ext::vault_registry::get_backing_collateral(&vault_id)?;
 
-            let tokens_remaining_after_premium_redeem =
-                issued_tokens.saturating_sub(&issue_backed_after_premium_redeem)?;
+                let secure_threshold = ext::vault_registry::get_secure_threshold::<T>(&vault_id)?;
 
-            // Calculate the actual premium tokens and convert to collateral
-            let actual_premium_tokens = tokens_remaining_after_premium_redeem.min(&user_to_be_received_btc)?;
-            let premium_tokens_in_collateral = actual_premium_tokens.convert_to(currency_id)?;
+                let issued_tokens_in_collateral = to_be_backed_tokens.convert_to(currency_id)?; // oldTokens * EXCH
 
-            // Calculate the premium redeem fee for the premium tokens in collateral
-            let premium_collateral = ext::fee::get_premium_redeem_fee::<T>(&premium_tokens_in_collateral)?;
-            premium_collateral
+                let token_exchange_value =
+                    issued_tokens_in_collateral.checked_rounded_mul(&secure_threshold, Rounding::NearestPrefUp)?; // oldTokens * EXCH * SECURE
+
+                ext::fee::get_premium_redeem_fee::<T>(
+                    &token_exchange_value.saturating_sub(&backing_collateral)?, // (oldCol - oldTokens * EXCH * SECURE)
+                )? // FEE * (oldTokens * EXCH * SECURE - oldCol))
+                .checked_div(&ext::fee::apply_premium_redeem_discount::<T>(&secure_threshold)?)? // (SECURE - FEE)
+            }
         } else {
             Amount::zero(currency_id)
         };

@@ -152,10 +152,10 @@ mod premium_redeem_tests {
             assert!(!VaultRegistryPallet::is_vault_below_premium_threshold(&vault_id).unwrap());
 
             let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
-            // we should get rewarded only for 150_000 + 3750 tokens (that's when we reach nearer to secure threshold)
+            // we should get rewarded only for 150_000 + 3840 tokens (that's when we reach nearer to secure threshold)
             let expected_premium = FeePallet::get_premium_redeem_fee(
                 &vault_id
-                    .wrapped(150_000 + 3750) // need to add 0.375 = 153.750
+                    .wrapped(150_000 + 3840) // need to add 0.384 = 153.84
                     .convert_to(vault_id.collateral_currency())
                     .unwrap(),
             )
@@ -166,7 +166,7 @@ mod premium_redeem_tests {
             execute_redeem(redeem_id);
 
             let compute_collateral = VaultRegistryPallet::compute_collateral(&vault_id).unwrap().amount();
-            assert_eq!(compute_collateral, 2000000 - 15375); //15.355 COL tokens lost as premium fees
+            assert_eq!(compute_collateral, 2000000 - 15384); //15.384 COL tokens lost as premium fees
 
             // Setup another redeem request
             let redeem_id = setup_redeem(vault_id.wrapped(2_000), USER, &vault_id);

@@ -42,7 +42,7 @@ pub(crate) mod vault_registry {
     use crate::DefaultVaultId;
     use currency::Amount;
     use frame_support::dispatch::{DispatchError, DispatchResult};
-    use vault_registry::types::{CurrencyId, CurrencySource, DefaultVault};
+    use vault_registry::types::{CurrencyId, CurrencySource, DefaultVault, UnsignedFixedPoint};
 
     pub fn get_backing_collateral<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
         <vault_registry::Pallet<T>>::get_backing_collateral(vault_id)
@@ -90,13 +90,6 @@ pub(crate) mod vault_registry {
         vault_id: &DefaultVaultId<T>,
     ) -> Result<Amount<T>, DispatchError> {
         <vault_registry::Pallet<T>>::vault_capacity_at_secure_threshold(vault_id)
-    }
-
-    pub fn vault_capacity_at_secure_threshold_based_on_collateral<T: crate::Config>(
-        vault_id: &DefaultVaultId<T>,
-        collateral: Amount<T>,
-    ) -> Result<Amount<T>, DispatchError> {
-        <vault_registry::Pallet<T>>::vault_capacity_at_secure_threshold_based_on_collateral(vault_id, collateral)
     }
 
     pub fn try_increase_to_be_redeemed_tokens<T: crate::Config>(
@@ -190,6 +183,12 @@ pub(crate) mod vault_registry {
     ) -> Result<(Amount<T>, Amount<T>), DispatchError> {
         <vault_registry::Pallet<T>>::decrease_to_be_replaced_tokens(vault_id, tokens)
     }
+
+    pub fn get_secure_threshold<T: crate::Config>(
+        vault_id: &DefaultVaultId<T>,
+    ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
+        <vault_registry::Pallet<T>>::get_secure_threshold(vault_id)
+    }
 }
 
 #[cfg_attr(test, mockable)]
@@ -230,6 +229,7 @@ pub(crate) mod oracle {
 #[cfg_attr(test, mockable)]
 pub(crate) mod fee {
     use currency::Amount;
+    use fee::types::UnsignedFixedPoint;
     use frame_support::dispatch::{DispatchError, DispatchResult};
 
     pub fn fee_pool_account_id<T: crate::Config>() -> T::AccountId {
@@ -250,5 +250,11 @@ pub(crate) mod fee {
 
     pub fn get_premium_redeem_fee<T: crate::Config>(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
         <fee::Pallet<T>>::get_premium_redeem_fee(amount)
+    }
+
+    pub fn apply_premium_redeem_discount<T: crate::Config>(
+        amount: &UnsignedFixedPoint<T>,
+    ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
+        <fee::Pallet<T>>::apply_premium_redeem_discount(amount)
     }
 }

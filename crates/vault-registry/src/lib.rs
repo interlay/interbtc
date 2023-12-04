@@ -1089,6 +1089,20 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Get the secure threshold for a specified vault.
+    /// # Arguments
+    /// * `vault_id` - the id of the vault from which to issue tokens
+    ///
+    /// # Returns
+    /// Returns the secure threshold of the specified vault or an error if the vault retrieval fails.
+    ///
+    /// # Errors
+    /// * `VaultNotFound` - if no vault exists for the given `vault_id`
+    pub fn get_secure_threshold(vault_id: &DefaultVaultId<T>) -> Result<UnsignedFixedPoint<T>, DispatchError> {
+        let vault = Self::get_rich_vault_from_id(&vault_id)?;
+        vault.get_secure_threshold()
+    }
+
     /// Adds an amount tokens to the to-be-redeemed tokens balance of a vault.
     /// This function serves as a prevention against race conditions in the
     /// redeem and replace procedures. If, for example, a vault would receive
@@ -1892,16 +1906,6 @@ impl<T: Config> Pallet<T> {
     pub fn vault_capacity_at_secure_threshold(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
         let threshold = Self::secure_collateral_threshold(&vault_id.currencies).ok_or(Error::<T>::ThresholdNotSet)?;
         let collateral = Self::get_backing_collateral(vault_id)?;
-        let wrapped_currency = vault_id.wrapped_currency();
-
-        Self::calculate_max_wrapped_from_collateral_for_threshold(&collateral, wrapped_currency, threshold)
-    }
-
-    pub fn vault_capacity_at_secure_threshold_based_on_collateral(
-        vault_id: &DefaultVaultId<T>,
-        collateral: Amount<T>,
-    ) -> Result<Amount<T>, DispatchError> {
-        let threshold = Self::secure_collateral_threshold(&vault_id.currencies).ok_or(Error::<T>::ThresholdNotSet)?;
         let wrapped_currency = vault_id.wrapped_currency();
 
         Self::calculate_max_wrapped_from_collateral_for_threshold(&collateral, wrapped_currency, threshold)
