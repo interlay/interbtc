@@ -785,7 +785,7 @@ impl<T: Config> Pallet<T> {
         // The goal of premium redeems is to get the vault back the a healthy collateralization ratio. As such,
         // we only award a premium for the amount of tokens required to get the vault back to secure threshold.
 
-        // The goal of premium redeems is to get the vault back the a healthy collateralization ratio. As such, 
+        // The goal of premium redeems is to get the vault back the a healthy collateralization ratio. As such,
         // we only award a premium for the amount of tokens required to get the vault back to secure threshold.
         // The CollateralizationRate is defined as `totalCollateral / convertToCollateral(totalTokens)`
         // When paying a premium, the collateralization rate gets updated according to the following formula:
@@ -807,7 +807,7 @@ impl<T: Config> Pallet<T> {
         let required_collateral = Self::required_collateral(&vault_id, &to_be_backed_tokens, global_secure_threshold)?;
 
         let current_collateral = Self::get_backing_collateral(&vault_id)?;
-        let missing_collateral = required_collateral.checked_sub(&current_collateral)?;
+        let missing_collateral = required_collateral.saturating_sub(&current_collateral)?;
 
         let factor = premium_redeem_rate
             .checked_div(
