@@ -785,16 +785,17 @@ impl<T: Config> Pallet<T> {
         // The goal of premium redeems is to get the vault back the a healthy collateralization ratio. As such,
         // we only award a premium for the amount of tokens required to get the vault back to secure threshold.
 
+        // The goal of premium redeems is to get the vault back the a healthy collateralization ratio. As such, 
+        // we only award a premium for the amount of tokens required to get the vault back to secure threshold.
         // The CollateralizationRate is defined as `totalCollateral / convertToCollateral(totalTokens)`
         // When paying a premium, the collateralization rate gets updated according to the following formula:
         //     `NewCollateralization = (oldCol - awardedPremium) / ( oldTokens*EXCH - awardedPremium/FEE)`
-
         // To calculate the maximum premium we are willing to pay, we set the newCollateralization to
-        // the global secure threshold, which gives:
+        // the secure threshold, which gives:
         //     `SECURE = (oldCol - awardedPremium) / (oldTokens*EXCH - awardedPremium/FEE)``
-        // We can rewrite this formula to calculate the `premium` amount that would get us to the secure
-        // threshold:     `maxPremium = (oldTokens * EXCH * SECURE - oldCol) * (FEE / (SECURE -
-        // FEE))` Which can be interpreted as:
+        // We can rewrite this formula to calculate the `premium` amount that would get us to the secure threshold:
+        //     `maxPremium = (oldTokens * EXCH * SECURE - oldCol) * (FEE / (SECURE - FEE))`
+        // Which can be interpreted as:
         //     `maxPremium = missingCollateral * (FEE / (SECURE - FEE))
 
         // Note that to prevent repeated premium redeems while waiting for execution, we use to_be_backed_tokens
