@@ -37,6 +37,8 @@ type LocationToAccountId = (
     SiblingParachainConvertsVia<Sibling, AccountId>,
     // Straight up local `AccountId32` origins just alias directly to `AccountId`.
     AccountId32Aliases<ParentNetwork, AccountId>,
+    // Generate remote accounts according to polkadot standards
+    primitives::xcm::HashedDescriptionDescribeFamilyAllTerminal<AccountId>,
 );
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
