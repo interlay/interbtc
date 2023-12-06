@@ -872,7 +872,7 @@ mod spec_based_tests {
                 );
                 check_redeem_status(USER, RedeemRequestStatus::Reimbursed(true));
                 assert_noop!(
-                    VaultRegistryPallet::_ensure_not_banned(&vault_id),
+                    VaultRegistryPallet::ensure_not_banned(&vault_id),
                     VaultRegistryError::VaultBanned
                 );
             });
@@ -1005,7 +1005,7 @@ mod spec_based_tests {
                     })
                 );
                 assert_noop!(
-                    VaultRegistryPallet::_ensure_not_banned(&vault_id),
+                    VaultRegistryPallet::ensure_not_banned(&vault_id),
                     VaultRegistryError::VaultBanned
                 );
             });
@@ -1347,7 +1347,7 @@ fn integration_test_execute_redeem_on_banned_vault_succeeds() {
 
         // should now be banned
         assert_noop!(
-            VaultRegistryPallet::_ensure_not_banned(&vault_id),
+            VaultRegistryPallet::ensure_not_banned(&vault_id),
             VaultRegistryError::VaultBanned
         );
 

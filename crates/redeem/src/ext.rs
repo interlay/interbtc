@@ -42,10 +42,12 @@ pub(crate) mod vault_registry {
     use crate::DefaultVaultId;
     use currency::Amount;
     use frame_support::dispatch::{DispatchError, DispatchResult};
-    use vault_registry::types::{CurrencyId, CurrencySource, DefaultVault, UnsignedFixedPoint};
+    use vault_registry::types::{CurrencyId, CurrencySource, DefaultVault};
 
-    pub fn get_backing_collateral<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
-        <vault_registry::Pallet<T>>::get_backing_collateral(vault_id)
+    pub fn get_vault_max_premium_redeem<T: crate::Config>(
+        vault_id: &DefaultVaultId<T>,
+    ) -> Result<Amount<T>, DispatchError> {
+        <vault_registry::Pallet<T>>::get_vault_max_premium_redeem(vault_id)
     }
 
     pub fn get_liquidated_collateral<T: crate::Config>(
@@ -78,18 +80,6 @@ pub(crate) mod vault_registry {
 
     pub fn get_vault_from_id<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> Result<DefaultVault<T>, DispatchError> {
         <vault_registry::Pallet<T>>::get_vault_from_id(vault_id)
-    }
-
-    pub fn vault_to_be_backed_tokens<T: crate::Config>(
-        vault_id: &DefaultVaultId<T>,
-    ) -> Result<Amount<T>, DispatchError> {
-        <vault_registry::Pallet<T>>::vault_to_be_backed_tokens(vault_id)
-    }
-
-    pub fn vault_capacity_at_secure_threshold<T: crate::Config>(
-        vault_id: &DefaultVaultId<T>,
-    ) -> Result<Amount<T>, DispatchError> {
-        <vault_registry::Pallet<T>>::vault_capacity_at_secure_threshold(vault_id)
     }
 
     pub fn try_increase_to_be_redeemed_tokens<T: crate::Config>(
@@ -136,7 +126,7 @@ pub(crate) mod vault_registry {
     }
 
     pub fn ensure_not_banned<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> DispatchResult {
-        <vault_registry::Pallet<T>>::_ensure_not_banned(vault_id)
+        <vault_registry::Pallet<T>>::ensure_not_banned(vault_id)
     }
 
     pub fn is_vault_below_premium_threshold<T: crate::Config>(
@@ -182,12 +172,6 @@ pub(crate) mod vault_registry {
         tokens: &Amount<T>,
     ) -> Result<(Amount<T>, Amount<T>), DispatchError> {
         <vault_registry::Pallet<T>>::decrease_to_be_replaced_tokens(vault_id, tokens)
-    }
-
-    pub fn get_secure_threshold<T: crate::Config>(
-        vault_id: &DefaultVaultId<T>,
-    ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
-        <vault_registry::Pallet<T>>::get_secure_threshold(vault_id)
     }
 }
 
@@ -248,13 +232,7 @@ pub(crate) mod fee {
         <fee::Pallet<T>>::get_punishment_fee(amount)
     }
 
-    pub fn get_premium_redeem_fee<T: crate::Config>(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
-        <fee::Pallet<T>>::get_premium_redeem_fee(amount)
-    }
-
-    pub fn apply_premium_redeem_discount<T: crate::Config>(
-        amount: &UnsignedFixedPoint<T>,
-    ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
-        <fee::Pallet<T>>::apply_premium_redeem_discount(amount)
+    pub fn premium_redeem_reward_rate<T: crate::Config>() -> UnsignedFixedPoint<T> {
+        <fee::Pallet<T>>::premium_redeem_reward_rate()
     }
 }

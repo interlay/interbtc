@@ -774,6 +774,52 @@ impl<T: Config> Pallet<T> {
         ext::staking::total_current_stake::<T>(vault_id)
     }
 
+    /// Calculate the maximum premium that can be given by a vault.
+    ///
+    /// # Arguments
+    /// * `vault_id` - The identifier of the vault for which the maximum premium is being calculated.
+    ///
+    /// # Returns
+    /// Returns a `Result` containing the calculated maximum premium as an `Amount<T>`.
+    pub fn get_vault_max_premium_redeem(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
+        // The goal of premium redeems is to get the vault back the a healthy collateralization ratio. As such,
+        // we only award a premium for the amount of tokens required to get the vault back to secure threshold.
+
+        // The CollateralizationRate is defined as `totalCollateral / convertToCollateral(totalTokens)`
+        // When paying a premium, the collateralization rate gets updated according to the following formula:
+        //     `NewCollateralization = (oldCol - awardedPremium) / ( oldTokens*EXCH - awardedPremium/FEE)`
+
+        // To calculate the maximum premium we are willing to pay, we set the newCollateralization to
+        // the global secure threshold, which gives:
+        //     `SECURE = (oldCol - awardedPremium) / (oldTokens*EXCH - awardedPremium/FEE)``
+        // We can rewrite this formula to calculate the `premium` amount that would get us to the secure
+        // threshold:     `maxPremium = (oldTokens * EXCH * SECURE - oldCol) * (FEE / (SECURE -
+        // FEE))` Which can be interpreted as:
+        //     `maxPremium = missingCollateral * (FEE / (SECURE - FEE))
+
+        // Note that to prevent repeated premium redeems while waiting for execution, we use to_be_backed_tokens
+        // for `oldCol`, which takes into account pending issues and redeems
+        let to_be_backed_tokens = Self::vault_to_be_backed_tokens(&vault_id)?;
+        let global_secure_threshold = Self::get_global_secure_threshold(&vault_id.currencies)?;
+        let premium_redeem_rate = ext::fee::premium_redeem_reward_rate::<T>();
+
+        let required_collateral = Self::required_collateral(&vault_id, &to_be_backed_tokens, global_secure_threshold)?;
+
+        let current_collateral = Self::get_backing_collateral(&vault_id)?;
+        let missing_collateral = required_collateral.checked_sub(&current_collateral)?;
+
+        let factor = premium_redeem_rate
+            .checked_div(
+                &global_secure_threshold
+                    .checked_sub(&premium_redeem_rate)
+                    .ok_or(ArithmeticError::Underflow)?,
+            )
+            .ok_or(ArithmeticError::DivisionByZero)?;
+
+        let max_premium = missing_collateral.checked_mul(&factor)?;
+        Ok(max_premium)
+    }
+
     pub fn get_liquidated_collateral(vault_id: &DefaultVaultId<T>) -> Result<Amount<T>, DispatchError> {
         let vault = Self::get_vault_from_id(vault_id)?;
         Ok(Amount::new(vault.liquidated_collateral, vault_id.currencies.collateral))
@@ -1089,18 +1135,40 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Get the secure threshold for a specified vault.
+    /// Get the global secure threshold for a specified currency pair.
+    ///
     /// # Arguments
-    /// * `vault_id` - the id of the vault from which to issue tokens
+    /// * `currency_pair` - The currency pair for which to retrieve the global secure threshold.
     ///
     /// # Returns
-    /// Returns the secure threshold of the specified vault or an error if the vault retrieval fails.
+    /// Returns the global secure threshold for the specified currency pair or an error if the threshold is not set.
     ///
     /// # Errors
-    /// * `VaultNotFound` - if no vault exists for the given `vault_id`
-    pub fn get_secure_threshold(vault_id: &DefaultVaultId<T>) -> Result<UnsignedFixedPoint<T>, DispatchError> {
-        let vault = Self::get_rich_vault_from_id(&vault_id)?;
-        vault.get_secure_threshold()
+    /// * `ThresholdNotSet` - If the secure collateral threshold for the given `currency_pair` is not set.
+    pub fn get_global_secure_threshold(
+        currency_pair: &VaultCurrencyPair<CurrencyId<T>>,
+    ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
+        let global_secure_threshold =
+            Self::secure_collateral_threshold(&currency_pair).ok_or(Error::<T>::ThresholdNotSet)?;
+        Ok(global_secure_threshold)
+    }
+
+    /// Calculate the required collateral for a vault given the specified parameters.
+    ///
+    /// # Arguments
+    /// * `vault_id` - The identifier of the vault for which to calculate the required collateral.
+    /// * `to_be_backed_tokens` - The amount of tokens to be backed by collateral.
+    /// * `secure_threshold` - The secure collateral threshold to be applied in the calculation.
+    ///
+    /// # Returns
+    /// Returns the required collateral amount or an error if the calculation fails.
+    pub fn required_collateral(
+        vault_id: &DefaultVaultId<T>,
+        to_be_backed_tokens: &Amount<T>,
+        secure_threshold: UnsignedFixedPoint<T>,
+    ) -> Result<Amount<T>, DispatchError> {
+        let issued_tokens_in_collateral = to_be_backed_tokens.convert_to(vault_id.collateral_currency())?; // oldTokens * EXCH
+        issued_tokens_in_collateral.checked_rounded_mul(&secure_threshold, Rounding::NearestPrefUp)
     }
 
     /// Adds an amount tokens to the to-be-redeemed tokens balance of a vault.
@@ -1496,7 +1564,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn _ensure_not_banned(vault_id: &DefaultVaultId<T>) -> DispatchResult {
+    pub fn ensure_not_banned(vault_id: &DefaultVaultId<T>) -> DispatchResult {
         let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         vault.ensure_not_banned()
     }
@@ -1614,13 +1682,16 @@ impl<T: Config> Pallet<T> {
     /// The redeemable tokens are the currently vault.issued_tokens - the vault.to_be_redeemed_tokens
     pub fn get_premium_redeem_vaults() -> Result<Vec<(DefaultVaultId<T>, Amount<T>)>, DispatchError> {
         let mut suitable_vaults = Vaults::<T>::iter()
-            .filter_map(|(vault_id, vault)| {
-                let rich_vault: RichVault<T> = vault.into();
+            .filter_map(|(vault_id, _vault)| {
+                let max_premium_in_collateral = Self::get_vault_max_premium_redeem(&vault_id).ok()?;
+                let premium_redeemable_tokens =
+                    max_premium_in_collateral.convert_to(vault_id.wrapped_currency()).ok()?;
 
-                let redeemable_tokens = rich_vault.redeemable_tokens().ok()?;
-
-                if !redeemable_tokens.is_zero() && Self::is_vault_below_premium_threshold(&vault_id).unwrap_or(false) {
-                    Some((vault_id, redeemable_tokens))
+                if Self::ensure_not_banned(&vault_id).is_ok()
+                    && !premium_redeemable_tokens.is_zero()
+                    && Self::is_vault_below_premium_threshold(&vault_id).unwrap_or(false)
+                {
+                    Some((vault_id, premium_redeemable_tokens))
                 } else {
                     None
                 }

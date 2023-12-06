@@ -506,33 +506,13 @@ impl<T: Config> Pallet<T> {
         let currency_id = vault_id.collateral_currency();
 
         let premium_collateral = if below_premium_redeem {
-            // Calculate the secure vault capacity
-            let secure_vault_capacity = ext::vault_registry::vault_capacity_at_secure_threshold(&vault_id)?;
-            let to_be_backed_tokens = ext::vault_registry::vault_to_be_backed_tokens(&vault_id)?;
-            let difference_in_tokens_to_reach_secure_threshold =
-                to_be_backed_tokens.saturating_sub(&secure_vault_capacity)?;
+            let redeem_amount_wrapped_in_collateral = user_to_be_received_btc.convert_to(currency_id)?;
+            let premium_redeem_rate = ext::fee::premium_redeem_reward_rate::<T>();
+            let premium_for_redeem_amount = redeem_amount_wrapped_in_collateral
+                .checked_rounded_mul(&premium_redeem_rate, Rounding::NearestPrefUp)?;
 
-            if difference_in_tokens_to_reach_secure_threshold.gt(&user_to_be_received_btc)? {
-                let premium_tokens_in_collateral = user_to_be_received_btc.convert_to(currency_id)?;
-
-                ext::fee::get_premium_redeem_fee::<T>(&premium_tokens_in_collateral)?
-            } else {
-                // Formula = max_premium_collateral = (FEE * (oldTokens * EXCH * SECURE - oldCol)) / (SECURE - FEE)
-
-                let backing_collateral = ext::vault_registry::get_backing_collateral(&vault_id)?;
-
-                let secure_threshold = ext::vault_registry::get_secure_threshold::<T>(&vault_id)?;
-
-                let issued_tokens_in_collateral = to_be_backed_tokens.convert_to(currency_id)?; // oldTokens * EXCH
-
-                let token_exchange_value =
-                    issued_tokens_in_collateral.checked_rounded_mul(&secure_threshold, Rounding::NearestPrefUp)?; // oldTokens * EXCH * SECURE
-
-                ext::fee::get_premium_redeem_fee::<T>(
-                    &token_exchange_value.saturating_sub(&backing_collateral)?, // (oldCol - oldTokens * EXCH * SECURE)
-                )? // FEE * (oldTokens * EXCH * SECURE - oldCol))
-                .checked_div(&ext::fee::apply_premium_redeem_discount::<T>(&secure_threshold)?)? // (SECURE - FEE)
-            }
+            let max_premium = ext::vault_registry::get_vault_max_premium_redeem(&vault_id)?;
+            max_premium.min(&premium_for_redeem_amount)?
         } else {
             Amount::zero(currency_id)
         };
