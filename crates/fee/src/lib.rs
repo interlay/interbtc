@@ -435,6 +435,13 @@ impl<T: Config> Pallet<T> {
         <PremiumRedeemFee<T>>::get()
     }
 
+    /// Get the fee share that users need to pay to redeem tokens.
+    ///
+    /// # Returns
+    /// Returns the redeem fee.
+    pub fn get_redeem_fee_value() -> UnsignedFixedPoint<T> {
+        <RedeemFee<T>>::get()
+    }
     /// Calculate punishment fee for a Vault that fails to execute a redeem
     /// request before the expiry.
     ///

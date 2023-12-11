@@ -18,10 +18,10 @@ use vault_registry::{
 // Pallets
 use crate::Pallet as Redeem;
 use btc_relay::Pallet as BtcRelay;
-use oracle::Pallet as Oracle;
+use oracle::{OracleKey, Pallet as Oracle};
 use security::Pallet as Security;
+use sp_runtime::FixedPointNumber;
 use vault_registry::Pallet as VaultRegistry;
-
 type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
 
 fn collateral<T: crate::Config>(amount: u32) -> Amount<T> {

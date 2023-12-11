@@ -111,6 +111,16 @@ pub(crate) mod capacity {
 }
 
 #[cfg_attr(test, mockable)]
+pub(crate) mod oracle {
+    use frame_support::dispatch::DispatchError;
+    use oracle::{types::UnsignedFixedPoint, OracleKey};
+
+    pub fn get_price<T: crate::Config>(key: OracleKey) -> Result<UnsignedFixedPoint<T>, DispatchError> {
+        <oracle::Pallet<T>>::get_price(key)
+    }
+}
+
+#[cfg_attr(test, mockable)]
 pub(crate) mod fee {
     use crate::DefaultVaultId;
     use fee::types::UnsignedFixedPoint;
@@ -122,5 +132,9 @@ pub(crate) mod fee {
 
     pub fn premium_redeem_reward_rate<T: crate::Config>() -> UnsignedFixedPoint<T> {
         <fee::Pallet<T>>::premium_redeem_reward_rate()
+    }
+
+    pub fn get_redeem_fee_value<T: crate::Config>() -> UnsignedFixedPoint<T> {
+        <fee::Pallet<T>>::get_redeem_fee_value()
     }
 }

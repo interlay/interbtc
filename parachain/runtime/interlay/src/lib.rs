@@ -1812,11 +1812,6 @@ impl_runtime_apis! {
             Ok(BalanceWrapper{amount:result.amount()})
         }
 
-        fn get_premium_redeem_vaults() -> Result<Vec<(VaultId, BalanceWrapper<Balance>)>, DispatchError> {
-            let result = VaultRegistry::get_premium_redeem_vaults()?;
-            Ok(result.iter().map(|v| (v.0.clone(), BalanceWrapper{amount:v.1.amount()})).collect())
-        }
-
         fn get_vaults_with_issuable_tokens() -> Result<Vec<(VaultId, BalanceWrapper<Balance>)>, DispatchError> {
             let result = VaultRegistry::get_vaults_with_issuable_tokens()?;
             Ok(result.into_iter().map(|v| (v.0, BalanceWrapper{amount:v.1.amount()})).collect())
@@ -1943,6 +1938,8 @@ impl_runtime_apis! {
 
     impl redeem_rpc_runtime_api::RedeemApi<
         Block,
+        VaultId,
+        Balance,
         AccountId,
         H256,
         RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>
@@ -1953,6 +1950,11 @@ impl_runtime_apis! {
 
         fn get_vault_redeem_requests(account_id: AccountId) -> Vec<H256> {
             Redeem::get_redeem_requests_for_vault(account_id)
+        }
+
+        fn get_premium_redeem_vaults() -> Result<Vec<(VaultId, BalanceWrapper<Balance>)>, DispatchError> {
+            let result = Redeem::get_premium_redeem_vaults()?;
+            Ok(result.iter().map(|v| (v.0.clone(), BalanceWrapper{amount:v.1.amount()})).collect())
         }
     }
 

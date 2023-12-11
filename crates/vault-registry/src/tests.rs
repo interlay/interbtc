@@ -1015,13 +1015,15 @@ mod get_vaults_below_premium_collaterlization_tests {
     #[test]
     fn get_vaults_below_premium_collateralization_fails() {
         run_test(|| {
+            ext::oracle::get_price::<Test>.mock_safe(move |_| MockResult::Return(Ok(1.into())));
+
             // set back to default threshold
             set_default_thresholds();
 
             add_vault(vault_id(4), 50, 100);
 
             assert_err!(
-                VaultRegistry::get_premium_redeem_vaults(),
+                VaultRegistry::get_premium_redeem_vaults(400_u32),
                 TestError::NoVaultUnderThePremiumRedeemThreshold
             );
         })
@@ -1030,6 +1032,8 @@ mod get_vaults_below_premium_collaterlization_tests {
     #[test]
     fn get_vaults_below_premium_collateralization_succeeds() {
         run_test(|| {
+            ext::oracle::get_price::<Test>.mock_safe(move |_| MockResult::Return(Ok(1.into())));
+
             let id1 = vault_id(3);
             let issue_tokens1: u128 = 50;
             let collateral1 = 49;
@@ -1045,8 +1049,8 @@ mod get_vaults_below_premium_collaterlization_tests {
             set_default_thresholds();
 
             assert_eq!(
-                VaultRegistry::get_premium_redeem_vaults(),
-                Ok(vec![(id2, wrapped(52)), (id1, wrapped(51))])
+                VaultRegistry::get_premium_redeem_vaults(400_u32),
+                Ok(vec![(id2, wrapped(452)), (id1, wrapped(451))])
             );
         })
     }
@@ -1054,6 +1058,8 @@ mod get_vaults_below_premium_collaterlization_tests {
     #[test]
     fn get_vaults_below_premium_collateralization_filters_banned_and_sufficiently_collateralized_vaults() {
         run_test(|| {
+            ext::oracle::get_price::<Test>.mock_safe(move |_| MockResult::Return(Ok(1.into())));
+
             // returned
             let id1 = vault_id(3);
             let issue_tokens1: u128 = 50;
@@ -1071,13 +1077,16 @@ mod get_vaults_below_premium_collaterlization_tests {
             // set back to default threshold so that vaults fall under premium redeem
             set_default_thresholds();
 
-            // not returned
+            // not returned, since default threshold applied so vault is now not under premium threshold
             let id3 = vault_id(4);
             let issue_tokens2: u128 = 50;
             let collateral2 = 150;
             add_vault(id3.clone(), issue_tokens2, collateral2);
 
-            assert_eq!(VaultRegistry::get_premium_redeem_vaults(), Ok(vec!((id1, wrapped(50)))));
+            assert_eq!(
+                VaultRegistry::get_premium_redeem_vaults(400_u32),
+                Ok(vec!((id1, wrapped(450))))
+            );
         })
     }
 }

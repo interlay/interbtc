@@ -87,6 +87,8 @@ where
         issue_rpc::IssueRuntimeApi<Block, AccountId, H256, IssueRequest<AccountId, BlockNumber, Balance, CurrencyId>>,
     C::Api: redeem_rpc::RedeemRuntimeApi<
         Block,
+        VaultId<AccountId, CurrencyId>,
+        Balance,
         AccountId,
         H256,
         RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>,

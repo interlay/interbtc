@@ -42,7 +42,21 @@ pub(crate) mod vault_registry {
     use crate::DefaultVaultId;
     use currency::Amount;
     use frame_support::dispatch::{DispatchError, DispatchResult};
+    use sp_std::vec::Vec;
     use vault_registry::types::{CurrencyId, CurrencySource, DefaultVault};
+
+    pub fn calculate_inclusion_fee<T: crate::Config>(
+        wrapped_currency: CurrencyId<T>,
+        redeem_transaction_size: u32,
+    ) -> Result<Amount<T>, DispatchError> {
+        <vault_registry::Pallet<T>>::calculate_inclusion_fee(wrapped_currency, redeem_transaction_size)
+    }
+
+    pub fn get_premium_redeem_vaults<T: crate::Config>(
+        redeem_transaction_size: u32,
+    ) -> Result<Vec<(DefaultVaultId<T>, Amount<T>)>, DispatchError> {
+        <vault_registry::Pallet<T>>::get_premium_redeem_vaults(redeem_transaction_size)
+    }
 
     pub fn get_vault_max_premium_redeem<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
@@ -196,17 +210,6 @@ pub(crate) mod security {
 
     pub fn active_block_number<T: crate::Config>() -> BlockNumberFor<T> {
         <security::Pallet<T>>::active_block_number()
-    }
-}
-
-#[cfg_attr(test, mockable)]
-pub(crate) mod oracle {
-    use crate::OracleKey;
-    use frame_support::dispatch::DispatchError;
-    use oracle::types::UnsignedFixedPoint;
-
-    pub fn get_price<T: crate::Config>(key: OracleKey) -> Result<UnsignedFixedPoint<T>, DispatchError> {
-        <oracle::Pallet<T>>::get_price(key)
     }
 }
 
