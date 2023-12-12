@@ -23,6 +23,7 @@ use crate::*;
 impl<T: Config> Pallet<T> {
     /// Accrue interest and update corresponding storage
     #[cfg_attr(any(test, feature = "integration-tests"), visibility::make(pub))]
+    #[cfg_attr(test, mutate)]
     pub(crate) fn accrue_interest(asset_id: CurrencyId<T>) -> DispatchResult {
         let now = T::UnixTime::now().as_secs();
         let last_accrued_interest_time = Self::last_accrued_interest_time(asset_id);
@@ -64,6 +65,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    #[cfg_attr(test, mutate)]
     pub fn get_market_status(
         asset_id: CurrencyId<T>,
     ) -> Result<(Rate, Rate, Rate, Ratio, BalanceOf<T>, BalanceOf<T>, FixedU128), DispatchError> {
@@ -124,6 +126,7 @@ impl<T: Config> Pallet<T> {
     /// Update the exchange rate according to the totalCash, totalBorrows and totalSupply.
     /// This function does not accrue interest before calculating the exchange rate.
     /// exchangeRate = (totalCash + totalBorrows - totalReserves) / totalSupply
+    #[cfg_attr(test, mutate)]
     pub fn exchange_rate_stored(asset_id: CurrencyId<T>) -> Result<Rate, DispatchError> {
         let total_supply = Self::total_supply(asset_id)?;
         let total_cash = Self::get_total_cash(asset_id);
@@ -136,6 +139,7 @@ impl<T: Config> Pallet<T> {
     /// Calculate the borrowing utilization ratio of the specified market
     ///
     /// utilizationRatio = totalBorrows / (totalCash + totalBorrows − totalReserves)
+    #[cfg_attr(test, mutate)]
     pub(crate) fn calc_utilization_ratio(
         cash: &Amount<T>,
         borrows: &Amount<T>,
@@ -155,6 +159,7 @@ impl<T: Config> Pallet<T> {
     /// This ensures the exchange rate cannot be attacked by a deposit so big that
     /// subsequent deposits to receive zero lendTokens (because of rounding down). See this
     /// PR for more details: https://github.com/parallel-finance/parallel/pull/1552/files
+    #[cfg_attr(test, mutate)]
     pub(crate) fn ensure_valid_exchange_rate(exchange_rate: Rate) -> DispatchResult {
         ensure!(
             exchange_rate >= Self::min_exchange_rate() && exchange_rate < Self::max_exchange_rate(),
@@ -164,6 +169,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    #[cfg_attr(test, mutate)]
     pub(crate) fn update_last_accrued_interest_time(asset_id: CurrencyId<T>, time: Timestamp) -> DispatchResult {
         LastAccruedInterestTime::<T>::try_mutate(asset_id, |last_time| -> DispatchResult {
             *last_time = time;
@@ -171,6 +177,7 @@ impl<T: Config> Pallet<T> {
         })
     }
 
+    #[cfg_attr(test, mutate)]
     pub(crate) fn accrue_index(borrow_rate: Rate, index: Rate, delta_time: Timestamp) -> Result<Rate, DispatchError> {
         // Compound interest:
         // new_index = old_index * (1 + annual_borrow_rate / SECONDS_PER_YEAR) ^ delta_time
@@ -184,6 +191,7 @@ impl<T: Config> Pallet<T> {
         Ok(index.checked_mul(&compounded_rate).ok_or(ArithmeticError::Overflow)?)
     }
 
+    #[cfg_attr(test, mutate)]
     fn calculate_exchange_rate(
         total_supply: &Amount<T>,
         total_cash: &Amount<T>,

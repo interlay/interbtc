@@ -62,6 +62,9 @@ pub use default_weights::WeightInfo;
 pub use orml_traits::currency::{OnDeposit, OnSlash, OnTransfer};
 pub use types::{BorrowSnapshot, EarnedSnapshot, Market, MarketState, RewardMarketState};
 
+#[cfg(test)]
+use mutagen::mutate;
+
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
@@ -124,6 +127,7 @@ pub struct OnSlashHook<T>(marker::PhantomData<T>);
 impl<T: Config> OnSlash<T::AccountId, CurrencyId<T>, BalanceOf<T>> for OnSlashHook<T> {
     /// Whenever a lend_token balance is mutated, the supplier incentive rewards accumulated up to that point
     /// have to be distributed.
+    #[cfg_attr(test, mutate)]
     fn on_slash(currency_id: CurrencyId<T>, account_id: &T::AccountId, amount: BalanceOf<T>) {
         if currency_id.is_lend_token() {
             // Note that wherever `on_slash` is called in the lending pallet, and the `account_id` has non-zero
@@ -153,6 +157,7 @@ pub struct PreDeposit<T>(marker::PhantomData<T>);
 impl<T: Config> OnDeposit<T::AccountId, CurrencyId<T>, BalanceOf<T>> for PreDeposit<T> {
     /// Whenever a lend_token balance is mutated, the supplier incentive rewards accumulated up to that point
     /// have to be distributed.
+    #[cfg_attr(test, mutate)]
     fn on_deposit(currency_id: CurrencyId<T>, account_id: &T::AccountId, _amount: BalanceOf<T>) -> DispatchResult {
         if currency_id.is_lend_token() {
             let underlying_id = Pallet::<T>::underlying_id(currency_id)?;
@@ -165,6 +170,7 @@ impl<T: Config> OnDeposit<T::AccountId, CurrencyId<T>, BalanceOf<T>> for PreDepo
 
 pub struct PostDeposit<T>(marker::PhantomData<T>);
 impl<T: Config> OnDeposit<T::AccountId, CurrencyId<T>, BalanceOf<T>> for PostDeposit<T> {
+    #[cfg_attr(test, mutate)]
     fn on_deposit(currency_id: CurrencyId<T>, account_id: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
         if currency_id.is_lend_token() {
             Pallet::<T>::lock_if_account_deposited(account_id, &Amount::new(amount, currency_id))?;
@@ -177,6 +183,7 @@ pub struct PreTransfer<T>(marker::PhantomData<T>);
 impl<T: Config> OnTransfer<T::AccountId, CurrencyId<T>, BalanceOf<T>> for PreTransfer<T> {
     /// Whenever a lend_token balance is mutated, the supplier incentive rewards accumulated up to that point
     /// have to be distributed.
+    #[cfg_attr(test, mutate)]
     fn on_transfer(
         currency_id: CurrencyId<T>,
         from: &T::AccountId,
@@ -198,6 +205,7 @@ impl<T: Config> OnTransfer<T::AccountId, CurrencyId<T>, BalanceOf<T>> for PostTr
     /// If an account has locked their lend_token balance as collateral, any incoming lend_tokens
     /// have to be automatically locked as well, in order to enforce a "collateral toggle" that
     /// offers the same UX as Compound V2's lending protocol implementation.
+    #[cfg_attr(test, mutate)]
     fn on_transfer(
         currency_id: CurrencyId<T>,
         _from: &T::AccountId,
@@ -610,6 +618,7 @@ pub mod pallet {
         #[pallet::call_index(0)]
         #[pallet::weight(<T as Config>::WeightInfo::add_market())]
         #[transactional]
+        #[cfg_attr(test, mutate)]
         pub fn add_market(
             origin: OriginFor<T>,
             asset_id: CurrencyId<T>,
@@ -679,6 +688,7 @@ pub mod pallet {
         #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::activate_market())]
         #[transactional]
+        #[cfg_attr(test, mutate)]
         pub fn activate_market(origin: OriginFor<T>, asset_id: CurrencyId<T>) -> DispatchResultWithPostInfo {
             T::UpdateOrigin::ensure_origin(origin)?;
             Self::mutate_market(asset_id, |stored_market| {
@@ -703,6 +713,7 @@ pub mod pallet {
         #[pallet::call_index(2)]
         #[pallet::weight(<T as Config>::WeightInfo::update_rate_model())]
         #[transactional]
+        #[cfg_attr(test, mutate)]
         pub fn update_rate_model(
             origin: OriginFor<T>,
             asset_id: CurrencyId<T>,
@@ -736,6 +747,7 @@ pub mod pallet {
         #[pallet::call_index(3)]
         #[pallet::weight(<T as Config>::WeightInfo::update_market())]
         #[transactional]
+        #[cfg_attr(test, mutate)]
         pub fn update_market(
             origin: OriginFor<T>,
             asset_id: CurrencyId<T>,
@@ -812,6 +824,7 @@ pub mod pallet {
         #[pallet::call_index(4)]
         #[pallet::weight(<T as Config>::WeightInfo::force_update_market())]
         #[transactional]
+        #[cfg_attr(test, mutate)]
         pub fn force_update_market(
             origin: OriginFor<T>,
             asset_id: CurrencyId<T>,
@@ -844,6 +857,7 @@ pub mod pallet {
         #[pallet::call_index(5)]
         #[pallet::weight(<T as Config>::WeightInfo::add_reward())]
         #[transactional]
+        #[cfg_attr(test, mutate)]
         pub fn add_reward(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
             ensure!(!amount.is_zero(), Error::<T>::InvalidAmount);
@@ -869,6 +883,7 @@ pub mod pallet {
         #[pallet::call_index(6)]
         #[pallet::weight(<T as Config>::WeightInfo::update_market_reward_speed())]
         #[transactional]
+        #[cfg_attr(test, mutate)]
         pub fn update_market_reward_speed(
             origin: OriginFor<T>,
             asset_id: CurrencyId<T>,
@@ -912,6 +927,7 @@ pub mod pallet {
         #[pallet::call_index(7)]
         #[pallet::weight(<T as Config>::WeightInfo::claim_reward())]
         #[transactional]
+        #[cfg_attr(test, mutate)]
         pub fn claim_reward(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
@@ -930,6 +946,7 @@ pub mod pallet {
         #[pallet::call_index(8)]
         #[pallet::weight(<T as Config>::WeightInfo::claim_reward_for_market())]
         #[transactional]
+        #[cfg_attr(test, mutate)]
         pub fn claim_reward_for_market(origin: OriginFor<T>, asset_id: CurrencyId<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
@@ -948,6 +965,7 @@ pub mod pallet {
         #[pallet::call_index(9)]
         #[pallet::weight(<T as Config>::WeightInfo::mint())]
         #[transactional]
+        #[cfg_attr(test, mutate)]
         pub fn mint(
             origin: OriginFor<T>,
             asset_id: CurrencyId<T>,
@@ -968,6 +986,7 @@ pub mod pallet {
         #[pallet::call_index(10)]
         #[pallet::weight(<T as Config>::WeightInfo::redeem())]
         #[transactional]
+        #[cfg_attr(test, mutate)]
         pub fn redeem(
             origin: OriginFor<T>,
             asset_id: CurrencyId<T>,
@@ -992,6 +1011,7 @@ pub mod pallet {
         #[pallet::call_index(11)]
         #[pallet::weight(<T as Config>::WeightInfo::redeem_all())]
         #[transactional]
+        #[cfg_attr(test, mutate)]
         pub fn redeem_all(origin: OriginFor<T>, asset_id: CurrencyId<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin.clone())?;
 
@@ -1013,6 +1033,7 @@ pub mod pallet {
         #[pallet::call_index(12)]
         #[pallet::weight(<T as Config>::WeightInfo::borrow())]
         #[transactional]
+        #[cfg_attr(test, mutate)]
         pub fn borrow(
             origin: OriginFor<T>,
             asset_id: CurrencyId<T>,
@@ -1033,6 +1054,7 @@ pub mod pallet {
         #[pallet::call_index(13)]
         #[pallet::weight(<T as Config>::WeightInfo::repay_borrow())]
         #[transactional]
+        #[cfg_attr(test, mutate)]
         pub fn repay_borrow(
             origin: OriginFor<T>,
             asset_id: CurrencyId<T>,
@@ -1052,6 +1074,7 @@ pub mod pallet {
         #[pallet::call_index(14)]
         #[pallet::weight(<T as Config>::WeightInfo::repay_borrow_all())]
         #[transactional]
+        #[cfg_attr(test, mutate)]
         pub fn repay_borrow_all(origin: OriginFor<T>, asset_id: CurrencyId<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
             Self::ensure_active_market(asset_id)?;
@@ -1077,6 +1100,7 @@ pub mod pallet {
         #[pallet::call_index(15)]
         #[pallet::weight(<T as Config>::WeightInfo::deposit_all_collateral())]
         #[transactional]
+        #[cfg_attr(test, mutate)]
         pub fn deposit_all_collateral(origin: OriginFor<T>, asset_id: CurrencyId<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
             let free_lend_tokens = Self::free_lend_tokens(asset_id, &who)?;
@@ -1099,6 +1123,7 @@ pub mod pallet {
         #[pallet::call_index(16)]
         #[pallet::weight(<T as Config>::WeightInfo::withdraw_all_collateral())]
         #[transactional]
+        #[cfg_attr(test, mutate)]
         pub fn withdraw_all_collateral(origin: OriginFor<T>, asset_id: CurrencyId<T>) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
@@ -1125,6 +1150,7 @@ pub mod pallet {
         #[pallet::call_index(17)]
         #[pallet::weight(<T as Config>::WeightInfo::liquidate_borrow())]
         #[transactional]
+        #[cfg_attr(test, mutate)]
         pub fn liquidate_borrow(
             origin: OriginFor<T>,
             borrower: T::AccountId,
@@ -1154,6 +1180,7 @@ pub mod pallet {
         #[pallet::call_index(18)]
         #[pallet::weight(<T as Config>::WeightInfo::add_reserves())]
         #[transactional]
+        #[cfg_attr(test, mutate)]
         pub fn add_reserves(
             origin: OriginFor<T>,
             payer: <T::Lookup as StaticLookup>::Source,
@@ -1192,6 +1219,7 @@ pub mod pallet {
         #[pallet::call_index(19)]
         #[pallet::weight(<T as Config>::WeightInfo::reduce_reserves())]
         #[transactional]
+        #[cfg_attr(test, mutate)]
         pub fn reduce_reserves(
             origin: OriginFor<T>,
             receiver: <T::Lookup as StaticLookup>::Source,
@@ -1232,6 +1260,7 @@ pub mod pallet {
         #[pallet::call_index(20)]
         #[pallet::weight(<T as Config>::WeightInfo::reduce_incentive_reserves())]
         #[transactional]
+        #[cfg_attr(test, mutate)]
         pub fn reduce_incentive_reserves(
             origin: OriginFor<T>,
             receiver: <T::Lookup as StaticLookup>::Source,
@@ -1281,6 +1310,7 @@ impl<T: Config> Pallet<T> {
         T::PalletId::get().into_account_truncating()
     }
 
+    #[cfg_attr(test, mutate)]
     pub fn get_account_liquidity(account: &T::AccountId) -> Result<AccountLiquidity<T>, DispatchError> {
         let total_collateral_value = Self::total_collateral_value(account)?;
         let total_borrow_value = Self::total_borrowed_value(account)?;
@@ -1294,6 +1324,7 @@ impl<T: Config> Pallet<T> {
         AccountLiquidity::from_collateral_and_debt(total_collateral_value, total_borrow_value)
     }
 
+    #[cfg_attr(test, mutate)]
     pub fn get_account_liquidation_threshold_liquidity(
         account: &T::AccountId,
     ) -> Result<AccountLiquidity<T>, DispatchError> {
@@ -1309,6 +1340,7 @@ impl<T: Config> Pallet<T> {
         AccountLiquidity::from_collateral_and_debt(total_collateral_value, total_borrow_value)
     }
 
+    #[cfg_attr(test, mutate)]
     fn total_borrowed_value(borrower: &T::AccountId) -> Result<Amount<T>, DispatchError> {
         let mut total_borrow_value = Amount::<T>::zero(T::ReferenceAssetId::get());
         for (asset_id, _) in Self::active_markets() {
@@ -1323,6 +1355,7 @@ impl<T: Config> Pallet<T> {
         Ok(total_borrow_value)
     }
 
+    #[cfg_attr(test, mutate)]
     fn collateral_amount_value(voucher: &Amount<T>) -> Result<Amount<T>, DispatchError> {
         let underlying = voucher.to_underlying()?;
         let market = Self::market(underlying.currency())?;
@@ -1331,6 +1364,7 @@ impl<T: Config> Pallet<T> {
         Self::get_asset_value(&effects)
     }
 
+    #[cfg_attr(test, mutate)]
     fn collateral_asset_value(supplier: &T::AccountId, asset_id: CurrencyId<T>) -> Result<Amount<T>, DispatchError> {
         let lend_token_id = Self::lend_token_id(asset_id)?;
         let deposits = Self::account_deposits(lend_token_id, supplier);
@@ -1340,6 +1374,7 @@ impl<T: Config> Pallet<T> {
         Self::collateral_amount_value(&deposits)
     }
 
+    #[cfg_attr(test, mutate)]
     fn liquidation_threshold_asset_value(
         borrower: &T::AccountId,
         asset_id: CurrencyId<T>,
@@ -1359,6 +1394,7 @@ impl<T: Config> Pallet<T> {
         Self::get_asset_value(&effects_amount)
     }
 
+    #[cfg_attr(test, mutate)]
     fn total_collateral_value(supplier: &T::AccountId) -> Result<Amount<T>, DispatchError> {
         let mut total_asset_value = Amount::<T>::zero(T::ReferenceAssetId::get());
         for (asset_id, _market) in Self::active_markets() {
@@ -1368,6 +1404,7 @@ impl<T: Config> Pallet<T> {
         Ok(total_asset_value)
     }
 
+    #[cfg_attr(test, mutate)]
     fn total_liquidation_threshold_value(borrower: &T::AccountId) -> Result<Amount<T>, DispatchError> {
         let mut total_asset_value = Amount::<T>::zero(T::ReferenceAssetId::get());
         for (asset_id, _market) in Self::active_markets() {
@@ -1380,6 +1417,7 @@ impl<T: Config> Pallet<T> {
 
     /// Checks if the redeemer should be allowed to redeem tokens in given market.
     /// Takes into account both `free` and `locked` (i.e. deposited as collateral) lend_tokens of the redeemer.
+    #[cfg_attr(test, mutate)]
     fn redeem_allowed(redeemer: &T::AccountId, voucher: &Amount<T>) -> DispatchResult {
         let asset_id = Self::underlying_id(voucher.currency())?;
         log::trace!(
@@ -1410,6 +1448,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Borrower shouldn't borrow more than their total collateral value allows
+    #[cfg_attr(test, mutate)]
     fn borrow_allowed(borrower: &T::AccountId, borrow: &Amount<T>) -> DispatchResult {
         Self::ensure_under_borrow_cap(borrow)?;
         Self::ensure_enough_cash(borrow)?;
@@ -1420,6 +1459,7 @@ impl<T: Config> Pallet<T> {
     }
 
     #[require_transactional]
+    #[cfg_attr(test, mutate)]
     fn do_repay_borrow_with_amount(
         borrower: &T::AccountId,
         asset_id: CurrencyId<T>,
@@ -1454,6 +1494,7 @@ impl<T: Config> Pallet<T> {
 
     // Calculates and returns the most recent amount of borrowed balance of `currency_id`
     // for `who`.
+    #[cfg_attr(test, mutate)]
     pub fn current_borrow_balance(who: &T::AccountId, asset_id: CurrencyId<T>) -> Result<Amount<T>, DispatchError> {
         let snapshot: BorrowSnapshot<BalanceOf<T>> = Self::account_borrows(asset_id, who);
         if snapshot.principal.is_zero() || snapshot.borrow_index.is_zero() {
@@ -1469,6 +1510,7 @@ impl<T: Config> Pallet<T> {
         )
     }
 
+    #[cfg_attr(test, mutate)]
     pub fn borrow_balance_from_old_and_new_index(
         old_index: &FixedU128,
         new_index: &FixedU128,
@@ -1482,6 +1524,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Checks if the liquidation should be allowed to occur
+    #[cfg_attr(test, mutate)]
     fn liquidate_borrow_allowed(
         borrower: &T::AccountId,
         underlying: &Amount<T>,
@@ -1528,6 +1571,7 @@ impl<T: Config> Pallet<T> {
     /// and liquidator will receive collateral_asset_id (as voucher amount) from
     /// borrower.
     #[require_transactional]
+    #[cfg_attr(test, mutate)]
     pub fn do_liquidate_borrow(
         liquidator: T::AccountId,
         borrower: T::AccountId,
@@ -1571,6 +1615,7 @@ impl<T: Config> Pallet<T> {
     }
 
     #[require_transactional]
+    #[cfg_attr(test, mutate)]
     fn liquidated_transfer(
         liquidator: &T::AccountId,
         borrower: &T::AccountId,
@@ -1664,6 +1709,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    #[cfg_attr(test, mutate)]
     pub fn lock_if_account_deposited(account_id: &T::AccountId, lend_tokens: &Amount<T>) -> DispatchResult {
         // if the receiver already has their collateral deposited
         let deposit = Pallet::<T>::account_deposits(lend_tokens.currency(), account_id);
@@ -1676,6 +1722,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // Ensures a given `asset_id` is an active market.
+    #[cfg_attr(test, mutate)]
     fn ensure_active_market(asset_id: CurrencyId<T>) -> Result<Market<BalanceOf<T>>, DispatchError> {
         Self::active_markets()
             .find(|(id, _)| id == &asset_id)
@@ -1684,6 +1731,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Ensure supplying `amount` asset does not exceed the market's supply cap.
+    #[cfg_attr(test, mutate)]
     fn ensure_under_supply_cap(asset: &Amount<T>) -> DispatchResult {
         let asset_id = asset.currency();
 
@@ -1700,6 +1748,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Ensure borrowing `amount` asset does not exceed the market's borrow cap.
+    #[cfg_attr(test, mutate)]
     fn ensure_under_borrow_cap(asset: &Amount<T>) -> DispatchResult {
         let asset_id = asset.currency();
         let market = Self::market(asset_id)?;
@@ -1726,6 +1775,7 @@ impl<T: Config> Pallet<T> {
     /// https://github.com/compound-finance/compound-protocol/blob/a3214f67b73310d547e00fc578e8355911c9d376/contracts/CToken.sol#L518
     /// - but getCashPrior is the entire balance of the contract:
     /// https://github.com/compound-finance/compound-protocol/blob/a3214f67b73310d547e00fc578e8355911c9d376/contracts/CToken.sol#L1125
+    #[cfg_attr(test, mutate)]
     fn ensure_enough_cash(amount: &Amount<T>) -> DispatchResult {
         let reducible_cash =
             Self::get_total_cash(amount.currency()).checked_sub(&Self::total_reserves(amount.currency()))?;
@@ -1737,6 +1787,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Ensures a given `lend_token_id` is unique in `Markets` and `UnderlyingAssetId`.
+    #[cfg_attr(test, mutate)]
     fn ensure_lend_token(lend_token_id: CurrencyId<T>) -> DispatchResult {
         // The lend_token id is unique, cannot be repeated
         ensure!(
@@ -1757,6 +1808,7 @@ impl<T: Config> Pallet<T> {
     /// Returns `Err` If InsufficientLiquidity
     /// `account`: account that needs a liquidity check
     /// `reduce_amount`: amount to reduce the liquidity (collateral) of the `account` by
+    #[cfg_attr(test, mutate)]
     fn ensure_liquidity(account: &T::AccountId, reduce_amount: Amount<T>) -> DispatchResult {
         if Self::get_account_liquidity(account)?.liquidity().ge(&reduce_amount)? {
             return Ok(());
@@ -1765,6 +1817,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Transferrable balance in the pallet account (`free - frozen`)
+    #[cfg_attr(test, mutate)]
     fn get_total_cash(asset_id: CurrencyId<T>) -> Amount<T> {
         // for the reducible_balance arguments, see:
         // - https://docs.rs/frame-support/latest/frame_support/traits/tokens/enum.Preservation.html
@@ -1782,12 +1835,14 @@ impl<T: Config> Pallet<T> {
 
     /// Get the total balance of `who`.
     /// Ignores any frozen balance of this account (`free + reserved`)
+    #[cfg_attr(test, mutate)]
     fn balance(asset_id: CurrencyId<T>, who: &T::AccountId) -> Amount<T> {
         let balance = <orml_tokens::Pallet<T> as MultiCurrency<T::AccountId>>::total_balance(asset_id, who);
         Amount::new(balance, asset_id)
     }
 
     /// Total issuance of lending tokens (lend_tokens), given the underlying
+    #[cfg_attr(test, mutate)]
     pub fn total_supply(asset_id: CurrencyId<T>) -> Result<Amount<T>, DispatchError> {
         let lend_token_id = Self::lend_token_id(asset_id)?;
         let issuance = orml_tokens::Pallet::<T>::total_issuance(lend_token_id);
@@ -1795,6 +1850,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Free lending tokens (lend_tokens) of an account, given the underlying
+    #[cfg_attr(test, mutate)]
     pub fn free_lend_tokens(asset_id: CurrencyId<T>, account_id: &T::AccountId) -> Result<Amount<T>, DispatchError> {
         let lend_token_id = Self::lend_token_id(asset_id)?;
         let amount = Amount::new(
@@ -1805,6 +1861,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Reserved lending tokens (lend_tokens) of an account, given the underlying
+    #[cfg_attr(test, mutate)]
     pub fn reserved_lend_tokens(
         asset_id: CurrencyId<T>,
         account_id: &T::AccountId,
@@ -1819,6 +1876,7 @@ impl<T: Config> Pallet<T> {
 
     // Returns the value of the asset, in the reference currency.
     // Returns `Err` if oracle price not ready or arithmetic error.
+    #[cfg_attr(test, mutate)]
     pub fn get_asset_value(asset: &Amount<T>) -> Result<Amount<T>, DispatchError> {
         asset.convert_to(T::ReferenceAssetId::get())
     }
@@ -1826,6 +1884,7 @@ impl<T: Config> Pallet<T> {
     // Returns a stored Market.
     //
     // Returns `Err` if market does not exist.
+    #[cfg_attr(test, mutate)]
     pub fn market(asset_id: CurrencyId<T>) -> Result<Market<BalanceOf<T>>, DispatchError> {
         Markets::<T>::try_get(asset_id).map_err(|_err| Error::<T>::MarketDoesNotExist.into())
     }
@@ -1833,6 +1892,7 @@ impl<T: Config> Pallet<T> {
     // Mutates a stored Market.
     //
     // Returns `Err` if market does not exist.
+    #[cfg_attr(test, mutate)]
     pub(crate) fn mutate_market<F>(asset_id: CurrencyId<T>, cb: F) -> Result<Market<BalanceOf<T>>, DispatchError>
     where
         F: FnOnce(&mut Market<BalanceOf<T>>) -> Result<Market<BalanceOf<T>>, DispatchError>,
@@ -1846,6 +1906,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // All markets that are `MarketStatus::Active`.
+    #[cfg_attr(test, mutate)]
     fn active_markets() -> impl Iterator<Item = (CurrencyId<T>, Market<BalanceOf<T>>)> {
         Markets::<T>::iter().filter(|(_, market)| market.state == MarketState::Active)
     }
@@ -1853,6 +1914,7 @@ impl<T: Config> Pallet<T> {
     // Returns the lend_token_id of the related asset
     //
     // Returns `Err` if market does not exist.
+    #[cfg_attr(test, mutate)]
     pub fn lend_token_id(asset_id: CurrencyId<T>) -> Result<CurrencyId<T>, DispatchError> {
         if let Ok(market) = Self::market(asset_id) {
             Ok(market.lend_token_id)
@@ -1862,12 +1924,14 @@ impl<T: Config> Pallet<T> {
     }
 
     // Returns the incentive reward account
+    #[cfg_attr(test, mutate)]
     pub fn incentive_reward_account_id() -> T::AccountId {
         T::PalletId::get().into_sub_account_truncating(INCENTIVE_SUB_ACCOUNT)
     }
 }
 
 impl<T: Config> LoansTrait<CurrencyId<T>, AccountIdOf<T>, Amount<T>> for Pallet<T> {
+    #[cfg_attr(test, mutate)]
     fn do_mint(supplier: &AccountIdOf<T>, amount: &Amount<T>) -> Result<(), DispatchError> {
         let asset_id = amount.currency();
         Self::ensure_active_market(asset_id)?;
@@ -1894,6 +1958,7 @@ impl<T: Config> LoansTrait<CurrencyId<T>, AccountIdOf<T>, Amount<T>> for Pallet<
         Ok(())
     }
 
+    #[cfg_attr(test, mutate)]
     fn do_borrow(borrower: &AccountIdOf<T>, borrow: &Amount<T>) -> Result<(), DispatchError> {
         let asset_id = borrow.currency();
         Self::ensure_active_market(asset_id)?;
@@ -1928,6 +1993,7 @@ impl<T: Config> LoansTrait<CurrencyId<T>, AccountIdOf<T>, Amount<T>> for Pallet<
         Ok(())
     }
 
+    #[cfg_attr(test, mutate)]
     fn do_deposit_collateral(supplier: &AccountIdOf<T>, lend_token_amount: &Amount<T>) -> Result<(), DispatchError> {
         // If the given asset_id is not a valid lend_token, fetching the underlying will fail
         let underlying_id = Self::underlying_id(lend_token_amount.currency())?;
@@ -1949,6 +2015,7 @@ impl<T: Config> LoansTrait<CurrencyId<T>, AccountIdOf<T>, Amount<T>> for Pallet<
         Ok(())
     }
 
+    #[cfg_attr(test, mutate)]
     fn do_withdraw_collateral(supplier: &AccountIdOf<T>, voucher: &Amount<T>) -> Result<(), DispatchError> {
         // If the given asset_id is not a valid lend_token, fetching the underlying will fail
         let underlying_id = Self::underlying_id(voucher.currency())?;
@@ -1994,6 +2061,7 @@ impl<T: Config> LoansTrait<CurrencyId<T>, AccountIdOf<T>, Amount<T>> for Pallet<
         Ok(())
     }
 
+    #[cfg_attr(test, mutate)]
     fn do_repay_borrow(borrower: &AccountIdOf<T>, borrow: &Amount<T>) -> Result<(), DispatchError> {
         let asset_id = borrow.currency();
         Self::ensure_active_market(asset_id)?;
@@ -2008,6 +2076,7 @@ impl<T: Config> LoansTrait<CurrencyId<T>, AccountIdOf<T>, Amount<T>> for Pallet<
         Ok(())
     }
 
+    #[cfg_attr(test, mutate)]
     fn do_redeem(supplier: &AccountIdOf<T>, underlying: &Amount<T>, voucher: &Amount<T>) -> Result<(), DispatchError> {
         let asset_id = underlying.currency();
 
@@ -2046,6 +2115,7 @@ impl<T: Config> LoansTrait<CurrencyId<T>, AccountIdOf<T>, Amount<T>> for Pallet<
     }
 
     // NOTE: used in OracleApi, so don't use oracle calls here or it'll recurse forever
+    #[cfg_attr(test, mutate)]
     fn recompute_underlying_amount(lend_tokens: &Amount<T>) -> Result<Amount<T>, DispatchError> {
         // This function could be called externally to this pallet, with interest
         // possibly not having accrued for a few blocks. This would result in using an
@@ -2060,11 +2130,13 @@ impl<T: Config> LoansTrait<CurrencyId<T>, AccountIdOf<T>, Amount<T>> for Pallet<
     // Returns a stored asset_id
     //
     // Returns `Err` if asset_id does not exist, it also means that lend_token_id is invalid.
+    #[cfg_attr(test, mutate)]
     fn underlying_id(lend_token_id: CurrencyId<T>) -> Result<CurrencyId<T>, DispatchError> {
         UnderlyingAssetId::<T>::try_get(lend_token_id).map_err(|_err| Error::<T>::InvalidLendTokenId.into())
     }
 
     // NOTE: used in OracleApi, so don't use oracle calls here or it'll recurse forever
+    #[cfg_attr(test, mutate)]
     fn recompute_collateral_amount(underlying: &Amount<T>) -> Result<Amount<T>, DispatchError> {
         // This function could be called externally to this pallet, with interest
         // possibly not having accrued for a few blocks. This would result in using an
@@ -2080,6 +2152,7 @@ impl<T: Config> LoansTrait<CurrencyId<T>, AccountIdOf<T>, Amount<T>> for Pallet<
 }
 
 impl<T: Config> LoansMarketDataProvider<CurrencyId<T>, BalanceOf<T>> for Pallet<T> {
+    #[cfg_attr(test, mutate)]
     fn get_market_info(asset_id: CurrencyId<T>) -> Result<MarketInfo, DispatchError> {
         let market = Self::market(asset_id)?;
         let full_rate = Self::get_full_interest_rate(asset_id).ok_or(Error::<T>::InvalidRateModelParam)?;
@@ -2092,6 +2165,7 @@ impl<T: Config> LoansMarketDataProvider<CurrencyId<T>, BalanceOf<T>> for Pallet<
         })
     }
 
+    #[cfg_attr(test, mutate)]
     fn get_market_status(asset_id: CurrencyId<T>) -> Result<MarketStatus<BalanceOf<T>>, DispatchError> {
         let (borrow_rate, supply_rate, exchange_rate, utilization, total_borrows, total_reserves, borrow_index) =
             Self::get_market_status(asset_id)?;
@@ -2106,6 +2180,7 @@ impl<T: Config> LoansMarketDataProvider<CurrencyId<T>, BalanceOf<T>> for Pallet<
         })
     }
 
+    #[cfg_attr(test, mutate)]
     fn get_full_interest_rate(asset_id: CurrencyId<T>) -> Option<Rate> {
         if let Ok(market) = Self::market(asset_id) {
             let rate = match market.rate_model {
@@ -2119,6 +2194,7 @@ impl<T: Config> LoansMarketDataProvider<CurrencyId<T>, BalanceOf<T>> for Pallet<
 }
 
 impl<T: Config> OnExchangeRateChange<CurrencyId<T>> for Pallet<T> {
+    #[cfg_attr(test, mutate)]
     fn on_exchange_rate_change(currency_id: &CurrencyId<T>) {
         // todo: propagate error
         if let Ok(lend_token_id) = Pallet::<T>::lend_token_id(*currency_id) {
