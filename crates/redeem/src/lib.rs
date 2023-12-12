@@ -508,8 +508,8 @@ impl<T: Config> Pallet<T> {
         let premium_collateral = if below_premium_redeem {
             let redeem_amount_wrapped_in_collateral = user_to_be_received_btc.convert_to(currency_id)?;
             let premium_redeem_rate = ext::fee::premium_redeem_reward_rate::<T>();
-            let premium_for_redeem_amount = redeem_amount_wrapped_in_collateral
-                .checked_rounded_mul(&premium_redeem_rate, Rounding::NearestPrefUp)?;
+            let premium_for_redeem_amount =
+                redeem_amount_wrapped_in_collateral.checked_rounded_mul(&premium_redeem_rate, Rounding::Down)?;
 
             let max_premium = ext::vault_registry::get_vault_max_premium_redeem(&vault_id)?;
             max_premium.min(&premium_for_redeem_amount)?

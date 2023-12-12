@@ -424,7 +424,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `amount` - amount in collateral (at current exchange rate)
     pub fn get_premium_redeem_fee(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
-        amount.checked_rounded_mul(&<PremiumRedeemFee<T>>::get(), Rounding::NearestPrefUp)
+        amount.checked_rounded_mul(&<PremiumRedeemFee<T>>::get(), Rounding::Down)
     }
 
     /// Get the premium redeem reward rate.
