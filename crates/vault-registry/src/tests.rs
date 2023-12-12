@@ -995,6 +995,7 @@ mod get_vaults_below_premium_collaterlization_tests {
             VaultRegistry::_set_secure_collateral_threshold(DEFAULT_CURRENCY_PAIR, FixedU128::from_float(0.001));
             VaultRegistry::_set_premium_redeem_threshold(DEFAULT_CURRENCY_PAIR, FixedU128::one());
             ext::fee::premium_redeem_reward_rate::<Test>.mock_safe(move || MockResult::Return(1.into()));
+            ext::oracle::get_price::<Test>.mock_safe(move |_| MockResult::Return(Ok(1.into())));
 
             test()
         })
@@ -1015,11 +1016,6 @@ mod get_vaults_below_premium_collaterlization_tests {
     #[test]
     fn get_vaults_below_premium_collateralization_fails() {
         run_test(|| {
-            ext::oracle::get_price::<Test>.mock_safe(move |_| MockResult::Return(Ok(1.into())));
-
-            // set back to default threshold
-            set_default_thresholds();
-
             add_vault(vault_id(4), 50, 100);
 
             assert_err!(
@@ -1032,8 +1028,6 @@ mod get_vaults_below_premium_collaterlization_tests {
     #[test]
     fn get_vaults_below_premium_collateralization_succeeds() {
         run_test(|| {
-            ext::oracle::get_price::<Test>.mock_safe(move |_| MockResult::Return(Ok(1.into())));
-
             let id1 = vault_id(3);
             let issue_tokens1: u128 = 50;
             let collateral1 = 49;
@@ -1045,8 +1039,9 @@ mod get_vaults_below_premium_collaterlization_tests {
             add_vault(id1.clone(), issue_tokens1, collateral1);
             add_vault(id2.clone(), issue_tokens2, collateral2);
 
-            // set back to default threshold so that vaults fall under premium redeem
-            set_default_thresholds();
+            // set back secure threshold
+            let secure = UnsignedFixedPoint::checked_from_rational(200, 100).unwrap(); // 200%
+            VaultRegistry::_set_secure_collateral_threshold(DEFAULT_CURRENCY_PAIR, secure);
 
             assert_eq!(
                 VaultRegistry::get_premium_redeem_vaults(400_u32),
@@ -1058,34 +1053,33 @@ mod get_vaults_below_premium_collaterlization_tests {
     #[test]
     fn get_vaults_below_premium_collateralization_filters_banned_and_sufficiently_collateralized_vaults() {
         run_test(|| {
-            ext::oracle::get_price::<Test>.mock_safe(move |_| MockResult::Return(Ok(1.into())));
-
-            // returned
+            // not returned, because is is not under premium threshold (which is set to 100% for this test)
             let id1 = vault_id(3);
             let issue_tokens1: u128 = 50;
             let collateral1 = 50;
             add_vault(id1.clone(), issue_tokens1, collateral1);
 
+            // returned
+            let id2 = vault_id(4);
+            let issue_tokens2: u128 = 50;
+            let collateral2 = 49;
+            add_vault(id2.clone(), issue_tokens2, collateral2);
+
             // not returned because it's banned
-            let id2 = vault_id(5);
+            let id3 = vault_id(5);
             let issue_tokens3: u128 = 50;
             let collateral3 = 49;
-            add_vault(id2.clone(), issue_tokens3, collateral3);
-            let mut vault3 = VaultRegistry::get_active_rich_vault_from_id(&id2).unwrap();
+            add_vault(id3.clone(), issue_tokens3, collateral3);
+            let mut vault3 = VaultRegistry::get_active_rich_vault_from_id(&id3).unwrap();
             vault3.ban_until(1000);
 
-            // set back to default threshold so that vaults fall under premium redeem
-            set_default_thresholds();
-
-            // not returned, since default threshold applied so vault is now not under premium threshold
-            let id3 = vault_id(4);
-            let issue_tokens2: u128 = 50;
-            let collateral2 = 150;
-            add_vault(id3.clone(), issue_tokens2, collateral2);
+            // set back secure threshold
+            let secure = UnsignedFixedPoint::checked_from_rational(200, 100).unwrap(); // 200%
+            VaultRegistry::_set_secure_collateral_threshold(DEFAULT_CURRENCY_PAIR, secure);
 
             assert_eq!(
                 VaultRegistry::get_premium_redeem_vaults(400_u32),
-                Ok(vec!((id1, wrapped(450))))
+                Ok(vec!((id2, wrapped(451))))
             );
         })
     }

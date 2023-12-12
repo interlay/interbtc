@@ -82,7 +82,10 @@ where
         at: Option<BlockHash>,
     ) -> RpcResult<BalanceWrapper<Balance>>;
 
-    #[method(name = "vaultRegistry_getRequiredCollateralForVault")]
+    #[method(
+        name = "vaultRegistry_getRequiredCollateralForVault",
+        aliases = ["redeem_getPremiumRedeemVaults"]
+    )]
     fn get_required_collateral_for_vault(
         &self,
         vault_id: VaultId,

@@ -34,7 +34,7 @@ where
     #[method(name = "redeem_getVaultRedeemRequests")]
     fn get_vault_redeem_requests(&self, vault_id: AccountId, at: Option<BlockHash>) -> RpcResult<Vec<H256>>;
 
-    #[method(name = "vaultRegistry_getPremiumRedeemVaults")]
+    #[method(name = "redeem_getPremiumRedeemVaults")]
     fn get_premium_redeem_vaults(&self, at: Option<BlockHash>) -> RpcResult<Vec<(VaultId, BalanceWrapper<Balance>)>>;
 }
 
