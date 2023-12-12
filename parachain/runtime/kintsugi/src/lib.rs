@@ -1106,6 +1106,7 @@ impl vault_registry::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = weights::vault_registry::WeightInfo<Runtime>;
     type GetGriefingCollateralCurrencyId = GetNativeCurrencyId;
+    type LoansApi = Loans;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime

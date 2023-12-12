@@ -23,7 +23,7 @@ use sp_runtime::{FixedU128, RuntimeDebug};
 use sp_std::prelude::*;
 
 pub trait LoansApi<CurrencyId, AccountId, Amount> {
-    fn do_mint(supplier: &AccountId, amount: &Amount) -> Result<(), DispatchError>;
+    fn do_mint(supplier: &AccountId, amount: &Amount) -> Result<Amount, DispatchError>;
     fn do_borrow(borrower: &AccountId, borrow: &Amount) -> Result<(), DispatchError>;
     fn do_deposit_collateral(supplier: &AccountId, lend_tokens: &Amount) -> Result<(), DispatchError>;
     fn do_withdraw_collateral(supplier: &AccountId, voucher: &Amount) -> Result<(), DispatchError>;
@@ -32,6 +32,36 @@ pub trait LoansApi<CurrencyId, AccountId, Amount> {
     fn recompute_underlying_amount(lend_tokens: &Amount) -> Result<Amount, DispatchError>;
     fn underlying_id(lend_token_id: CurrencyId) -> Result<CurrencyId, DispatchError>;
     fn recompute_collateral_amount(underlying: &Amount) -> Result<Amount, DispatchError>;
+}
+
+impl<CurrencyId, AccountId, Amount> LoansApi<CurrencyId, AccountId, Amount> for () {
+    fn do_mint(_: &AccountId, _: &Amount) -> Result<Amount, DispatchError> {
+        Err(DispatchError::Unavailable)
+    }
+    fn do_borrow(_: &AccountId, _: &Amount) -> Result<(), DispatchError> {
+        Err(DispatchError::Unavailable)
+    }
+    fn do_deposit_collateral(_: &AccountId, _: &Amount) -> Result<(), DispatchError> {
+        Err(DispatchError::Unavailable)
+    }
+    fn do_withdraw_collateral(_: &AccountId, _: &Amount) -> Result<(), DispatchError> {
+        Err(DispatchError::Unavailable)
+    }
+    fn do_repay_borrow(_: &AccountId, _: &Amount) -> Result<(), DispatchError> {
+        Err(DispatchError::Unavailable)
+    }
+    fn do_redeem(_: &AccountId, _: &Amount, _: &Amount) -> Result<(), DispatchError> {
+        Err(DispatchError::Unavailable)
+    }
+    fn recompute_underlying_amount(_: &Amount) -> Result<Amount, DispatchError> {
+        Err(DispatchError::Unavailable)
+    }
+    fn underlying_id(_: CurrencyId) -> Result<CurrencyId, DispatchError> {
+        Err(DispatchError::Unavailable)
+    }
+    fn recompute_collateral_amount(_: &Amount) -> Result<Amount, DispatchError> {
+        Err(DispatchError::Unavailable)
+    }
 }
 
 pub trait LoansMarketDataProvider<CurrencyId, Balance> {

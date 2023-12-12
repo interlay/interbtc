@@ -1430,3 +1430,95 @@ fn test_offchain_worker_unsigned_transaction_submission() {
         );
     })
 }
+
+mod loans_tests {
+    use super::{assert_eq, *};
+    use loans::{InterestRateModel, JumpModel, Market, MarketState};
+    use primitives::{CurrencyId::LendToken, Rate, Ratio};
+
+    const fn market_mock(lend_token_id: CurrencyId) -> Market<Balance> {
+        Market {
+            close_factor: Ratio::from_percent(50),
+            collateral_factor: Ratio::from_percent(50),
+            liquidation_threshold: Ratio::from_percent(55),
+            liquidate_incentive: Rate::from_inner(Rate::DIV / 100 * 110),
+            liquidate_incentive_reserved_factor: Ratio::from_percent(3),
+            state: MarketState::Pending,
+            rate_model: InterestRateModel::Jump(JumpModel {
+                base_rate: Rate::from_inner(Rate::DIV / 100 * 2),
+                jump_rate: Rate::from_inner(Rate::DIV / 100 * 10),
+                full_rate: Rate::from_inner(Rate::DIV / 100 * 32),
+                jump_utilization: Ratio::from_percent(80),
+            }),
+            reserve_factor: Ratio::from_percent(15),
+            supply_cap: 1_000_000_000_000_000_000_000u128, // set to 1B
+            borrow_cap: 1_000_000_000_000_000_000_000u128, // set to 1B
+            lend_token_id,
+        }
+    }
+
+    fn activate_market(underlying_id: CurrencyId, lend_token_id: CurrencyId) {
+        assert_ok!(Loans::add_market(
+            RuntimeOrigin::root(),
+            underlying_id,
+            market_mock(lend_token_id)
+        ));
+        assert_ok!(Loans::activate_market(RuntimeOrigin::root(), underlying_id));
+    }
+
+    #[test]
+    fn should_deposit_all_above_secure() {
+        run_test(|| {
+            let vault_id = create_sample_vault_and_issue_tokens(4);
+            activate_market(DEFAULT_COLLATERAL_CURRENCY, LendToken(1));
+
+            assert_ok!(VaultRegistry::deposit_vault_collateral_in_lending_market(
+                RuntimeOrigin::signed(vault_id.account_id.clone()),
+                vault_id.currencies.clone(),
+            ));
+        })
+    }
+
+    #[test]
+    fn should_deposit_after_register_vault() {
+        run_test(|| {
+            let vault_id = create_sample_vault_and_issue_tokens(4);
+            activate_market(DEFAULT_COLLATERAL_CURRENCY, LendToken(1));
+
+            assert_ok!(VaultRegistry::deposit_vault_collateral_in_lending_market(
+                RuntimeOrigin::signed(vault_id.account_id.clone()),
+                vault_id.currencies.clone(),
+            ));
+
+            let collateral = Amount::new(100_000, DEFAULT_COLLATERAL_CURRENCY);
+            assert_ok!(collateral.mint_to(&vault_id.account_id));
+            assert_ok!(VaultRegistry::try_deposit_collateral(&vault_id, &collateral));
+            let mut vault = VaultRegistry::get_rich_vault_from_id(&vault_id).unwrap();
+            assert_ok!(vault.increase_issued(&wrapped(100)));
+
+            assert_ok!(VaultRegistry::deposit_vault_collateral_in_lending_market(
+                RuntimeOrigin::signed(vault_id.account_id.clone()),
+                vault_id.currencies.clone(),
+            ));
+        })
+    }
+
+    #[test]
+    fn should_not_deposit_all_below_secure() {
+        run_test(|| {
+            let vault_id = create_sample_vault_and_issue_tokens(100);
+            activate_market(DEFAULT_COLLATERAL_CURRENCY, LendToken(1));
+
+            let mut vault = VaultRegistry::get_rich_vault_from_id(&vault_id).unwrap();
+            assert_ok!(vault.increase_issued(&wrapped(100_000)));
+
+            assert_noop!(
+                VaultRegistry::deposit_vault_collateral_in_lending_market(
+                    RuntimeOrigin::signed(vault_id.account_id.clone()),
+                    vault_id.currencies.clone(),
+                ),
+                TestError::VaultBelowSecureThreshold
+            );
+        })
+    }
+}
