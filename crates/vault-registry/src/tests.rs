@@ -996,6 +996,7 @@ mod get_vaults_below_premium_collaterlization_tests {
             VaultRegistry::_set_premium_redeem_threshold(DEFAULT_CURRENCY_PAIR, FixedU128::one());
             ext::fee::premium_redeem_reward_rate::<Test>.mock_safe(move || MockResult::Return(1.into()));
             ext::oracle::get_price::<Test>.mock_safe(move |_| MockResult::Return(Ok(1.into())));
+            ext::fee::get_redeem_fee_value::<Test>.mock_safe(move || MockResult::Return(FixedU128::from_float(0.005)));
 
             test()
         })
@@ -1019,7 +1020,7 @@ mod get_vaults_below_premium_collaterlization_tests {
             add_vault(vault_id(4), 50, 100);
 
             assert_err!(
-                VaultRegistry::get_premium_redeem_vaults(400_u32),
+                VaultRegistry::get_premium_redeem_vaults(0_u32),
                 TestError::NoVaultUnderThePremiumRedeemThreshold
             );
         })
@@ -1044,8 +1045,8 @@ mod get_vaults_below_premium_collaterlization_tests {
             VaultRegistry::_set_secure_collateral_threshold(DEFAULT_CURRENCY_PAIR, secure);
 
             assert_eq!(
-                VaultRegistry::get_premium_redeem_vaults(400_u32),
-                Ok(vec![(id2, wrapped(452)), (id1, wrapped(451))])
+                VaultRegistry::get_premium_redeem_vaults(0_u32),
+                Ok(vec![(id2, wrapped(52)), (id1, wrapped(51))])
             );
         })
     }
@@ -1078,8 +1079,8 @@ mod get_vaults_below_premium_collaterlization_tests {
             VaultRegistry::_set_secure_collateral_threshold(DEFAULT_CURRENCY_PAIR, secure);
 
             assert_eq!(
-                VaultRegistry::get_premium_redeem_vaults(400_u32),
-                Ok(vec!((id2, wrapped(451))))
+                VaultRegistry::get_premium_redeem_vaults(0_u32),
+                Ok(vec!((id2, wrapped(51))))
             );
         })
     }
