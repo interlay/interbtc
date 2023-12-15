@@ -127,15 +127,21 @@ mod premium_redeem_tests {
         CoreVaultData::force_to(
             &vault_id,
             CoreVaultData {
-                issued: vault_id.wrapped(450_000),
-                to_be_issued: vault_id.wrapped(250_000),
-                to_be_redeemed: vault_id.wrapped(50_000),
-                backing_collateral: vault_id.collateral(2_000_000),
+                issued: vault_id.wrapped(450_000_000),
+                to_be_issued: vault_id.wrapped(250_000_000),
+                to_be_redeemed: vault_id.wrapped(50_000_000),
+                backing_collateral: vault_id.collateral(2_000_000_000),
                 to_be_replaced: vault_id.wrapped(0),
                 replace_collateral: griefing(0),
                 ..default_vault_state(&vault_id)
             },
         );
+
+        // make sure user has enough tokens to redeem
+        let mut user_state = UserData::get(USER);
+        (*user_state.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free =
+            (*user_state.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free * 1000;
+        UserData::force_to(USER, user_state);
     }
 
     #[test]
@@ -144,46 +150,53 @@ mod premium_redeem_tests {
             setup_vault_below_premium_threshold(vault_id.clone());
 
             assert!(!VaultRegistryPallet::is_vault_below_secure_threshold(&vault_id).unwrap());
-            assert!(VaultRegistryPallet::is_vault_below_premium_threshold(&vault_id).unwrap());
-
-            let redeem_id = setup_redeem(vault_id.wrapped(400_000), USER, &vault_id);
-
-            assert!(!VaultRegistryPallet::is_vault_below_secure_threshold(&vault_id).unwrap());
-            assert!(!VaultRegistryPallet::is_vault_below_premium_threshold(&vault_id).unwrap());
-
-            let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
-            // we should get rewarded only for 150_000 + 3840 tokens (that's when we reach nearer to secure threshold)
-            let expected_premium = FeePallet::get_premium_redeem_fee(
-                &vault_id
-                    .wrapped(150_000 + 3840) // need to add 0.384 = 153.84
-                    .convert_to(vault_id.collateral_currency())
-                    .unwrap(),
-            )
-            .unwrap();
-            assert_eq!(vault_id.collateral(redeem.premium), expected_premium);
-
-            // Execute redeem
-            execute_redeem(redeem_id);
+            assert!(VaultRegistryPallet::will_be_below_premium_threshold(&vault_id).unwrap());
 
             let compute_collateral = VaultRegistryPallet::compute_collateral(&vault_id).unwrap().amount();
-            assert_eq!(compute_collateral, 2000000 - 15384); //15.384 COL tokens lost as premium fees
+            assert_eq!(compute_collateral, 2_000_000_000);
 
-            // Setup another redeem request
-            let redeem_id = setup_redeem(vault_id.wrapped(2_000), USER, &vault_id);
+            let initial_state = ParachainState::get(&vault_id);
 
+            let redeem_id = setup_redeem(vault_id.wrapped(400_000_000), USER, &vault_id);
             let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
-            // No premium should be given for this request
-            assert_eq!(redeem.premium, 0);
+            assert!(!VaultRegistryPallet::is_vault_below_secure_threshold(&vault_id).unwrap());
+            assert!(!VaultRegistryPallet::will_be_below_premium_threshold(&vault_id).unwrap());
 
-            // Execute redeem
+            dry_run(|| {
+                // further redeems will have no rewards, even though the premium redeem
+                // has not executed yet
+                let redeem_id = setup_redeem(vault_id.wrapped(2_000_000), USER, &vault_id);
+                let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+                assert_eq!(redeem.premium, 0);
+            });
+
             execute_redeem(redeem_id);
 
-            // initially 400 tokens, 1st redeem consumed 398 tokens , 2nd redeem consumed 1.99 tokens, remaining 0.01
-            let get_free_redeemable_tokens = VaultRegistryPallet::get_free_redeemable_tokens(&vault_id)
-                .unwrap()
-                .amount();
-            assert_eq!(get_free_redeemable_tokens, 10);
+            assert_eq!(
+                ParachainState::get(&vault_id),
+                initial_state.with_changes(|user, vault, _, fee_pool| {
+                    // premium transferred to user
+                    // we should get rewarded only for 15.3846153846 *10^6 tokens (that's when we reach nearer to secure
+                    // threshold)
+                    let expected_premium = vault_id.collateral(15_384_615);
+                    vault.backing_collateral -= expected_premium;
+                    (*user.balances.get_mut(&vault_id.collateral_currency()).unwrap()).free += expected_premium;
+
+                    // bitcoin balance update as usual
+                    (*user.balances.get_mut(&vault_id.wrapped_currency()).unwrap()).free -=
+                        redeem.amount_btc() + redeem.fee() + redeem.transfer_fee_btc();
+                    vault.issued -= redeem.amount_btc() + redeem.transfer_fee_btc();
+                    *fee_pool.rewards_for(&vault_id) += redeem.fee();
+                })
+            );
+
+            // We already checked that redeems have no more rewards after requesting the
+            // premium redeem. Here we do a sanity check that it's still the case after
+            // execution
+            let redeem_id = setup_redeem(vault_id.wrapped(2_000_000), USER, &vault_id);
+            let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+            assert_eq!(redeem.premium, 0);
         });
     }
 
@@ -195,13 +208,14 @@ mod premium_redeem_tests {
             let global_secure = VaultRegistryPallet::get_global_secure_threshold(&vault_id.currencies).unwrap(); // 200%
 
             // secure > premium > liquidation threshold
-            // at start vault should be below premium threshold, while above global secure & secure threshold
+            // at start the vault is above the custom&global secure threshold, but due to the to_be_issued
+            // tokens it is already eligible for premium redeem
             assert!(!VaultRegistryPallet::is_vault_below_secure_threshold(&vault_id).unwrap());
-            assert!(VaultRegistryPallet::is_vault_below_premium_threshold(&vault_id).unwrap());
             assert!(!VaultRegistryPallet::is_vault_below_certain_threshold(&vault_id, global_secure).unwrap());
+            assert!(VaultRegistryPallet::will_be_below_premium_threshold(&vault_id).unwrap());
 
             // Change vault secure threshold,
-            // now secure > global secure > premium > liquidation threshold
+            // now custom secure > global secure > premium > liquidation threshold
             let vault_custom_secure_threshold = UnsignedFixedPoint::checked_from_rational(300, 100);
             assert_ok!(
                 RuntimeCall::VaultRegistry(VaultRegistryCall::set_custom_secure_threshold {
@@ -213,23 +227,24 @@ mod premium_redeem_tests {
 
             // vault should be below premium & secure threshold, while above global secure threshold
             assert!(VaultRegistryPallet::is_vault_below_secure_threshold(&vault_id).unwrap());
-            assert!(VaultRegistryPallet::is_vault_below_premium_threshold(&vault_id).unwrap());
             assert!(!VaultRegistryPallet::is_vault_below_certain_threshold(&vault_id, global_secure).unwrap());
+            assert!(VaultRegistryPallet::will_be_below_premium_threshold(&vault_id).unwrap());
 
             let max_premium_for_vault = VaultRegistryPallet::get_vault_max_premium_redeem(&vault_id).unwrap();
             // get premium redeem vaults
-            let premium_redeem_vaults = RedeemPallet::get_premium_redeem_vaults()
-                .unwrap()
-                .get(0)
-                .unwrap()
-                .clone();
+            let premium_redeem_vaults = RedeemPallet::get_premium_redeem_vaults().unwrap()[0].clone();
+            // non-zero amount of tokens that are elible for premium redeem
+            assert!(!premium_redeem_vaults.1.is_zero());
 
             // request redeem tokens given by RPC
             let redeem_id_1 = setup_redeem(premium_redeem_vaults.1, USER, &vault_id);
 
             let redeem_1 = RedeemPallet::get_open_redeem_request_from_id(&redeem_id_1).unwrap();
-            // recv premium should be equal to max premium
-            assert_eq!(redeem_1.premium, max_premium_for_vault.amount());
+            // premium should be equal to max premium, but allow rounding error in this check.
+            assert!(
+                redeem_1.premium >= max_premium_for_vault.amount() - 1
+                    && redeem_1.premium <= max_premium_for_vault.amount() + 1
+            );
             assert!(!redeem_1.premium.is_zero());
 
             // max premium for vault should be zero
@@ -239,8 +254,20 @@ mod premium_redeem_tests {
             // redeeming the max premium amount put backs vault above premium threshold
             // vault should be below secure threshold, while above global secure & premium threshold
             assert!(VaultRegistryPallet::is_vault_below_secure_threshold(&vault_id).unwrap());
-            assert!(!VaultRegistryPallet::is_vault_below_premium_threshold(&vault_id).unwrap());
+            assert!(!VaultRegistryPallet::will_be_below_premium_threshold(&vault_id).unwrap());
             assert!(!VaultRegistryPallet::is_vault_below_certain_threshold(&vault_id, global_secure).unwrap());
+
+            execute_redeem(redeem_id_1);
+            // We should be almost exactly at the secure threshold (there should only be minor
+            // rounding errors)
+            let vault = CoreVaultData::vault(vault_id.clone());
+            let future_tokens = vault.to_be_issued + vault.issued - vault.to_be_redeemed;
+            let collateral = vault.backing_collateral;
+            let future_ratio = collateral
+                .ratio(&future_tokens.convert_to(vault_id.collateral_currency()).unwrap())
+                .unwrap();
+            // actual collateralization rate: 2.000004822104648639. Allow small rounding changes
+            assert!(future_ratio - global_secure < FixedU128::from_float(0.00001));
 
             let redeem_id_2 = setup_redeem(vault_id.wrapped(800_00), USER, &vault_id);
             let redeem_2 = RedeemPallet::get_open_redeem_request_from_id(&redeem_id_2).unwrap();
@@ -254,12 +281,12 @@ mod premium_redeem_tests {
             setup_vault_below_premium_threshold(vault_id.clone());
 
             assert!(!VaultRegistryPallet::is_vault_below_secure_threshold(&vault_id).unwrap());
-            assert!(VaultRegistryPallet::is_vault_below_premium_threshold(&vault_id).unwrap());
+            assert!(VaultRegistryPallet::will_be_below_premium_threshold(&vault_id).unwrap());
 
-            let redeem_id = setup_redeem(vault_id.wrapped(100_000), USER, &vault_id);
+            let redeem_id = setup_redeem(vault_id.wrapped(100_000_000), USER, &vault_id);
 
             assert!(!VaultRegistryPallet::is_vault_below_secure_threshold(&vault_id).unwrap());
-            assert!(!VaultRegistryPallet::is_vault_below_premium_threshold(&vault_id).unwrap());
+            assert!(!VaultRegistryPallet::will_be_below_premium_threshold(&vault_id).unwrap());
 
             let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
@@ -272,11 +299,6 @@ mod premium_redeem_tests {
             )
             .unwrap();
             assert_eq!(vault_id.collateral(redeem.premium), expected_premium);
-
-            let get_free_redeemable_tokens = VaultRegistryPallet::get_free_redeemable_tokens(&vault_id)
-                .unwrap()
-                .amount();
-            assert_eq!(get_free_redeemable_tokens, 300500);
         });
     }
 }

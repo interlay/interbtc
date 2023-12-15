@@ -499,13 +499,12 @@ impl<T: Config> Pallet<T> {
             Error::<T>::AmountBelowDustAmount
         );
 
-        let below_premium_redeem = ext::vault_registry::is_vault_below_premium_threshold::<T>(&vault_id)?;
         let currency_id = vault_id.collateral_currency();
 
         // Calculate the premium collateral amount based on whether the redemption is below the premium redeem
         // threshold. This should come before increasing the `to_be_redeemed` tokens and locking the amount to
         // ensure accurate premium redeem calculations.
-        let premium_collateral = if below_premium_redeem {
+        let premium_collateral = {
             let redeem_amount_wrapped_in_collateral = user_to_be_received_btc.convert_to(currency_id)?;
             let premium_redeem_rate = ext::fee::premium_redeem_reward_rate::<T>();
             let premium_for_redeem_amount =
@@ -513,8 +512,6 @@ impl<T: Config> Pallet<T> {
 
             let max_premium = ext::vault_registry::get_vault_max_premium_redeem(&vault_id)?;
             max_premium.min(&premium_for_redeem_amount)?
-        } else {
-            Amount::zero(currency_id)
         };
 
         // vault will get rid of the btc + btc_inclusion_fee

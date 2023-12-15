@@ -804,10 +804,10 @@ impl<T: Config> Pallet<T> {
 
         let required_collateral =
             Self::get_required_collateral_for_wrapped(&to_be_backed_tokens, vault_id.collateral_currency())?;
-
         let current_collateral = Self::get_backing_collateral(&vault_id)?;
         let missing_collateral = required_collateral.saturating_sub(&current_collateral)?;
 
+        // factor = fee / (secure - fee)
         let factor = premium_redeem_rate
             .checked_div(
                 &global_secure_threshold
@@ -1563,7 +1563,10 @@ impl<T: Config> Pallet<T> {
         Ok(Self::get_vault_from_id(&vault_id)?.is_liquidated())
     }
 
-    pub fn is_vault_below_premium_threshold(vault_id: &DefaultVaultId<T>) -> Result<bool, DispatchError> {
+    #[cfg(feature = "integration-tests")]
+    // note: unlike `is_vault_below_secure_threshold` and `is_vault_below_liquidation_threshold`,
+    // this function uses to_be_backed tokens
+    pub fn will_be_below_premium_threshold(vault_id: &DefaultVaultId<T>) -> Result<bool, DispatchError> {
         let vault = Self::get_rich_vault_from_id(&vault_id)?;
         let threshold = Self::premium_redeem_threshold(&vault_id.currencies).ok_or(Error::<T>::ThresholdNotSet)?;
         let collateral = Self::get_backing_collateral(vault_id)?;
@@ -1704,10 +1707,7 @@ impl<T: Config> Pallet<T> {
 
                 let request_redeem_tokens_for_max_premium = vault_to_burn_tokens.checked_div(&amount_wrapped).ok()?;
 
-                if Self::ensure_not_banned(&vault_id).is_ok()
-                    && !request_redeem_tokens_for_max_premium.is_zero()
-                    && Self::is_vault_below_premium_threshold(&vault_id).unwrap_or(false)
-                {
+                if Self::ensure_not_banned(&vault_id).is_ok() && !request_redeem_tokens_for_max_premium.is_zero() {
                     Some((vault_id, request_redeem_tokens_for_max_premium))
                 } else {
                     None

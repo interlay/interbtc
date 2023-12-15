@@ -143,12 +143,6 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::ensure_not_banned(vault_id)
     }
 
-    pub fn is_vault_below_premium_threshold<T: crate::Config>(
-        vault_id: &DefaultVaultId<T>,
-    ) -> Result<bool, DispatchError> {
-        <vault_registry::Pallet<T>>::is_vault_below_premium_threshold(vault_id)
-    }
-
     pub fn is_vault_below_secure_threshold<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
     ) -> Result<bool, DispatchError> {
