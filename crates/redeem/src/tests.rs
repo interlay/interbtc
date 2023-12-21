@@ -766,6 +766,8 @@ mod spec_based_tests {
                 assert_eq!(tokens, &burned_tokens);
                 MockResult::Return(Ok((wrapped(0), griefing(0))))
             });
+            ext::vault_registry::get_vault_max_premium_redeem::<Test>
+                .mock_safe(|_| MockResult::Return(Ok(collateral(0))));
 
             // The returned `replaceCollateral` MUST be released
             currency::Amount::unlock_on.mock_safe(move |collateral_amount, vault_id| {
@@ -919,6 +921,7 @@ mod spec_based_tests {
                 assert_eq!(vault, &VAULT);
                 MockResult::Return(Ok(()))
             });
+            ext::vault_registry::is_vault_below_secure_threshold::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
             Amount::<Test>::unlock_on.mock_safe(|_, _| MockResult::Return(Ok(())));
             Amount::<Test>::transfer.mock_safe(|_, _, _| MockResult::Return(Ok(())));
             ext::vault_registry::transfer_funds_saturated::<Test>

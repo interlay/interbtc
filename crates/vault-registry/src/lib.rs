@@ -1563,7 +1563,6 @@ impl<T: Config> Pallet<T> {
         Ok(Self::get_vault_from_id(&vault_id)?.is_liquidated())
     }
 
-    #[cfg(feature = "integration-tests")]
     // note: unlike `is_vault_below_secure_threshold` and `is_vault_below_liquidation_threshold`,
     // this function uses to_be_backed tokens
     pub fn will_be_below_premium_threshold(vault_id: &DefaultVaultId<T>) -> Result<bool, DispatchError> {
@@ -1707,7 +1706,10 @@ impl<T: Config> Pallet<T> {
 
                 let request_redeem_tokens_for_max_premium = vault_to_burn_tokens.checked_div(&amount_wrapped).ok()?;
 
-                if Self::ensure_not_banned(&vault_id).is_ok() && !request_redeem_tokens_for_max_premium.is_zero() {
+                if Self::ensure_not_banned(&vault_id).is_ok() && !request_redeem_tokens_for_max_premium.is_zero()
+                // need the check as `inclusion_fee` will be a non zero amount, hence `request_redeem_tokens_for_max_premium` will also be a non zero amount
+                && Self::will_be_below_premium_threshold(&vault_id).unwrap_or(false)
+                {
                     Some((vault_id, request_redeem_tokens_for_max_premium))
                 } else {
                     None

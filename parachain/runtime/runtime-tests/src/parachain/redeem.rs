@@ -201,6 +201,20 @@ mod premium_redeem_tests {
     }
 
     #[test]
+    fn integration_test_try_get_premium_vaults_which_is_sufficiently_collateralized_then_under_collateralized() {
+        test_setup_for_premium_redeem(|vault_id| {
+            assert_noop!(
+                RedeemPallet::get_premium_redeem_vaults(),
+                VaultRegistryError::NoVaultUnderThePremiumRedeemThreshold
+            );
+
+            // put vault under premium redeem threshold
+            setup_vault_below_premium_threshold(vault_id.clone());
+            assert_eq!(RedeemPallet::get_premium_redeem_vaults().unwrap().len(), 1);
+        });
+    }
+
+    #[test]
     fn integration_test_redeem_max_premium_redeemable_token() {
         test_setup_for_premium_redeem(|vault_id| {
             setup_vault_below_premium_threshold(vault_id.clone());
