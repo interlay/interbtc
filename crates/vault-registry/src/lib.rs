@@ -1707,7 +1707,7 @@ impl<T: Config> Pallet<T> {
                 let request_redeem_tokens_for_max_premium = vault_to_burn_tokens.checked_div(&amount_wrapped).ok()?;
 
                 if Self::ensure_not_banned(&vault_id).is_ok() && !request_redeem_tokens_for_max_premium.is_zero()
-                // need the check as `inclusion_fee` will be a non zero amount, hence `request_redeem_tokens_for_max_premium` will also be a non zero amount
+                // need `will_be_below_premium_threshold` check as `inclusion_fee` will be a non zero amount, hence `request_redeem_tokens_for_max_premium` will also be a non zero amount
                 && Self::will_be_below_premium_threshold(&vault_id).unwrap_or(false)
                 {
                     Some((vault_id, request_redeem_tokens_for_max_premium))
