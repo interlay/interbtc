@@ -109,6 +109,8 @@ pub trait RuntimeApiCollection:
         issue::IssueRequest<AccountId, BlockNumber, Balance, CurrencyId>,
     > + redeem_rpc_runtime_api::RedeemApi<
         Block,
+        VaultId<AccountId, CurrencyId>,
+        Balance,
         AccountId,
         H256,
         redeem::RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>,
@@ -157,6 +159,8 @@ where
             issue::IssueRequest<AccountId, BlockNumber, Balance, CurrencyId>,
         > + redeem_rpc_runtime_api::RedeemApi<
             Block,
+            VaultId<AccountId, CurrencyId>,
+            Balance,
             AccountId,
             H256,
             redeem::RedeemRequest<AccountId, BlockNumber, Balance, CurrencyId>,
