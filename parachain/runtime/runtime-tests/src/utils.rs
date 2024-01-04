@@ -1004,6 +1004,20 @@ pub fn set_default_thresholds() {
     }
 }
 
+pub fn set_custom_thresholds(secure: FixedU128, premium: FixedU128, liquidation: FixedU128) {
+    for collateral_id in iter_collateral_currencies() {
+        for wrapped_id in iter_wrapped_currencies() {
+            let currency_pair = VaultCurrencyPair {
+                collateral: collateral_id,
+                wrapped: wrapped_id,
+            };
+            VaultRegistryPallet::_set_secure_collateral_threshold(currency_pair.clone(), secure);
+            VaultRegistryPallet::_set_premium_redeem_threshold(currency_pair.clone(), premium);
+            VaultRegistryPallet::_set_liquidation_collateral_threshold(currency_pair.clone(), liquidation);
+        }
+    }
+}
+
 pub fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([
         2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222, 180,

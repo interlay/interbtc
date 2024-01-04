@@ -38,9 +38,6 @@ where
         at: Option<BlockHash>,
     ) -> RpcResult<BalanceWrapper<Balance>>;
 
-    #[method(name = "vaultRegistry_getPremiumRedeemVaults")]
-    fn get_premium_redeem_vaults(&self, at: Option<BlockHash>) -> RpcResult<Vec<(VaultId, BalanceWrapper<Balance>)>>;
-
     #[method(name = "vaultRegistry_getVaultsWithIssuableTokens")]
     fn get_vaults_with_issuable_tokens(
         &self,
@@ -176,19 +173,6 @@ where
         handle_response(
             api.get_vault_total_collateral(at, vault_id),
             "Unable to get the vault's collateral".into(),
-        )
-    }
-
-    fn get_premium_redeem_vaults(
-        &self,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Vec<(VaultId, BalanceWrapper<Balance>)>> {
-        let api = self.client.runtime_api();
-        let at = at.unwrap_or_else(|| self.client.info().best_hash);
-
-        handle_response(
-            api.get_premium_redeem_vaults(at),
-            "Unable to find a vault below the premium redeem threshold".into(),
         )
     }
 

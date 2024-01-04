@@ -94,7 +94,7 @@ pub(crate) mod vault_registry {
     }
 
     pub fn ensure_not_banned<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> DispatchResult {
-        <vault_registry::Pallet<T>>::_ensure_not_banned(vault_id)
+        <vault_registry::Pallet<T>>::ensure_not_banned(vault_id)
     }
 
     pub fn decrease_to_be_issued_tokens<T: crate::Config>(
