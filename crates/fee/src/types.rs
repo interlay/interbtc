@@ -5,7 +5,7 @@ use scale_info::TypeInfo;
 
 pub(crate) type BalanceOf<T> = <T as currency::Config>::Balance;
 
-pub(crate) type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
+pub type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
 
 pub(crate) type DefaultVaultId<T> = VaultId<<T as frame_system::Config>::AccountId, CurrencyId<T>>;
 

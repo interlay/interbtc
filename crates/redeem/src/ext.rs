@@ -42,7 +42,27 @@ pub(crate) mod vault_registry {
     use crate::DefaultVaultId;
     use currency::Amount;
     use frame_support::dispatch::{DispatchError, DispatchResult};
+    use sp_std::vec::Vec;
     use vault_registry::types::{CurrencyId, CurrencySource, DefaultVault};
+
+    pub fn calculate_inclusion_fee<T: crate::Config>(
+        wrapped_currency: CurrencyId<T>,
+        redeem_transaction_size: u32,
+    ) -> Result<Amount<T>, DispatchError> {
+        <vault_registry::Pallet<T>>::calculate_inclusion_fee(wrapped_currency, redeem_transaction_size)
+    }
+
+    pub fn get_premium_redeem_vaults<T: crate::Config>(
+        redeem_transaction_size: u32,
+    ) -> Result<Vec<(DefaultVaultId<T>, Amount<T>)>, DispatchError> {
+        <vault_registry::Pallet<T>>::get_premium_redeem_vaults(redeem_transaction_size)
+    }
+
+    pub fn get_vault_max_premium_redeem<T: crate::Config>(
+        vault_id: &DefaultVaultId<T>,
+    ) -> Result<Amount<T>, DispatchError> {
+        <vault_registry::Pallet<T>>::get_vault_max_premium_redeem(vault_id)
+    }
 
     pub fn get_liquidated_collateral<T: crate::Config>(
         vault_id: &DefaultVaultId<T>,
@@ -120,13 +140,7 @@ pub(crate) mod vault_registry {
     }
 
     pub fn ensure_not_banned<T: crate::Config>(vault_id: &DefaultVaultId<T>) -> DispatchResult {
-        <vault_registry::Pallet<T>>::_ensure_not_banned(vault_id)
-    }
-
-    pub fn is_vault_below_premium_threshold<T: crate::Config>(
-        vault_id: &DefaultVaultId<T>,
-    ) -> Result<bool, DispatchError> {
-        <vault_registry::Pallet<T>>::is_vault_below_premium_threshold(vault_id)
+        <vault_registry::Pallet<T>>::ensure_not_banned(vault_id)
     }
 
     pub fn is_vault_below_secure_threshold<T: crate::Config>(
@@ -194,19 +208,9 @@ pub(crate) mod security {
 }
 
 #[cfg_attr(test, mockable)]
-pub(crate) mod oracle {
-    use crate::OracleKey;
-    use frame_support::dispatch::DispatchError;
-    use oracle::types::UnsignedFixedPoint;
-
-    pub fn get_price<T: crate::Config>(key: OracleKey) -> Result<UnsignedFixedPoint<T>, DispatchError> {
-        <oracle::Pallet<T>>::get_price(key)
-    }
-}
-
-#[cfg_attr(test, mockable)]
 pub(crate) mod fee {
     use currency::Amount;
+    use fee::types::UnsignedFixedPoint;
     use frame_support::dispatch::{DispatchError, DispatchResult};
 
     pub fn fee_pool_account_id<T: crate::Config>() -> T::AccountId {
@@ -225,7 +229,7 @@ pub(crate) mod fee {
         <fee::Pallet<T>>::get_punishment_fee(amount)
     }
 
-    pub fn get_premium_redeem_fee<T: crate::Config>(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
-        <fee::Pallet<T>>::get_premium_redeem_fee(amount)
+    pub fn premium_redeem_reward_rate<T: crate::Config>() -> UnsignedFixedPoint<T> {
+        <fee::Pallet<T>>::premium_redeem_reward_rate()
     }
 }

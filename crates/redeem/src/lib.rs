@@ -32,7 +32,7 @@ pub use crate::types::{DefaultRedeemRequest, RedeemRequest, RedeemRequestStatus}
 use crate::types::{BalanceOf, RedeemRequestExt, Version};
 use bitcoin::types::FullTransactionProof;
 use btc_relay::BtcAddress;
-use currency::Amount;
+use currency::{Amount, Rounding};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
@@ -40,9 +40,7 @@ use frame_support::{
     transactional,
 };
 use frame_system::{ensure_root, ensure_signed};
-use oracle::OracleKey;
 use sp_core::H256;
-use sp_runtime::{ArithmeticError, FixedPointNumber};
 use sp_std::{convert::TryInto, vec::Vec};
 use types::DefaultVaultId;
 use vault_registry::{
@@ -501,22 +499,27 @@ impl<T: Config> Pallet<T> {
             Error::<T>::AmountBelowDustAmount
         );
 
+        let currency_id = vault_id.collateral_currency();
+
+        // Calculate the premium collateral amount based on whether the redemption is below the premium redeem
+        // threshold. This should come before increasing the `to_be_redeemed` tokens and locking the amount to
+        // ensure accurate premium redeem calculations.
+        let premium_collateral = {
+            let redeem_amount_wrapped_in_collateral = user_to_be_received_btc.convert_to(currency_id)?;
+            let premium_redeem_rate = ext::fee::premium_redeem_reward_rate::<T>();
+            let premium_for_redeem_amount =
+                redeem_amount_wrapped_in_collateral.checked_rounded_mul(&premium_redeem_rate, Rounding::Down)?;
+
+            let max_premium = ext::vault_registry::get_vault_max_premium_redeem(&vault_id)?;
+            max_premium.min(&premium_for_redeem_amount)?
+        };
+
         // vault will get rid of the btc + btc_inclusion_fee
         ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(&vault_id, &vault_to_be_burned_tokens)?;
 
         // lock full amount (inc. fee)
         amount_wrapped.lock_on(&redeemer)?;
         let redeem_id = ext::security::get_secure_id::<T>(&redeemer);
-
-        let below_premium_redeem = ext::vault_registry::is_vault_below_premium_threshold::<T>(&vault_id)?;
-        let currency_id = vault_id.collateral_currency();
-
-        let premium_collateral = if below_premium_redeem {
-            let redeem_amount_wrapped_in_collateral = user_to_be_received_btc.convert_to(currency_id)?;
-            ext::fee::get_premium_redeem_fee::<T>(&redeem_amount_wrapped_in_collateral)?
-        } else {
-            Amount::zero(currency_id)
-        };
 
         Self::release_replace_collateral(&vault_id, &vault_to_be_burned_tokens)?;
 
@@ -791,13 +794,7 @@ impl<T: Config> Pallet<T> {
     /// the inclusion fee rate reported by the oracle
     pub fn get_current_inclusion_fee(wrapped_currency: CurrencyId<T>) -> Result<Amount<T>, DispatchError> {
         let size: u32 = Self::redeem_transaction_size();
-        let satoshi_per_bytes = ext::oracle::get_price::<T>(OracleKey::FeeEstimation)?;
-
-        let fee = satoshi_per_bytes
-            .checked_mul_int(size)
-            .ok_or(ArithmeticError::Overflow)?;
-        let amount = fee.try_into().map_err(|_| Error::<T>::TryIntoIntError)?;
-        Ok(Amount::new(amount, wrapped_currency))
+        ext::vault_registry::calculate_inclusion_fee::<T>(wrapped_currency, size)
     }
 
     pub fn get_dust_value(currency_id: CurrencyId<T>) -> Amount<T> {
@@ -813,6 +810,11 @@ impl<T: Config> Pallet<T> {
             .filter(|(_, request)| request.redeemer == account_id)
             .map(|(key, _)| key)
             .collect::<Vec<_>>()
+    }
+
+    pub fn get_premium_redeem_vaults() -> Result<Vec<(DefaultVaultId<T>, Amount<T>)>, DispatchError> {
+        let size: u32 = Self::redeem_transaction_size();
+        ext::vault_registry::get_premium_redeem_vaults::<T>(size)
     }
 
     /// Fetch all redeem requests for the specified vault.
