@@ -182,7 +182,6 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
         });
 
         ext::security::get_secure_id::<Test>.mock_safe(move |_| MockResult::Return(H256([0; 32])));
-        ext::vault_registry::is_vault_below_premium_threshold::<Test>.mock_safe(move |_| MockResult::Return(Ok(false)));
         ext::fee::get_redeem_fee::<Test>.mock_safe(move |_| MockResult::Return(Ok(wrapped(redeem_fee))));
         let btc_fee = Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY).unwrap();
 
@@ -286,7 +285,6 @@ fn test_request_redeem_succeeds_with_self_redeem() {
         });
 
         ext::security::get_secure_id::<Test>.mock_safe(move |_| MockResult::Return(H256::zero()));
-        ext::vault_registry::is_vault_below_premium_threshold::<Test>.mock_safe(move |_| MockResult::Return(Ok(false)));
         let btc_fee = Redeem::get_current_inclusion_fee(DEFAULT_WRAPPED_CURRENCY).unwrap();
 
         assert_ok!(Redeem::request_redeem(
@@ -760,8 +758,6 @@ mod spec_based_tests {
             ext::vault_registry::ensure_not_banned::<Test>.mock_safe(move |_vault_id| MockResult::Return(Ok(())));
             ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>
                 .mock_safe(move |_vault_id, _amount| MockResult::Return(Ok(())));
-            ext::vault_registry::is_vault_below_premium_threshold::<Test>
-                .mock_safe(move |_vault_id| MockResult::Return(Ok(false)));
             let redeem_fee = Fee::get_redeem_fee(&wrapped(amount_to_redeem)).unwrap();
             let burned_tokens = wrapped(amount_to_redeem) - redeem_fee;
 
@@ -770,6 +766,8 @@ mod spec_based_tests {
                 assert_eq!(tokens, &burned_tokens);
                 MockResult::Return(Ok((wrapped(0), griefing(0))))
             });
+            ext::vault_registry::get_vault_max_premium_redeem::<Test>
+                .mock_safe(|_| MockResult::Return(Ok(collateral(0))));
 
             // The returned `replaceCollateral` MUST be released
             currency::Amount::unlock_on.mock_safe(move |collateral_amount, vault_id| {
@@ -919,11 +917,11 @@ mod spec_based_tests {
             inject_redeem_request(H256([0u8; 32]), redeem_request.clone());
 
             ext::btc_relay::has_request_expired::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(true)));
-            ext::vault_registry::is_vault_below_secure_threshold::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
             ext::vault_registry::ban_vault::<Test>.mock_safe(move |vault| {
                 assert_eq!(vault, &VAULT);
                 MockResult::Return(Ok(()))
             });
+            ext::vault_registry::is_vault_below_secure_threshold::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
             Amount::<Test>::unlock_on.mock_safe(|_, _| MockResult::Return(Ok(())));
             Amount::<Test>::transfer.mock_safe(|_, _, _| MockResult::Return(Ok(())));
             ext::vault_registry::transfer_funds_saturated::<Test>

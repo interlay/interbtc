@@ -11,3 +11,6 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkad
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
 redeem-rpc-runtime-api = { path = "runtime-api" }
+
+[dependencies.oracle-rpc-runtime-api]
+path = '../../oracle/rpc/runtime-api'

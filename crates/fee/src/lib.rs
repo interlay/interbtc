@@ -437,9 +437,24 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `amount` - amount in collateral (at current exchange rate)
     pub fn get_premium_redeem_fee(amount: &Amount<T>) -> Result<Amount<T>, DispatchError> {
-        amount.checked_rounded_mul(&<PremiumRedeemFee<T>>::get(), Rounding::NearestPrefUp)
+        amount.checked_rounded_mul(&<PremiumRedeemFee<T>>::get(), Rounding::Down)
     }
 
+    /// Get the premium redeem reward rate.
+    ///
+    /// # Returns
+    /// Returns the premium redeem reward rate.
+    pub fn premium_redeem_reward_rate() -> UnsignedFixedPoint<T> {
+        <PremiumRedeemFee<T>>::get()
+    }
+
+    /// Get the fee share that users need to pay to redeem tokens.
+    ///
+    /// # Returns
+    /// Returns the redeem fee.
+    pub fn get_redeem_fee_value() -> UnsignedFixedPoint<T> {
+        <RedeemFee<T>>::get()
+    }
     /// Calculate punishment fee for a Vault that fails to execute a redeem
     /// request before the expiry.
     ///

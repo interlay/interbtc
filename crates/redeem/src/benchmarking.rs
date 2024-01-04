@@ -18,10 +18,10 @@ use vault_registry::{
 // Pallets
 use crate::Pallet as Redeem;
 use btc_relay::Pallet as BtcRelay;
-use oracle::Pallet as Oracle;
+use oracle::{OracleKey, Pallet as Oracle};
 use security::Pallet as Security;
+use sp_runtime::FixedPointNumber;
 use vault_registry::Pallet as VaultRegistry;
-
 type UnsignedFixedPoint<T> = <T as currency::Config>::UnsignedFixedPoint;
 
 fn collateral<T: crate::Config>(amount: u32) -> Amount<T> {
@@ -158,6 +158,13 @@ pub mod benchmarks {
 
         #[extrinsic_call]
         _(RawOrigin::Signed(caller), amount, btc_address, vault_id.clone());
+        let redeem_vault_request = Redeem::<T>::get_redeem_requests_for_vault(vault_id.account_id.clone());
+        let redeem_request_hash = redeem_vault_request
+            .first()
+            .cloned()
+            .unwrap_or_else(|| panic!("No redeem request found"));
+        let redeem_struct = RedeemRequests::<T>::get(redeem_request_hash).unwrap();
+        assert!(redeem_struct.premium > 0);
     }
 
     #[benchmark]
