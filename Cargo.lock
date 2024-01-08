@@ -10982,6 +10982,7 @@ name = "redeem-rpc"
 version = "1.2.0"
 dependencies = [
  "jsonrpsee",
+ "oracle-rpc-runtime-api",
  "parity-scale-codec",
  "redeem-rpc-runtime-api",
  "sp-api",
@@ -10994,6 +10995,7 @@ name = "redeem-rpc-runtime-api"
 version = "1.2.0"
 dependencies = [
  "frame-support",
+ "oracle-rpc-runtime-api",
  "parity-scale-codec",
  "sp-api",
  "sp-std",
