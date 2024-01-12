@@ -28,7 +28,7 @@
 
 The interBTC project is a modular and programmable layer to bring Bitcoin to the multi-chain ecosystem. It includes:
 
-- A collateralized and premissionless Bitcoin bridge based on [XCLAIM](https://www.xclaim.io/)
+- A collateralized and permissionless Bitcoin bridge based on [XCLAIM](https://www.xclaim.io/)
 - A DeFi hub with a Rust-native Uniswap v2-style AMM, Curve v1-style AMM, and a Compound v2-style money market.
 - [EVM-compatible smart contracts and blocks](https://github.com/paritytech/frontier).
 - Bridges to other smart contract chains.
