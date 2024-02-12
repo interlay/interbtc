@@ -104,7 +104,7 @@ jobs:
             type=sha,prefix=${{ steps.prep.outputs.branch_name }}-,suffix=-${{ steps.prep.outputs.ts }}
             type=ref,event=branch
             type=ref,event=tag
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: interbtc
           path: target/release/
@@ -130,7 +130,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           path: artifacts
 
