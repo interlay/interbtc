@@ -35,7 +35,6 @@ pub const MAX_SWAP_FEE: Number = 100_000_000; // 1%
 #[derive(CloneNoBound, PartialEqNoBound, EqNoBound, RuntimeDebugNoBound, TypeInfo, Encode, Decode, MaxEncodedLen)]
 #[codec(mel_bound(skip_type_params(PoolCurrencyLimit, PoolCurrencySymbolLimit)))]
 #[scale_info(skip_type_params(PoolCurrencyLimit, PoolCurrencySymbolLimit))]
-
 pub struct BasePool<CurrencyId, AccountId, PoolCurrencyLimit: Get<u32>, PoolCurrencySymbolLimit: Get<u32>>
 where
     AccountId: Clone + Debug + Eq + PartialEq,
@@ -48,6 +47,7 @@ where
     // effective balance which might different from token balance of the pool account because it
     // hold admin fee as well
     pub balances: BoundedVec<Balance, PoolCurrencyLimit>,
+    pub rebased_balances: BoundedVec<Balance, PoolCurrencyLimit>,
     // swap fee ratio. Change on any action which move balance state far from the ideal state
     pub fee: Number,
     // admin fee in ratio of swap fee.
