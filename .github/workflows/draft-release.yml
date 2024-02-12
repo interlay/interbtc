@@ -30,12 +30,12 @@ jobs:
         run: |
           echo '${{ steps.srtool_build.outputs.json }}' | jq > ${{ matrix.runtime }}_srtool_output.json
       - name: Upload ${{ matrix.runtime }} srtool json
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.runtime }}-srtool-json
           path: ${{ matrix.runtime }}_srtool_output.json
       - name: Upload ${{ matrix.runtime }} runtime
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.runtime }}-runtime
           path: |
@@ -59,7 +59,7 @@ jobs:
           command: build
           args: --release --bin interbtc-parachain
       - name: Upload binary
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: interbtc
           path: target/release/interbtc-parachain
