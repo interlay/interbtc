@@ -42,311 +42,452 @@ pub trait WeightInfo {
 	fn store_block_header_new_fork_sorted(f: u32, ) -> Weight;
 	fn store_block_header_new_fork_unsorted(f: u32, ) -> Weight;
 	fn store_block_header_reorganize_chains(f: u32, ) -> Weight;
+	fn set_chainwork_for_block() -> Weight;
+	fn store_block_header_when_adding_chainwork	() -> Weight;
+	fn store_block_header_reorganize_chains_based_on_chainwork(f: u32, ) -> Weight;
 }
 
 /// Weights for btc_relay using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	/// Storage: BTCRelay BestBlock (r:1 w:1)
-	/// Proof: BTCRelay BestBlock (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
-	/// Storage: BTCRelay DisableDifficultyCheck (r:1 w:0)
-	/// Proof: BTCRelay DisableDifficultyCheck (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
-	/// Storage: BTCRelay ChainCounter (r:1 w:1)
-	/// Proof: BTCRelay ChainCounter (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay Chains (r:1 w:1)
-	/// Proof: BTCRelay Chains (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
-	/// Storage: Security ActiveBlockCount (r:1 w:0)
-	/// Proof: Security ActiveBlockCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay ChainsHashes (r:0 w:1)
-	/// Proof: BTCRelay ChainsHashes (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
-	/// Storage: BTCRelay StartBlockHeight (r:0 w:1)
-	/// Proof: BTCRelay StartBlockHeight (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay BestBlockHeight (r:0 w:1)
-	/// Proof: BTCRelay BestBlockHeight (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay ChainsIndex (r:0 w:1)
-	/// Proof: BTCRelay ChainsIndex (max_values: None, max_size: Some(32), added: 2507, mode: MaxEncodedLen)
-	/// Storage: BTCRelay BlockHeaders (r:0 w:1)
-	/// Proof: BTCRelay BlockHeaders (max_values: None, max_size: Some(200), added: 2675, mode: MaxEncodedLen)
-	fn initialize() -> Weight {
+
+
+	/// Storage: `BTCRelay::BestBlock` (r:1 w:1)
+	/// Proof: `BTCRelay::BestBlock` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::DisableDifficultyCheck` (r:1 w:0)
+	/// Proof: `BTCRelay::DisableDifficultyCheck` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainCounter` (r:1 w:1)
+	/// Proof: `BTCRelay::ChainCounter` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::Chains` (r:1 w:1)
+	/// Proof: `BTCRelay::Chains` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
+	/// Storage: `Security::ActiveBlockCount` (r:1 w:0)
+	/// Proof: `Security::ActiveBlockCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainWork` (r:1 w:0)
+	/// Proof: `BTCRelay::ChainWork` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsHashes` (r:0 w:1)
+	/// Proof: `BTCRelay::ChainsHashes` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::StartBlockHeight` (r:0 w:1)
+	/// Proof: `BTCRelay::StartBlockHeight` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BestBlockHeight` (r:0 w:1)
+	/// Proof: `BTCRelay::BestBlockHeight` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsIndex` (r:0 w:1)
+	/// Proof: `BTCRelay::ChainsIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BlockHeaders` (r:0 w:1)
+	/// Proof: `BTCRelay::BlockHeaders` (`max_values`: None, `max_size`: Some(200), added: 2675, mode: `MaxEncodedLen`)
+	fn initialize	() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1451`
-		//  Estimated: `4520`
-		// Minimum execution time: 57_676_000 picoseconds.
-		Weight::from_parts(58_347_000, 4520)
-			.saturating_add(T::DbWeight::get().reads(5_u64))
+		//  Measured:  `403`
+		//  Estimated: `3545`
+		// Minimum execution time: 44_000_000 picoseconds.
+		Weight::from_parts(44_000_000, 3545)
+			.saturating_add(T::DbWeight::get().reads(6_u64))
 			.saturating_add(T::DbWeight::get().writes(8_u64))
 	}
-	/// Storage: BTCRelay ChainCounter (r:1 w:0)
-	/// Proof: BTCRelay ChainCounter (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay BlockHeaders (r:2 w:1)
-	/// Proof: BTCRelay BlockHeaders (max_values: None, max_size: Some(200), added: 2675, mode: MaxEncodedLen)
-	/// Storage: BTCRelay ChainsIndex (r:1 w:1)
-	/// Proof: BTCRelay ChainsIndex (max_values: None, max_size: Some(32), added: 2507, mode: MaxEncodedLen)
-	/// Storage: BTCRelay DisableDifficultyCheck (r:1 w:0)
-	/// Proof: BTCRelay DisableDifficultyCheck (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
-	/// Storage: BTCRelay ChainsHashes (r:1 w:1)
-	/// Proof: BTCRelay ChainsHashes (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
-	/// Storage: Security ActiveBlockCount (r:1 w:0)
-	/// Proof: Security ActiveBlockCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay BestBlock (r:0 w:1)
-	/// Proof: BTCRelay BestBlock (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
-	/// Storage: BTCRelay BestBlockHeight (r:0 w:1)
-	/// Proof: BTCRelay BestBlockHeight (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	fn store_block_header() -> Weight {
+	/// Storage: `BTCRelay::BlockHeaders` (r:2 w:0)
+	/// Proof: `BTCRelay::BlockHeaders` (`max_values`: None, `max_size`: Some(200), added: 2675, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainWork` (r:1 w:1)
+	/// Proof: `BTCRelay::ChainWork` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	fn set_chainwork_for_block	() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1953`
-		//  Estimated: `11898`
-		// Minimum execution time: 65_610_000 picoseconds.
-		Weight::from_parts(66_748_000, 11898)
-			.saturating_add(T::DbWeight::get().reads(7_u64))
-			.saturating_add(T::DbWeight::get().writes(5_u64))
+		//  Measured:  `1049`
+		//  Estimated: `6340`
+		// Minimum execution time: 27_000_000 picoseconds.
+		Weight::from_parts(27_000_000, 6340)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: BTCRelay ChainCounter (r:1 w:1)
-	/// Proof: BTCRelay ChainCounter (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay BlockHeaders (r:2 w:1)
-	/// Proof: BTCRelay BlockHeaders (max_values: None, max_size: Some(200), added: 2675, mode: MaxEncodedLen)
-	/// Storage: BTCRelay ChainsIndex (r:6 w:1)
-	/// Proof: BTCRelay ChainsIndex (max_values: None, max_size: Some(32), added: 2507, mode: MaxEncodedLen)
-	/// Storage: BTCRelay DisableDifficultyCheck (r:1 w:0)
-	/// Proof: BTCRelay DisableDifficultyCheck (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
-	/// Storage: BTCRelay Chains (r:7 w:1)
-	/// Proof: BTCRelay Chains (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
-	/// Storage: Security ActiveBlockCount (r:1 w:0)
-	/// Proof: Security ActiveBlockCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay BestBlock (r:1 w:0)
-	/// Proof: BTCRelay BestBlock (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
-	/// Storage: BTCRelay ChainsHashes (r:0 w:1)
-	/// Proof: BTCRelay ChainsHashes (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
-	/// The range of component `f` is `[1, 6]`.
-	fn store_block_header_new_fork_sorted(f: u32, ) -> Weight {
+	/// Storage: `BTCRelay::ChainCounter` (r:1 w:0)
+	/// Proof: `BTCRelay::ChainCounter` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BlockHeaders` (r:2 w:1)
+	/// Proof: `BTCRelay::BlockHeaders` (`max_values`: None, `max_size`: Some(200), added: 2675, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsIndex` (r:1 w:1)
+	/// Proof: `BTCRelay::ChainsIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::DisableDifficultyCheck` (r:1 w:0)
+	/// Proof: `BTCRelay::DisableDifficultyCheck` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsHashes` (r:1 w:1)
+	/// Proof: `BTCRelay::ChainsHashes` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
+	/// Storage: `Security::ActiveBlockCount` (r:1 w:0)
+	/// Proof: `Security::ActiveBlockCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainWork` (r:1 w:1)
+	/// Proof: `BTCRelay::ChainWork` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BestBlock` (r:0 w:1)
+	/// Proof: `BTCRelay::BestBlock` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BestBlockHeight` (r:0 w:1)
+	/// Proof: `BTCRelay::BestBlockHeight` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	fn store_block_header_when_adding_chainwork	() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1894 + f * (92 ±0)`
-		//  Estimated: `9870 + f * (5006 ±0)`
-		// Minimum execution time: 81_320_000 picoseconds.
-		Weight::from_parts(83_847_120, 9870)
-			// Standard Error: 384_640
-			.saturating_add(Weight::from_parts(11_883_224, 0).saturating_mul(f.into()))
-			.saturating_add(T::DbWeight::get().reads(7_u64))
-			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(f.into())))
-			.saturating_add(T::DbWeight::get().writes(5_u64))
-			.saturating_add(Weight::from_parts(0, 5006).saturating_mul(f.into()))
-	}
-	/// Storage: BTCRelay ChainCounter (r:1 w:1)
-	/// Proof: BTCRelay ChainCounter (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay BlockHeaders (r:2 w:1)
-	/// Proof: BTCRelay BlockHeaders (max_values: None, max_size: Some(200), added: 2675, mode: MaxEncodedLen)
-	/// Storage: BTCRelay ChainsIndex (r:2 w:1)
-	/// Proof: BTCRelay ChainsIndex (max_values: None, max_size: Some(32), added: 2507, mode: MaxEncodedLen)
-	/// Storage: BTCRelay DisableDifficultyCheck (r:1 w:0)
-	/// Proof: BTCRelay DisableDifficultyCheck (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
-	/// Storage: BTCRelay Chains (r:7 w:6)
-	/// Proof: BTCRelay Chains (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
-	/// Storage: Security ActiveBlockCount (r:1 w:0)
-	/// Proof: Security ActiveBlockCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay BestBlock (r:1 w:0)
-	/// Proof: BTCRelay BestBlock (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
-	/// Storage: BTCRelay ChainsHashes (r:0 w:1)
-	/// Proof: BTCRelay ChainsHashes (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
-	/// The range of component `f` is `[1, 6]`.
-	fn store_block_header_new_fork_unsorted(f: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `1973 + f * (98 ±0)`
-		//  Estimated: `12911 + f * (2987 ±22)`
-		// Minimum execution time: 84_731_000 picoseconds.
-		Weight::from_parts(116_733_612, 12911)
-			// Standard Error: 720_816
-			.saturating_add(Weight::from_parts(5_329_595, 0).saturating_mul(f.into()))
+		//  Measured:  `979`
+		//  Estimated: `6340`
+		// Minimum execution time: 52_000_000 picoseconds.
+		Weight::from_parts(52_000_000, 6340)
 			.saturating_add(T::DbWeight::get().reads(8_u64))
-			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(f.into())))
-			.saturating_add(T::DbWeight::get().writes(4_u64))
-			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(f.into())))
-			.saturating_add(Weight::from_parts(0, 2987).saturating_mul(f.into()))
+			.saturating_add(T::DbWeight::get().writes(6_u64))
 	}
-	/// Storage: BTCRelay ChainCounter (r:1 w:0)
-	/// Proof: BTCRelay ChainCounter (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay BlockHeaders (r:20 w:18)
-	/// Proof: BTCRelay BlockHeaders (max_values: None, max_size: Some(200), added: 2675, mode: MaxEncodedLen)
-	/// Storage: BTCRelay ChainsIndex (r:3 w:2)
-	/// Proof: BTCRelay ChainsIndex (max_values: None, max_size: Some(32), added: 2507, mode: MaxEncodedLen)
-	/// Storage: BTCRelay DisableDifficultyCheck (r:1 w:0)
-	/// Proof: BTCRelay DisableDifficultyCheck (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
-	/// Storage: BTCRelay ChainsHashes (r:13 w:24)
-	/// Proof: BTCRelay ChainsHashes (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
-	/// Storage: Security ActiveBlockCount (r:1 w:0)
-	/// Proof: Security ActiveBlockCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay Chains (r:6 w:0)
-	/// Proof: BTCRelay Chains (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay StableBitcoinConfirmations (r:1 w:0)
-	/// Proof: BTCRelay StableBitcoinConfirmations (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay BestBlock (r:0 w:1)
-	/// Proof: BTCRelay BestBlock (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
-	/// Storage: BTCRelay BestBlockHeight (r:0 w:1)
-	/// Proof: BTCRelay BestBlockHeight (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// The range of component `f` is `[3, 6]`.
-	fn store_block_header_reorganize_chains(f: u32, ) -> Weight {
+	/// Storage: `BTCRelay::ChainCounter` (r:1 w:0)
+	/// Proof: `BTCRelay::ChainCounter` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BlockHeaders` (r:2 w:1)
+	/// Proof: `BTCRelay::BlockHeaders` (`max_values`: None, `max_size`: Some(200), added: 2675, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsIndex` (r:1 w:1)
+	/// Proof: `BTCRelay::ChainsIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::DisableDifficultyCheck` (r:1 w:0)
+	/// Proof: `BTCRelay::DisableDifficultyCheck` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsHashes` (r:1 w:1)
+	/// Proof: `BTCRelay::ChainsHashes` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
+	/// Storage: `Security::ActiveBlockCount` (r:1 w:0)
+	/// Proof: `Security::ActiveBlockCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainWork` (r:1 w:0)
+	/// Proof: `BTCRelay::ChainWork` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BestBlock` (r:0 w:1)
+	/// Proof: `BTCRelay::BestBlock` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BestBlockHeight` (r:0 w:1)
+	/// Proof: `BTCRelay::BestBlockHeight` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	fn store_block_header	() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `6534 + f * (199 ±0)`
-		//  Estimated: `101752 + f * (1305 ±32)`
-		// Minimum execution time: 363_791_000 picoseconds.
-		Weight::from_parts(341_578_042, 101752)
-			// Standard Error: 162_430
-			.saturating_add(Weight::from_parts(9_039_414, 0).saturating_mul(f.into()))
-			.saturating_add(T::DbWeight::get().reads(42_u64))
-			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(f.into())))
+		//  Measured:  `874`
+		//  Estimated: `6340`
+		// Minimum execution time: 47_000_000 picoseconds.
+		Weight::from_parts(47_000_000, 6340)
+			.saturating_add(T::DbWeight::get().reads(8_u64))
+			.saturating_add(T::DbWeight::get().writes(5_u64))
+	}
+	/// Storage: `BTCRelay::ChainCounter` (r:1 w:1)
+	/// Proof: `BTCRelay::ChainCounter` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BlockHeaders` (r:2 w:1)
+	/// Proof: `BTCRelay::BlockHeaders` (`max_values`: None, `max_size`: Some(200), added: 2675, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsIndex` (r:6 w:1)
+	/// Proof: `BTCRelay::ChainsIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::DisableDifficultyCheck` (r:1 w:0)
+	/// Proof: `BTCRelay::DisableDifficultyCheck` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::Chains` (r:7 w:1)
+	/// Proof: `BTCRelay::Chains` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
+	/// Storage: `Security::ActiveBlockCount` (r:1 w:0)
+	/// Proof: `Security::ActiveBlockCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainWork` (r:1 w:0)
+	/// Proof: `BTCRelay::ChainWork` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BestBlock` (r:1 w:0)
+	/// Proof: `BTCRelay::BestBlock` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsHashes` (r:0 w:1)
+	/// Proof: `BTCRelay::ChainsHashes` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
+	/// The range of component `f` is `[1, 6]`.
+	fn store_block_header_new_fork_sorted	(_f: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `796 + f * (110 ±0)`
+		//  Estimated: `18483`
+		// Minimum execution time: 71_000_000 picoseconds.
+		Weight::from_parts(93_000_000, 18483)
+			.saturating_add(T::DbWeight::get().reads(20_u64))
+			.saturating_add(T::DbWeight::get().writes(5_u64))
+	}
+	/// Storage: `BTCRelay::ChainCounter` (r:1 w:1)
+	/// Proof: `BTCRelay::ChainCounter` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BlockHeaders` (r:2 w:1)
+	/// Proof: `BTCRelay::BlockHeaders` (`max_values`: None, `max_size`: Some(200), added: 2675, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsIndex` (r:2 w:1)
+	/// Proof: `BTCRelay::ChainsIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::DisableDifficultyCheck` (r:1 w:0)
+	/// Proof: `BTCRelay::DisableDifficultyCheck` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::Chains` (r:7 w:6)
+	/// Proof: `BTCRelay::Chains` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
+	/// Storage: `Security::ActiveBlockCount` (r:1 w:0)
+	/// Proof: `Security::ActiveBlockCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainWork` (r:1 w:0)
+	/// Proof: `BTCRelay::ChainWork` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BestBlock` (r:1 w:0)
+	/// Proof: `BTCRelay::BestBlock` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsHashes` (r:0 w:1)
+	/// Proof: `BTCRelay::ChainsHashes` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
+	/// The range of component `f` is `[1, 6]`.
+	fn store_block_header_new_fork_unsorted	(_f: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `832 + f * (108 ±0)`
+		//  Estimated: `18483`
+		// Minimum execution time: 54_000_000 picoseconds.
+		Weight::from_parts(94_000_000, 18483)
+			.saturating_add(T::DbWeight::get().reads(16_u64))
+			.saturating_add(T::DbWeight::get().writes(10_u64))
+	}
+	/// Storage: `BTCRelay::ChainCounter` (r:1 w:0)
+	/// Proof: `BTCRelay::ChainCounter` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BlockHeaders` (r:20 w:18)
+	/// Proof: `BTCRelay::BlockHeaders` (`max_values`: None, `max_size`: Some(200), added: 2675, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsIndex` (r:3 w:2)
+	/// Proof: `BTCRelay::ChainsIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::DisableDifficultyCheck` (r:1 w:0)
+	/// Proof: `BTCRelay::DisableDifficultyCheck` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsHashes` (r:13 w:24)
+	/// Proof: `BTCRelay::ChainsHashes` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
+	/// Storage: `Security::ActiveBlockCount` (r:1 w:0)
+	/// Proof: `Security::ActiveBlockCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainWork` (r:3 w:0)
+	/// Proof: `BTCRelay::ChainWork` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::Chains` (r:6 w:0)
+	/// Proof: `BTCRelay::Chains` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::StableBitcoinConfirmations` (r:1 w:0)
+	/// Proof: `BTCRelay::StableBitcoinConfirmations` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BestBlock` (r:0 w:1)
+	/// Proof: `BTCRelay::BestBlock` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BestBlockHeight` (r:0 w:1)
+	/// Proof: `BTCRelay::BestBlockHeight` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// The range of component `f` is `[3, 6]`.
+	fn store_block_header_reorganize_chains	(_f: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `4754 + f * (235 ±0)`
+		//  Estimated: `54490`
+		// Minimum execution time: 322_000_000 picoseconds.
+		Weight::from_parts(345_000_000, 54490)
+			.saturating_add(T::DbWeight::get().reads(49_u64))
 			.saturating_add(T::DbWeight::get().writes(46_u64))
-			.saturating_add(Weight::from_parts(0, 1305).saturating_mul(f.into()))
+	}
+	/// Storage: `BTCRelay::ChainCounter` (r:1 w:0)
+	/// Proof: `BTCRelay::ChainCounter` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BlockHeaders` (r:20 w:18)
+	/// Proof: `BTCRelay::BlockHeaders` (`max_values`: None, `max_size`: Some(200), added: 2675, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsIndex` (r:3 w:2)
+	/// Proof: `BTCRelay::ChainsIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::DisableDifficultyCheck` (r:1 w:0)
+	/// Proof: `BTCRelay::DisableDifficultyCheck` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsHashes` (r:13 w:24)
+	/// Proof: `BTCRelay::ChainsHashes` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
+	/// Storage: `Security::ActiveBlockCount` (r:1 w:0)
+	/// Proof: `Security::ActiveBlockCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainWork` (r:2 w:1)
+	/// Proof: `BTCRelay::ChainWork` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::Chains` (r:6 w:0)
+	/// Proof: `BTCRelay::Chains` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BestBlock` (r:0 w:1)
+	/// Proof: `BTCRelay::BestBlock` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BestBlockHeight` (r:0 w:1)
+	/// Proof: `BTCRelay::BestBlockHeight` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// The range of component `f` is `[3, 6]`.
+	fn store_block_header_reorganize_chains_based_on_chainwork	(_f: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `5196 + f * (298 ±0)`
+		//  Estimated: `54490`
+		// Minimum execution time: 328_000_000 picoseconds.
+		Weight::from_parts(358_000_000, 54490)
+			.saturating_add(T::DbWeight::get().reads(47_u64))
+			.saturating_add(T::DbWeight::get().writes(47_u64))
 	}
 }
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
-	/// Storage: BTCRelay BestBlock (r:1 w:1)
-	/// Proof: BTCRelay BestBlock (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
-	/// Storage: BTCRelay DisableDifficultyCheck (r:1 w:0)
-	/// Proof: BTCRelay DisableDifficultyCheck (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
-	/// Storage: BTCRelay ChainCounter (r:1 w:1)
-	/// Proof: BTCRelay ChainCounter (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay Chains (r:1 w:1)
-	/// Proof: BTCRelay Chains (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
-	/// Storage: Security ActiveBlockCount (r:1 w:0)
-	/// Proof: Security ActiveBlockCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay ChainsHashes (r:0 w:1)
-	/// Proof: BTCRelay ChainsHashes (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
-	/// Storage: BTCRelay StartBlockHeight (r:0 w:1)
-	/// Proof: BTCRelay StartBlockHeight (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay BestBlockHeight (r:0 w:1)
-	/// Proof: BTCRelay BestBlockHeight (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay ChainsIndex (r:0 w:1)
-	/// Proof: BTCRelay ChainsIndex (max_values: None, max_size: Some(32), added: 2507, mode: MaxEncodedLen)
-	/// Storage: BTCRelay BlockHeaders (r:0 w:1)
-	/// Proof: BTCRelay BlockHeaders (max_values: None, max_size: Some(200), added: 2675, mode: MaxEncodedLen)
-	fn initialize() -> Weight {
+
+
+	/// Storage: `BTCRelay::BestBlock` (r:1 w:1)
+	/// Proof: `BTCRelay::BestBlock` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::DisableDifficultyCheck` (r:1 w:0)
+	/// Proof: `BTCRelay::DisableDifficultyCheck` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainCounter` (r:1 w:1)
+	/// Proof: `BTCRelay::ChainCounter` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::Chains` (r:1 w:1)
+	/// Proof: `BTCRelay::Chains` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
+	/// Storage: `Security::ActiveBlockCount` (r:1 w:0)
+	/// Proof: `Security::ActiveBlockCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainWork` (r:1 w:0)
+	/// Proof: `BTCRelay::ChainWork` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsHashes` (r:0 w:1)
+	/// Proof: `BTCRelay::ChainsHashes` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::StartBlockHeight` (r:0 w:1)
+	/// Proof: `BTCRelay::StartBlockHeight` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BestBlockHeight` (r:0 w:1)
+	/// Proof: `BTCRelay::BestBlockHeight` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsIndex` (r:0 w:1)
+	/// Proof: `BTCRelay::ChainsIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BlockHeaders` (r:0 w:1)
+	/// Proof: `BTCRelay::BlockHeaders` (`max_values`: None, `max_size`: Some(200), added: 2675, mode: `MaxEncodedLen`)
+	fn initialize	() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1451`
-		//  Estimated: `4520`
-		// Minimum execution time: 57_676_000 picoseconds.
-		Weight::from_parts(58_347_000, 4520)
-			.saturating_add(RocksDbWeight::get().reads(5_u64))
+		//  Measured:  `403`
+		//  Estimated: `3545`
+		// Minimum execution time: 44_000_000 picoseconds.
+		Weight::from_parts(44_000_000, 3545)
+			.saturating_add(RocksDbWeight::get().reads(6_u64))
 			.saturating_add(RocksDbWeight::get().writes(8_u64))
 	}
-	/// Storage: BTCRelay ChainCounter (r:1 w:0)
-	/// Proof: BTCRelay ChainCounter (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay BlockHeaders (r:2 w:1)
-	/// Proof: BTCRelay BlockHeaders (max_values: None, max_size: Some(200), added: 2675, mode: MaxEncodedLen)
-	/// Storage: BTCRelay ChainsIndex (r:1 w:1)
-	/// Proof: BTCRelay ChainsIndex (max_values: None, max_size: Some(32), added: 2507, mode: MaxEncodedLen)
-	/// Storage: BTCRelay DisableDifficultyCheck (r:1 w:0)
-	/// Proof: BTCRelay DisableDifficultyCheck (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
-	/// Storage: BTCRelay ChainsHashes (r:1 w:1)
-	/// Proof: BTCRelay ChainsHashes (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
-	/// Storage: Security ActiveBlockCount (r:1 w:0)
-	/// Proof: Security ActiveBlockCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay BestBlock (r:0 w:1)
-	/// Proof: BTCRelay BestBlock (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
-	/// Storage: BTCRelay BestBlockHeight (r:0 w:1)
-	/// Proof: BTCRelay BestBlockHeight (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	fn store_block_header() -> Weight {
+	/// Storage: `BTCRelay::BlockHeaders` (r:2 w:0)
+	/// Proof: `BTCRelay::BlockHeaders` (`max_values`: None, `max_size`: Some(200), added: 2675, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainWork` (r:1 w:1)
+	/// Proof: `BTCRelay::ChainWork` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	fn set_chainwork_for_block	() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1953`
-		//  Estimated: `11898`
-		// Minimum execution time: 65_610_000 picoseconds.
-		Weight::from_parts(66_748_000, 11898)
-			.saturating_add(RocksDbWeight::get().reads(7_u64))
-			.saturating_add(RocksDbWeight::get().writes(5_u64))
+		//  Measured:  `1049`
+		//  Estimated: `6340`
+		// Minimum execution time: 27_000_000 picoseconds.
+		Weight::from_parts(27_000_000, 6340)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: BTCRelay ChainCounter (r:1 w:1)
-	/// Proof: BTCRelay ChainCounter (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay BlockHeaders (r:2 w:1)
-	/// Proof: BTCRelay BlockHeaders (max_values: None, max_size: Some(200), added: 2675, mode: MaxEncodedLen)
-	/// Storage: BTCRelay ChainsIndex (r:6 w:1)
-	/// Proof: BTCRelay ChainsIndex (max_values: None, max_size: Some(32), added: 2507, mode: MaxEncodedLen)
-	/// Storage: BTCRelay DisableDifficultyCheck (r:1 w:0)
-	/// Proof: BTCRelay DisableDifficultyCheck (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
-	/// Storage: BTCRelay Chains (r:7 w:1)
-	/// Proof: BTCRelay Chains (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
-	/// Storage: Security ActiveBlockCount (r:1 w:0)
-	/// Proof: Security ActiveBlockCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay BestBlock (r:1 w:0)
-	/// Proof: BTCRelay BestBlock (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
-	/// Storage: BTCRelay ChainsHashes (r:0 w:1)
-	/// Proof: BTCRelay ChainsHashes (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
-	/// The range of component `f` is `[1, 6]`.
-	fn store_block_header_new_fork_sorted(f: u32, ) -> Weight {
+	/// Storage: `BTCRelay::ChainCounter` (r:1 w:0)
+	/// Proof: `BTCRelay::ChainCounter` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BlockHeaders` (r:2 w:1)
+	/// Proof: `BTCRelay::BlockHeaders` (`max_values`: None, `max_size`: Some(200), added: 2675, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsIndex` (r:1 w:1)
+	/// Proof: `BTCRelay::ChainsIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::DisableDifficultyCheck` (r:1 w:0)
+	/// Proof: `BTCRelay::DisableDifficultyCheck` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsHashes` (r:1 w:1)
+	/// Proof: `BTCRelay::ChainsHashes` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
+	/// Storage: `Security::ActiveBlockCount` (r:1 w:0)
+	/// Proof: `Security::ActiveBlockCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainWork` (r:1 w:1)
+	/// Proof: `BTCRelay::ChainWork` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BestBlock` (r:0 w:1)
+	/// Proof: `BTCRelay::BestBlock` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BestBlockHeight` (r:0 w:1)
+	/// Proof: `BTCRelay::BestBlockHeight` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	fn store_block_header_when_adding_chainwork	() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1894 + f * (92 ±0)`
-		//  Estimated: `9870 + f * (5006 ±0)`
-		// Minimum execution time: 81_320_000 picoseconds.
-		Weight::from_parts(83_847_120, 9870)
-			// Standard Error: 384_640
-			.saturating_add(Weight::from_parts(11_883_224, 0).saturating_mul(f.into()))
-			.saturating_add(RocksDbWeight::get().reads(7_u64))
-			.saturating_add(RocksDbWeight::get().reads((2_u64).saturating_mul(f.into())))
-			.saturating_add(RocksDbWeight::get().writes(5_u64))
-			.saturating_add(Weight::from_parts(0, 5006).saturating_mul(f.into()))
-	}
-	/// Storage: BTCRelay ChainCounter (r:1 w:1)
-	/// Proof: BTCRelay ChainCounter (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay BlockHeaders (r:2 w:1)
-	/// Proof: BTCRelay BlockHeaders (max_values: None, max_size: Some(200), added: 2675, mode: MaxEncodedLen)
-	/// Storage: BTCRelay ChainsIndex (r:2 w:1)
-	/// Proof: BTCRelay ChainsIndex (max_values: None, max_size: Some(32), added: 2507, mode: MaxEncodedLen)
-	/// Storage: BTCRelay DisableDifficultyCheck (r:1 w:0)
-	/// Proof: BTCRelay DisableDifficultyCheck (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
-	/// Storage: BTCRelay Chains (r:7 w:6)
-	/// Proof: BTCRelay Chains (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
-	/// Storage: Security ActiveBlockCount (r:1 w:0)
-	/// Proof: Security ActiveBlockCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay BestBlock (r:1 w:0)
-	/// Proof: BTCRelay BestBlock (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
-	/// Storage: BTCRelay ChainsHashes (r:0 w:1)
-	/// Proof: BTCRelay ChainsHashes (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
-	/// The range of component `f` is `[1, 6]`.
-	fn store_block_header_new_fork_unsorted(f: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `1973 + f * (98 ±0)`
-		//  Estimated: `12911 + f * (2987 ±22)`
-		// Minimum execution time: 84_731_000 picoseconds.
-		Weight::from_parts(116_733_612, 12911)
-			// Standard Error: 720_816
-			.saturating_add(Weight::from_parts(5_329_595, 0).saturating_mul(f.into()))
+		//  Measured:  `979`
+		//  Estimated: `6340`
+		// Minimum execution time: 52_000_000 picoseconds.
+		Weight::from_parts(52_000_000, 6340)
 			.saturating_add(RocksDbWeight::get().reads(8_u64))
-			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(f.into())))
-			.saturating_add(RocksDbWeight::get().writes(4_u64))
-			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(f.into())))
-			.saturating_add(Weight::from_parts(0, 2987).saturating_mul(f.into()))
+			.saturating_add(RocksDbWeight::get().writes(6_u64))
 	}
-	/// Storage: BTCRelay ChainCounter (r:1 w:0)
-	/// Proof: BTCRelay ChainCounter (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay BlockHeaders (r:20 w:18)
-	/// Proof: BTCRelay BlockHeaders (max_values: None, max_size: Some(200), added: 2675, mode: MaxEncodedLen)
-	/// Storage: BTCRelay ChainsIndex (r:3 w:2)
-	/// Proof: BTCRelay ChainsIndex (max_values: None, max_size: Some(32), added: 2507, mode: MaxEncodedLen)
-	/// Storage: BTCRelay DisableDifficultyCheck (r:1 w:0)
-	/// Proof: BTCRelay DisableDifficultyCheck (max_values: Some(1), max_size: Some(1), added: 496, mode: MaxEncodedLen)
-	/// Storage: BTCRelay ChainsHashes (r:13 w:24)
-	/// Proof: BTCRelay ChainsHashes (max_values: None, max_size: Some(72), added: 2547, mode: MaxEncodedLen)
-	/// Storage: Security ActiveBlockCount (r:1 w:0)
-	/// Proof: Security ActiveBlockCount (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay Chains (r:6 w:0)
-	/// Proof: BTCRelay Chains (max_values: None, max_size: Some(24), added: 2499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay StableBitcoinConfirmations (r:1 w:0)
-	/// Proof: BTCRelay StableBitcoinConfirmations (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// Storage: BTCRelay BestBlock (r:0 w:1)
-	/// Proof: BTCRelay BestBlock (max_values: Some(1), max_size: Some(32), added: 527, mode: MaxEncodedLen)
-	/// Storage: BTCRelay BestBlockHeight (r:0 w:1)
-	/// Proof: BTCRelay BestBlockHeight (max_values: Some(1), max_size: Some(4), added: 499, mode: MaxEncodedLen)
-	/// The range of component `f` is `[3, 6]`.
-	fn store_block_header_reorganize_chains(f: u32, ) -> Weight {
+	/// Storage: `BTCRelay::ChainCounter` (r:1 w:0)
+	/// Proof: `BTCRelay::ChainCounter` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BlockHeaders` (r:2 w:1)
+	/// Proof: `BTCRelay::BlockHeaders` (`max_values`: None, `max_size`: Some(200), added: 2675, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsIndex` (r:1 w:1)
+	/// Proof: `BTCRelay::ChainsIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::DisableDifficultyCheck` (r:1 w:0)
+	/// Proof: `BTCRelay::DisableDifficultyCheck` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsHashes` (r:1 w:1)
+	/// Proof: `BTCRelay::ChainsHashes` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
+	/// Storage: `Security::ActiveBlockCount` (r:1 w:0)
+	/// Proof: `Security::ActiveBlockCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainWork` (r:1 w:0)
+	/// Proof: `BTCRelay::ChainWork` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BestBlock` (r:0 w:1)
+	/// Proof: `BTCRelay::BestBlock` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BestBlockHeight` (r:0 w:1)
+	/// Proof: `BTCRelay::BestBlockHeight` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	fn store_block_header	() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `6534 + f * (199 ±0)`
-		//  Estimated: `101752 + f * (1305 ±32)`
-		// Minimum execution time: 363_791_000 picoseconds.
-		Weight::from_parts(341_578_042, 101752)
-			// Standard Error: 162_430
-			.saturating_add(Weight::from_parts(9_039_414, 0).saturating_mul(f.into()))
-			.saturating_add(RocksDbWeight::get().reads(42_u64))
-			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(f.into())))
+		//  Measured:  `874`
+		//  Estimated: `6340`
+		// Minimum execution time: 47_000_000 picoseconds.
+		Weight::from_parts(47_000_000, 6340)
+			.saturating_add(RocksDbWeight::get().reads(8_u64))
+			.saturating_add(RocksDbWeight::get().writes(5_u64))
+	}
+	/// Storage: `BTCRelay::ChainCounter` (r:1 w:1)
+	/// Proof: `BTCRelay::ChainCounter` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BlockHeaders` (r:2 w:1)
+	/// Proof: `BTCRelay::BlockHeaders` (`max_values`: None, `max_size`: Some(200), added: 2675, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsIndex` (r:6 w:1)
+	/// Proof: `BTCRelay::ChainsIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::DisableDifficultyCheck` (r:1 w:0)
+	/// Proof: `BTCRelay::DisableDifficultyCheck` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::Chains` (r:7 w:1)
+	/// Proof: `BTCRelay::Chains` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
+	/// Storage: `Security::ActiveBlockCount` (r:1 w:0)
+	/// Proof: `Security::ActiveBlockCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainWork` (r:1 w:0)
+	/// Proof: `BTCRelay::ChainWork` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BestBlock` (r:1 w:0)
+	/// Proof: `BTCRelay::BestBlock` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsHashes` (r:0 w:1)
+	/// Proof: `BTCRelay::ChainsHashes` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
+	/// The range of component `f` is `[1, 6]`.
+	fn store_block_header_new_fork_sorted	(_f: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `796 + f * (110 ±0)`
+		//  Estimated: `18483`
+		// Minimum execution time: 71_000_000 picoseconds.
+		Weight::from_parts(93_000_000, 18483)
+			.saturating_add(RocksDbWeight::get().reads(20_u64))
+			.saturating_add(RocksDbWeight::get().writes(5_u64))
+	}
+	/// Storage: `BTCRelay::ChainCounter` (r:1 w:1)
+	/// Proof: `BTCRelay::ChainCounter` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BlockHeaders` (r:2 w:1)
+	/// Proof: `BTCRelay::BlockHeaders` (`max_values`: None, `max_size`: Some(200), added: 2675, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsIndex` (r:2 w:1)
+	/// Proof: `BTCRelay::ChainsIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::DisableDifficultyCheck` (r:1 w:0)
+	/// Proof: `BTCRelay::DisableDifficultyCheck` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::Chains` (r:7 w:6)
+	/// Proof: `BTCRelay::Chains` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
+	/// Storage: `Security::ActiveBlockCount` (r:1 w:0)
+	/// Proof: `Security::ActiveBlockCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainWork` (r:1 w:0)
+	/// Proof: `BTCRelay::ChainWork` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BestBlock` (r:1 w:0)
+	/// Proof: `BTCRelay::BestBlock` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsHashes` (r:0 w:1)
+	/// Proof: `BTCRelay::ChainsHashes` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
+	/// The range of component `f` is `[1, 6]`.
+	fn store_block_header_new_fork_unsorted	(_f: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `832 + f * (108 ±0)`
+		//  Estimated: `18483`
+		// Minimum execution time: 54_000_000 picoseconds.
+		Weight::from_parts(94_000_000, 18483)
+			.saturating_add(RocksDbWeight::get().reads(16_u64))
+			.saturating_add(RocksDbWeight::get().writes(10_u64))
+	}
+	/// Storage: `BTCRelay::ChainCounter` (r:1 w:0)
+	/// Proof: `BTCRelay::ChainCounter` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BlockHeaders` (r:20 w:18)
+	/// Proof: `BTCRelay::BlockHeaders` (`max_values`: None, `max_size`: Some(200), added: 2675, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsIndex` (r:3 w:2)
+	/// Proof: `BTCRelay::ChainsIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::DisableDifficultyCheck` (r:1 w:0)
+	/// Proof: `BTCRelay::DisableDifficultyCheck` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsHashes` (r:13 w:24)
+	/// Proof: `BTCRelay::ChainsHashes` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
+	/// Storage: `Security::ActiveBlockCount` (r:1 w:0)
+	/// Proof: `Security::ActiveBlockCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainWork` (r:3 w:0)
+	/// Proof: `BTCRelay::ChainWork` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::Chains` (r:6 w:0)
+	/// Proof: `BTCRelay::Chains` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::StableBitcoinConfirmations` (r:1 w:0)
+	/// Proof: `BTCRelay::StableBitcoinConfirmations` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BestBlock` (r:0 w:1)
+	/// Proof: `BTCRelay::BestBlock` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BestBlockHeight` (r:0 w:1)
+	/// Proof: `BTCRelay::BestBlockHeight` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// The range of component `f` is `[3, 6]`.
+	fn store_block_header_reorganize_chains	(_f: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `4754 + f * (235 ±0)`
+		//  Estimated: `54490`
+		// Minimum execution time: 322_000_000 picoseconds.
+		Weight::from_parts(345_000_000, 54490)
+			.saturating_add(RocksDbWeight::get().reads(49_u64))
 			.saturating_add(RocksDbWeight::get().writes(46_u64))
-			.saturating_add(Weight::from_parts(0, 1305).saturating_mul(f.into()))
+	}
+	/// Storage: `BTCRelay::ChainCounter` (r:1 w:0)
+	/// Proof: `BTCRelay::ChainCounter` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BlockHeaders` (r:20 w:18)
+	/// Proof: `BTCRelay::BlockHeaders` (`max_values`: None, `max_size`: Some(200), added: 2675, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsIndex` (r:3 w:2)
+	/// Proof: `BTCRelay::ChainsIndex` (`max_values`: None, `max_size`: Some(32), added: 2507, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::DisableDifficultyCheck` (r:1 w:0)
+	/// Proof: `BTCRelay::DisableDifficultyCheck` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainsHashes` (r:13 w:24)
+	/// Proof: `BTCRelay::ChainsHashes` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
+	/// Storage: `Security::ActiveBlockCount` (r:1 w:0)
+	/// Proof: `Security::ActiveBlockCount` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::ChainWork` (r:2 w:1)
+	/// Proof: `BTCRelay::ChainWork` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::Chains` (r:6 w:0)
+	/// Proof: `BTCRelay::Chains` (`max_values`: None, `max_size`: Some(24), added: 2499, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BestBlock` (r:0 w:1)
+	/// Proof: `BTCRelay::BestBlock` (`max_values`: Some(1), `max_size`: Some(32), added: 527, mode: `MaxEncodedLen`)
+	/// Storage: `BTCRelay::BestBlockHeight` (r:0 w:1)
+	/// Proof: `BTCRelay::BestBlockHeight` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// The range of component `f` is `[3, 6]`.
+	fn store_block_header_reorganize_chains_based_on_chainwork	(_f: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `5196 + f * (298 ±0)`
+		//  Estimated: `54490`
+		// Minimum execution time: 328_000_000 picoseconds.
+		Weight::from_parts(358_000_000, 54490)
+			.saturating_add(RocksDbWeight::get().reads(47_u64))
+			.saturating_add(RocksDbWeight::get().writes(47_u64))
 	}
 }
