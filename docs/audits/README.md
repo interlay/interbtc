@@ -12,6 +12,7 @@ We continue to work with leading security companies and research groups to ensur
 
 ### SR Labs
 
+- [March 2023: Audit of the Lending, DEX, Vault nomination, Vault capacity model, and BTC-Relay](https://github.com/interlay/interbtc/blob/master/docs/audits/2023-q1-srlabs/report.pdf). Scope: Runtime pallets for lending, DEX, nomination, btc-relay, runtime configuration, and a sanity check on other pallets.
 - February 2022: Automated code check. Scope: Reachable runtime panic conditions, overflows, extrinsic weighting, unsafe code, & other code checks (Report pending publication). No report available.
 
 ### Informal Systems
