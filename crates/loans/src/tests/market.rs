@@ -38,7 +38,7 @@ macro_rules! rate_model_sanity_check {
                     let mut market = MARKET_MOCK;
                     market.rate_model = InterestRateModel::new_jump_model(
                         Rate::saturating_from_rational(5, 100),
-                        Rate::saturating_from_rational(36, 100),
+                        Rate::saturating_from_rational(101, 100),
                         Rate::saturating_from_rational(37, 100),
                         Ratio::from_percent(80),
                     );
@@ -53,7 +53,7 @@ macro_rules! rate_model_sanity_check {
                     market.rate_model = InterestRateModel::new_jump_model(
                         Rate::saturating_from_rational(5, 100),
                         Rate::saturating_from_rational(15, 100),
-                        Rate::saturating_from_rational(57, 100),
+                        Rate::saturating_from_rational(501, 100),
                         Ratio::from_percent(80),
                     );
                     market
@@ -365,7 +365,7 @@ fn update_rate_model_works() {
                 FOREIGN_ASSET,
                 InterestRateModel::new_jump_model(
                     Rate::saturating_from_rational(5, 100),
-                    Rate::saturating_from_rational(36, 100),
+                    Rate::saturating_from_rational(101, 100),
                     Rate::saturating_from_rational(37, 100),
                     Ratio::from_percent(80),
                 )
@@ -379,7 +379,7 @@ fn update_rate_model_works() {
                 FOREIGN_ASSET,
                 InterestRateModel::new_jump_model(
                     Rate::saturating_from_rational(5, 100),
-                    Rate::saturating_from_rational(15, 100),
+                    Rate::saturating_from_rational(501, 100),
                     Rate::saturating_from_rational(57, 100),
                     Ratio::from_percent(80),
                 )
