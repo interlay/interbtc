@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PARA_ID"],"fn":["kintsugi_dev_config","kintsugi_genesis","kintsugi_mainnet_config","kintsugi_properties"],"struct":["KintsugiDevGenesisExt"],"type":["KintsugiChainSpec","KintsugiDevChainSpec"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_FEE_RATE","FEE_ADJUSTMENT"],"enum":["PairStatus"],"mod":["pallet"],"struct":["BootstrapParameter","PairInfo","PairMetadata"],"trait":["ExportDexGeneral","GenerateLpAssetId","ValidateAsset","WeightInfo"],"type":["AssetBalance"]};

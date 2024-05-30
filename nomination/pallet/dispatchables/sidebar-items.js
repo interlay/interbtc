@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["deposit_collateral","opt_in_to_nomination","opt_out_of_nomination","set_nomination_enabled","set_nomination_limit","withdraw_collateral"]};

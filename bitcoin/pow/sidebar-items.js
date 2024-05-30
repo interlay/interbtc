@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["TARGET_TIMESPAN","TARGET_TIMESPAN_DIVISOR","UNROUNDED_MAX_TARGET"],"fn":["calculate_next_work_required"]};

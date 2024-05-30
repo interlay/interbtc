@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["IssueRequestStatus","Version"],"struct":["IssueRequest"],"trait":["IssueRequestExt"],"type":["DefaultIssueRequest"]};

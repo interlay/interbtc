@@ -1,0 +1,4 @@
+(function() {var implementors = {
+"escrow":[["impl&lt;T: <a class=\"trait\" href=\"escrow/pallet/trait.Config.html\" title=\"trait escrow::pallet::Config\">Config</a>&gt; Currency&lt;&lt;T as Config&gt;::AccountId&gt; for <a class=\"struct\" href=\"escrow/pallet/struct.Pallet.html\" title=\"struct escrow::pallet::Pallet\">Pallet</a>&lt;T&gt;"]],
+"kintsugi_runtime_parachain":[["impl Currency&lt;&lt;&lt;MultiSignature as Verify&gt;::Signer as IdentifyAccount&gt;::AccountId&gt; for <a class=\"struct\" href=\"kintsugi_runtime_parachain/contracts/struct.NativeCurrencyWithEd.html\" title=\"struct kintsugi_runtime_parachain::contracts::NativeCurrencyWithEd\">NativeCurrencyWithEd</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

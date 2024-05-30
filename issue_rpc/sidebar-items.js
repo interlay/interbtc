@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Issue"],"trait":["IssueApiClient","IssueApiServer","IssueRuntimeApi"]};

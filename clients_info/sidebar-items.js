@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["pallet","upgrade_client_releases","v0"],"struct":["ClientRelease"],"trait":["WeightInfo"]};

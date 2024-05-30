@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["pallet"],"struct":["RewardSchedule"],"trait":["WeightInfo"]};

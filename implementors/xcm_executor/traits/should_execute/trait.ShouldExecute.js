@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"runtime_common":[["impl&lt;T: ShouldExecute&gt; ShouldExecute for <a class=\"struct\" href=\"runtime_common/struct.Transactless.html\" title=\"struct runtime_common::Transactless\">Transactless</a>&lt;T&gt;"],["impl&lt;T: ShouldExecute, U: ShouldExecute&gt; ShouldExecute for <a class=\"struct\" href=\"runtime_common/struct.AndBarrier.html\" title=\"struct runtime_common::AndBarrier\">AndBarrier</a>&lt;T, U&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

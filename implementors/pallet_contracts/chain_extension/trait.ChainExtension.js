@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"kintsugi_runtime_parachain":[["impl ChainExtension&lt;<a class=\"struct\" href=\"kintsugi_runtime_parachain/struct.Runtime.html\" title=\"struct kintsugi_runtime_parachain::Runtime\">Runtime</a>&gt; for <a class=\"struct\" href=\"kintsugi_runtime_parachain/contracts/struct.BtcRelayExtension.html\" title=\"struct kintsugi_runtime_parachain::contracts::BtcRelayExtension\">BtcRelayExtension</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

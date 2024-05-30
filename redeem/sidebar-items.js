@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["RedeemRequestStatus"],"mod":["pallet","types"],"struct":["RedeemRequest"],"trait":["WeightInfo"],"type":["DefaultRedeemRequest"]};

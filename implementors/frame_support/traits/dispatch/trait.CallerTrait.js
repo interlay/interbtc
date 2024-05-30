@@ -1,0 +1,4 @@
+(function() {var implementors = {
+"interlay_runtime_parachain":[["impl CallerTrait&lt;&lt;<a class=\"struct\" href=\"interlay_runtime_parachain/struct.Runtime.html\" title=\"struct interlay_runtime_parachain::Runtime\">Runtime</a> as Config&gt;::AccountId&gt; for <a class=\"enum\" href=\"interlay_runtime_parachain/enum.OriginCaller.html\" title=\"enum interlay_runtime_parachain::OriginCaller\">OriginCaller</a>"]],
+"kintsugi_runtime_parachain":[["impl CallerTrait&lt;&lt;<a class=\"struct\" href=\"kintsugi_runtime_parachain/struct.Runtime.html\" title=\"struct kintsugi_runtime_parachain::Runtime\">Runtime</a> as Config&gt;::AccountId&gt; for <a class=\"enum\" href=\"kintsugi_runtime_parachain/enum.OriginCaller.html\" title=\"enum kintsugi_runtime_parachain::OriginCaller\">OriginCaller</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

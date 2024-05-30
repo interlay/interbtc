@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Escrow"],"trait":["EscrowApiClient","EscrowApiServer","EscrowRuntimeApi"]};

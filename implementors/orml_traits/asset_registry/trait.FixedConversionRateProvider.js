@@ -1,0 +1,4 @@
+(function() {var implementors = {
+"interlay_runtime_parachain":[["impl FixedConversionRateProvider for <a class=\"struct\" href=\"interlay_runtime_parachain/xcm_config/struct.MyFixedConversionRateProvider.html\" title=\"struct interlay_runtime_parachain::xcm_config::MyFixedConversionRateProvider\">MyFixedConversionRateProvider</a>"]],
+"kintsugi_runtime_parachain":[["impl FixedConversionRateProvider for <a class=\"struct\" href=\"kintsugi_runtime_parachain/xcm_config/struct.MyFixedConversionRateProvider.html\" title=\"struct kintsugi_runtime_parachain::xcm_config::MyFixedConversionRateProvider\">MyFixedConversionRateProvider</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

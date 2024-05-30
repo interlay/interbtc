@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ACCEPTED_MAX_TRANSACTION_OUTPUTS","DIFFICULTY_ADJUSTMENT_INTERVAL","MAIN_CHAIN_ID","TARGET_SPACING","UNROUNDED_MAX_TARGET"],"enum":["BtcAddress"],"mod":["pallet","types"],"struct":["BtcPublicKey","FullTransactionProof","PartialTransactionProof"],"trait":["WeightInfo"]};
