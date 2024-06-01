@@ -329,6 +329,7 @@ fn create_meta_pool_should_work() {
                         checked_pow(10, (POOL_TOKEN_COMMON_DECIMALS - STABLE_LP_DECIMAL) as usize).unwrap(),
                     ]),
                     balances: BoundedVec::truncate_from(vec![Zero::zero(); 4]),
+                    rebased_balances: BoundedVec::truncate_from(vec![Zero::zero(); 4]),
                     fee: SWAP_FEE,
                     admin_fee: ADMIN_FEE,
                     initial_a: INITIAL_A_VALUE * (A_PRECISION as Balance),
