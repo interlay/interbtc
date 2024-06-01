@@ -1,0 +1,31 @@
+[package]
+authors = ["Interlay Ltd"]
+edition = "2021"
+name = 'evm-utils'
+version = "1.2.0"
+
+[dependencies]
+sha3 = { version = "0.10", default-features = false }
+hex = { version = "0.4.2", default-features = false }
+impl-trait-for-tuples = "0.2.2"
+
+# Substrate dependencies
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
+
+# Frontier dependencies
+pallet-evm = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+  "sha3/std",
+  "hex/alloc",
+
+  "frame-support/std",
+  "sp-core/std",
+  "sp-std/std",
+
+  "pallet-evm/std",
+]

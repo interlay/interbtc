@@ -9,6 +9,8 @@ use sp_runtime::Permill;
 use sp_runtime::TryRuntimeError;
 use sp_std::marker::PhantomData;
 
+mod multi_currency;
+
 pub mod precompiles;
 
 /// Current approximation of the gas/s consumption (Moonbeam)
