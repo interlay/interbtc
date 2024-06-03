@@ -24,10 +24,12 @@ impl<T: Config> Pallet<T> {
         T::PalletId::get().into_sub_account_truncating(REWARD_SUB_ACCOUNT)
     }
 
+    #[cfg_attr(test, mutate)]
     fn reward_scale() -> u128 {
         10_u128.pow(12)
     }
 
+    #[cfg_attr(test, mutate)]
     fn calculate_reward_delta_index(
         delta_block: BlockNumberFor<T>,
         reward_speed: BalanceOf<T>,
@@ -47,6 +49,7 @@ impl<T: Config> Pallet<T> {
         Ok(delta_index)
     }
 
+    #[cfg_attr(test, mutate)]
     fn calculate_reward_delta(
         share: BalanceOf<T>,
         reward_delta_index: u128,
@@ -60,6 +63,7 @@ impl<T: Config> Pallet<T> {
         Ok(reward_delta)
     }
 
+    #[cfg_attr(test, mutate)]
     pub(crate) fn update_reward_supply_index(asset_id: CurrencyId<T>) -> DispatchResult {
         let current_block_number = <frame_system::Pallet<T>>::block_number();
         RewardSupplyState::<T>::try_mutate(asset_id, |supply_state| -> DispatchResult {
@@ -82,6 +86,7 @@ impl<T: Config> Pallet<T> {
         })
     }
 
+    #[cfg_attr(test, mutate)]
     pub(crate) fn update_reward_borrow_index(asset_id: CurrencyId<T>) -> DispatchResult {
         let current_block_number = <frame_system::Pallet<T>>::block_number();
         RewardBorrowState::<T>::try_mutate(asset_id, |borrow_state| -> DispatchResult {
@@ -106,6 +111,7 @@ impl<T: Config> Pallet<T> {
         })
     }
 
+    #[cfg_attr(test, mutate)]
     pub(crate) fn distribute_supplier_reward(asset_id: CurrencyId<T>, supplier: &T::AccountId) -> DispatchResult {
         RewardSupplierIndex::<T>::try_mutate(asset_id, supplier, |supplier_index| -> DispatchResult {
             let supply_state = RewardSupplyState::<T>::get(asset_id);
@@ -137,6 +143,7 @@ impl<T: Config> Pallet<T> {
         })
     }
 
+    #[cfg_attr(test, mutate)]
     pub(crate) fn distribute_borrower_reward(asset_id: CurrencyId<T>, borrower: &T::AccountId) -> DispatchResult {
         RewardBorrowerIndex::<T>::try_mutate(asset_id, borrower, |borrower_index| -> DispatchResult {
             let borrow_state = RewardBorrowState::<T>::get(asset_id);
@@ -166,6 +173,7 @@ impl<T: Config> Pallet<T> {
         })
     }
 
+    #[cfg_attr(test, mutate)]
     pub(crate) fn collect_market_reward(asset_id: CurrencyId<T>, user: &T::AccountId) -> DispatchResult {
         Self::update_reward_supply_index(asset_id)?;
         Self::distribute_supplier_reward(asset_id, user)?;
@@ -176,6 +184,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    #[cfg_attr(test, mutate)]
     pub(crate) fn pay_reward(user: &T::AccountId) -> DispatchResult {
         let pool_account = Self::reward_account_id();
         let reward_asset = T::RewardAssetId::get();
