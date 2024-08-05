@@ -1,0 +1,32 @@
+[package]
+authors = ["Interlay Ltd"]
+edition = "2021"
+name = 'evm-macro'
+version = "1.2.0"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "1.0.20"
+syn = { version = "1.0.98", features = ["full", "fold", "extra-traits", "visit"] }
+proc-macro2 = "1.0.40"
+sha3 = { version = "0.10", default-features = false }
+
+[dev-dependencies]
+hex = "0.4.2"
+hex-literal = "0.3.1"
+evm-utils = { path = "../utils" }
+
+# Substrate dependencies
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31" }
+
+# Frontier dependencies
+fp-evm = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42" }
+
+[features]
+default = ["std"]
+std = [
+    "sha3/std",
+]
