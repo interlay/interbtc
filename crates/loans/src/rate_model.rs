@@ -113,8 +113,8 @@ pub struct JumpModel {
 
 impl JumpModel {
     pub const MAX_BASE_RATE: Rate = Rate::from_inner(100_000_000_000_000_000); // 10%
-    pub const MAX_JUMP_RATE: Rate = Rate::from_inner(300_000_000_000_000_000); // 30%
-    pub const MAX_FULL_RATE: Rate = Rate::from_inner(500_000_000_000_000_000); // 50%
+    pub const MAX_JUMP_RATE: Rate = Rate::from_inner(1_000_000_000_000_000_000); // 100%
+    pub const MAX_FULL_RATE: Rate = Rate::from_inner(5_000_000_000_000_000_000); // 500%
 
     /// Create a new rate model
     pub fn new_model(base_rate: Rate, jump_rate: Rate, full_rate: Rate, jump_utilization: Ratio) -> JumpModel {
