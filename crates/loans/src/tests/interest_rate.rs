@@ -2,7 +2,7 @@ use crate::{mock::*, tests::Loans, Markets};
 use currency::Amount;
 use frame_support::assert_ok;
 use mocktopus::mocking::Mockable;
-use primitives::{CurrencyId::Token, Moment, Rate, Ratio, DOT, KSM};
+use primitives::{CurrencyId::Token, Moment, Rate, Ratio, DOT, IBTC, KSM};
 use sp_runtime::{
     traits::{CheckedDiv, One},
     FixedPointNumber,
@@ -122,6 +122,188 @@ fn interest_rate_model_works() {
             (total_borrows - million_unit(100) - total_reserves) / 10000,
             supply_interest / 10000
         );
+    })
+}
+
+#[test]
+fn interest_rate_model_works_with_high_rates() {
+    new_test_ext().execute_with(|| {
+        let new_model = InterestRateModel::Jump(JumpModel {
+            base_rate: Rate::from_inner(Rate::DIV / 100 * 2),
+            jump_rate: Rate::from_inner(Rate::DIV / 100 * 100),
+            full_rate: Rate::from_inner(Rate::DIV / 100 * 500),
+            jump_utilization: Ratio::from_percent(80),
+        });
+
+        Loans::update_rate_model(RuntimeOrigin::root(), Token(DOT), new_model).unwrap();
+        let rate_decimal: u128 = 1_000_000_000_000_000_000;
+        Tokens::set_balance(
+            RuntimeOrigin::root(),
+            ALICE,
+            Token(DOT),
+            million_unit(1000) - unit(1000),
+            0,
+        )
+        .unwrap();
+        // Deposit 200 DOT and borrow 100 DOT
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), million_unit(200)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), Token(DOT)));
+        assert_ok!(Loans::borrow(
+            RuntimeOrigin::signed(ALICE),
+            Token(DOT),
+            million_unit(100)
+        ));
+
+        let total_cash = million_unit(200) - million_unit(100);
+        let total_supply = FixedU128::from_inner(million_unit(200))
+            .checked_div(&Loans::exchange_rate(Token(DOT)))
+            .map(|r| r.into_inner())
+            .unwrap();
+        assert_eq!(Loans::total_supply(Token(DOT)).unwrap().amount(), total_supply);
+
+        let borrow_snapshot = Loans::account_borrows(Token(DOT), ALICE);
+        assert_eq!(borrow_snapshot.principal, million_unit(100));
+        assert_eq!(borrow_snapshot.borrow_index, Rate::one());
+
+        let base_rate = Rate::saturating_from_rational(2, 100);
+        let jump_rate = Rate::saturating_from_rational(100, 100);
+        // let full_rate = Rate::saturating_from_rational(32, 100);
+        let jump_utilization = Ratio::from_percent(80);
+
+        let mut borrow_index = Rate::one();
+        let mut total_borrows = borrow_snapshot.principal;
+        let mut total_reserves: u128 = 0;
+
+        // Interest accrued from blocks 1 to 49
+        for i in 1..49 {
+            let delta_time = 6u128;
+            TimestampPallet::set_timestamp(6000 * (i + 1));
+            assert_ok!(Loans::accrue_interest(Token(DOT)));
+            // utilizationRatio = totalBorrows / (totalCash + totalBorrows - totalReserves)
+            let util_ratio = Ratio::from_rational(total_borrows, total_cash + total_borrows - total_reserves);
+            assert_eq!(Loans::utilization_ratio(Token(DOT)), util_ratio);
+
+            let borrow_rate = (jump_rate - base_rate) * util_ratio.into() / jump_utilization.into() + base_rate;
+            let borrow_index_old = borrow_index;
+            borrow_index = Loans::accrue_index(borrow_rate, borrow_index, delta_time as Moment).unwrap();
+            let total_borrows_old = total_borrows;
+            total_borrows = (borrow_index / borrow_index_old).saturating_mul_int(total_borrows);
+            let interest_accumulated = total_borrows - total_borrows_old;
+            let actual_total_borrows = Loans::total_borrows(Token(DOT)).amount();
+            assert_eq!(actual_total_borrows, total_borrows);
+            total_reserves = Markets::<Test>::get(&Token(DOT))
+                .unwrap()
+                .reserve_factor
+                .mul_floor(interest_accumulated)
+                + total_reserves;
+            assert_eq!(Loans::total_reserves(Token(DOT)).amount(), total_reserves);
+
+            // exchangeRate = (totalCash + totalBorrows - totalReserves) / totalSupply
+            assert_eq!(
+                Loans::exchange_rate(Token(DOT)).into_inner(),
+                (total_cash + total_borrows - total_reserves) * rate_decimal / total_supply
+            );
+            assert_eq!(Loans::borrow_index(Token(DOT)), borrow_index);
+        }
+    })
+}
+
+#[test]
+fn interest_rate_model_works_with_high_rates_above_jump_rate() {
+    new_test_ext().execute_with(|| {
+        let new_model = InterestRateModel::Jump(JumpModel {
+            base_rate: Rate::from_inner(Rate::DIV / 100 * 2),
+            jump_rate: Rate::from_inner(Rate::DIV / 100 * 100),
+            full_rate: Rate::from_inner(Rate::DIV / 100 * 500),
+            jump_utilization: Ratio::from_percent(80),
+        });
+
+        Loans::update_rate_model(RuntimeOrigin::root(), Token(DOT), new_model).unwrap();
+        let rate_decimal: u128 = 1_000_000_000_000_000_000;
+        Tokens::set_balance(
+            RuntimeOrigin::root(),
+            ALICE,
+            Token(DOT),
+            million_unit(1000) - unit(1000),
+            0,
+        )
+        .unwrap();
+        Tokens::set_balance(
+            RuntimeOrigin::root(),
+            ALICE,
+            Token(IBTC),
+            million_unit(1000) - unit(1000),
+            0,
+        )
+        .unwrap();
+        // Deposit 200 DOT and borrow 190 DOT
+        assert_ok!(Loans::mint(RuntimeOrigin::signed(ALICE), Token(DOT), million_unit(200)));
+        assert_ok!(Loans::mint(
+            RuntimeOrigin::signed(ALICE),
+            Token(IBTC),
+            million_unit(200)
+        ));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), Token(DOT)));
+        assert_ok!(Loans::deposit_all_collateral(RuntimeOrigin::signed(ALICE), Token(IBTC)));
+        assert_ok!(Loans::borrow(
+            RuntimeOrigin::signed(ALICE),
+            Token(DOT),
+            million_unit(190)
+        ));
+
+        let total_cash = million_unit(200) - million_unit(190);
+        let total_supply = FixedU128::from_inner(million_unit(200))
+            .checked_div(&Loans::exchange_rate(Token(DOT)))
+            .map(|r| r.into_inner())
+            .unwrap();
+        assert_eq!(Loans::total_supply(Token(DOT)).unwrap().amount(), total_supply);
+
+        let borrow_snapshot = Loans::account_borrows(Token(DOT), ALICE);
+        assert_eq!(borrow_snapshot.principal, million_unit(190));
+        assert_eq!(borrow_snapshot.borrow_index, Rate::one());
+
+        let jump_rate = Rate::saturating_from_rational(100, 100);
+        let full_rate = Rate::saturating_from_rational(500, 100);
+        let jump_utilization = Ratio::from_percent(80);
+
+        let mut borrow_index = Rate::one();
+        let mut total_borrows = borrow_snapshot.principal;
+        let mut total_reserves: u128 = 0;
+
+        // Interest accrued from blocks 1 to 49
+        for i in 1..49 {
+            let delta_time = 6u128;
+            TimestampPallet::set_timestamp(6000 * (i + 1));
+            assert_ok!(Loans::accrue_interest(Token(DOT)));
+            // utilizationRatio = totalBorrows / (totalCash + totalBorrows - totalReserves)
+            let util_ratio = Ratio::from_rational(total_borrows, total_cash + total_borrows - total_reserves);
+            assert_eq!(Loans::utilization_ratio(Token(DOT)), util_ratio);
+
+            // (utilization - jump_utilization)*(full_rate - jump_rate) / ( 1 - jump_utilization) + jump_rate
+            let borrow_rate = FixedU128::from(util_ratio - jump_utilization) * FixedU128::from(full_rate - jump_rate)
+                / FixedU128::from(Ratio::from_percent(100) - jump_utilization)
+                + jump_rate;
+            let borrow_index_old = borrow_index;
+            borrow_index = Loans::accrue_index(borrow_rate, borrow_index, delta_time as Moment).unwrap();
+            let total_borrows_old = total_borrows;
+            total_borrows = (borrow_index / borrow_index_old).saturating_mul_int(total_borrows);
+            let interest_accumulated = total_borrows - total_borrows_old;
+            let actual_total_borrows = Loans::total_borrows(Token(DOT)).amount();
+            assert_eq!(actual_total_borrows, total_borrows);
+            total_reserves = Markets::<Test>::get(&Token(DOT))
+                .unwrap()
+                .reserve_factor
+                .mul_floor(interest_accumulated)
+                + total_reserves;
+            assert_eq!(Loans::total_reserves(Token(DOT)).amount(), total_reserves);
+
+            // exchangeRate = (totalCash + totalBorrows - totalReserves) / totalSupply
+            assert_eq!(
+                Loans::exchange_rate(Token(DOT)).into_inner(),
+                (total_cash + total_borrows - total_reserves) * rate_decimal / total_supply
+            );
+            assert_eq!(Loans::borrow_index(Token(DOT)), borrow_index);
+        }
     })
 }
 
