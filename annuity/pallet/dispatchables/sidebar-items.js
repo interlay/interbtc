@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["set_reward_per_wrapped","update_rewards","withdraw_rewards"]};

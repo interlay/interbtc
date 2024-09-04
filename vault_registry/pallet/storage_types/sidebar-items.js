@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["LiquidationCollateralThreshold","LiquidationVault","MinimumCollateralVault","PremiumRedeemThreshold","PunishmentDelay","ReservedAddresses","SecureCollateralThreshold","StorageVersion","SystemCollateralCeiling","TotalUserVaultCollateral","VaultBitcoinPublicKey","Vaults"]};

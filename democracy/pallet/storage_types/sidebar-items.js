@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["DepositOf","LowestUnbaked","NextLaunchTimestamp","PublicPropCount","PublicProps","ReferendumCount","ReferendumInfoOf","VotingOf"]};

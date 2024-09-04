@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Nonce","RewardPerToken","RewardTally","SlashPerToken","SlashTally","Stake","TotalCurrentStake","TotalRewards","TotalStake"]};

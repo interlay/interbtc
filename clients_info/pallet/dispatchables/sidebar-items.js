@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["set_current_client_release","set_pending_client_release"]};

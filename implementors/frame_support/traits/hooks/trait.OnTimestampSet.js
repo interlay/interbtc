@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"runtime_common":[["impl&lt;T: Config, EnableManualSeal: Get&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/nightly/std/primitive.bool.html\">bool</a>&gt;&gt; OnTimestampSet&lt;&lt;T as Config&gt;::Moment&gt; for <a class=\"struct\" href=\"runtime_common/struct.ConsensusOnTimestampSet.html\" title=\"struct runtime_common::ConsensusOnTimestampSet\">ConsensusOnTimestampSet</a>&lt;T, EnableManualSeal&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

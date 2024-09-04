@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["cancel_proposal","cancel_referendum","clear_public_proposals","fast_track","fast_track_referendum","propose","remove_vote","second","spend_from_treasury","table_proposal","vote"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["BtcRelayExtension","DefaultDepositLimit","DefaultSchedule","DeletionQueueDepth","DepositPerByte","DepositPerItem","DummyWeightPrice","EnableContracts","MaxCodeLen","MaxDebugBufferLen","MaxStorageKeyLen","NativeCurrencyWithEd","NoRandomness","UnsafeUnstableInterface"]};

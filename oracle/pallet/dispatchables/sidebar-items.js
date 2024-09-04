@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["feed_values","insert_authorized_oracle","remove_authorized_oracle"]};

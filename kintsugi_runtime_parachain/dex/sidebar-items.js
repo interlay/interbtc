@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["CurrencyLimit","DexGeneralPalletId","DexGeneralVerifyPairAsset","DexStablePalletId","DexStableVerifyPoolAsset","MaxBootstrapLimits","MaxBootstrapRewards","PairInfo","PairLpIdentity","PoolLpGenerate","StringLimit"],"trait":["GenerateLpAssetId","StablePoolLpCurrencyIdGenerate","ValidateAsset","ValidateCurrency"],"type":["AssetBalance"]};

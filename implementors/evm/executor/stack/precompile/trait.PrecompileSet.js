@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"runtime_common":[["impl&lt;R&gt; PrecompileSet for <a class=\"struct\" href=\"runtime_common/evm/precompiles/struct.InterBtcPrecompiles.html\" title=\"struct runtime_common::evm::precompiles::InterBtcPrecompiles\">InterBtcPrecompiles</a>&lt;R&gt;<span class=\"where fmt-newline\">where\n    R: Config,</span>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

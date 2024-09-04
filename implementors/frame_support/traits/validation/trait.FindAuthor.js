@@ -1,0 +1,4 @@
+(function() {var implementors = {
+"interlay_runtime_parachain":[["impl&lt;F: FindAuthor&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/nightly/std/primitive.u32.html\">u32</a>&gt;&gt; FindAuthor&lt;H160&gt; for <a class=\"struct\" href=\"interlay_runtime_parachain/evm/struct.FindAuthorTruncated.html\" title=\"struct interlay_runtime_parachain::evm::FindAuthorTruncated\">FindAuthorTruncated</a>&lt;F&gt;"]],
+"kintsugi_runtime_parachain":[["impl&lt;F: FindAuthor&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/nightly/std/primitive.u32.html\">u32</a>&gt;&gt; FindAuthor&lt;H160&gt; for <a class=\"struct\" href=\"kintsugi_runtime_parachain/evm/struct.FindAuthorTruncated.html\" title=\"struct kintsugi_runtime_parachain::evm::FindAuthorTruncated\">FindAuthorTruncated</a>&lt;F&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

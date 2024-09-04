@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"interbtc_parachain":[["impl NativeExecutionDispatch for <a class=\"struct\" href=\"interbtc_parachain/service/struct.KintsugiRuntimeExecutor.html\" title=\"struct interbtc_parachain::service::KintsugiRuntimeExecutor\">KintsugiRuntimeExecutor</a>"],["impl NativeExecutionDispatch for <a class=\"struct\" href=\"interbtc_parachain/service/struct.InterlayRuntimeExecutor.html\" title=\"struct interbtc_parachain::service::InterlayRuntimeExecutor\">InterlayRuntimeExecutor</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

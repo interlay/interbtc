@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Route","StableSwapMode"],"mod":["pallet"],"struct":["StablePath"],"trait":["WeightInfo"]};

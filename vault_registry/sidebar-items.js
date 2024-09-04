@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["UNSIGNED_TXS_PRIORITY"],"enum":["CurrencySource","VaultStatus"],"mod":["pallet","types"],"struct":["Amount","BtcPublicKey","PoolManager","SystemVault","Vault","VaultId"],"trait":["WeightInfo"],"type":["DefaultVault","DefaultVaultId"]};

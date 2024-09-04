@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Aggregate","AuthorizedOracles","MaxDelay","RawValues","RawValuesUpdated","StorageVersion","ValidUntil"]};

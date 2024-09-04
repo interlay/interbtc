@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event"],"mod":["dispatchables","storage_types"],"struct":["Pallet"],"trait":["Config"],"type":["Blocks","Epoch","Limits","Locked","Module","PointHistory","Reserved","SlopeChanges","UserPointEpoch","UserPointHistory"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ReferendumInfo","VoteThreshold"],"mod":["migrations","pallet"],"struct":["ReferendumStatus","Tally","Vote","Voting"],"trait":["Approved","EncodeInto","WeightInfo"],"type":["BoundedCallOf","CallOf","PropIndex","ReferendumIndex"]};
