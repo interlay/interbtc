@@ -3441,6 +3441,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "evm-macro"
+version = "1.2.0"
+dependencies = [
+ "evm-utils",
+ "fp-evm",
+ "frame-support",
+ "hex",
+ "hex-literal 0.3.4",
+ "proc-macro2",
+ "quote",
+ "sha3",
+ "sp-core",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "evm-runtime"
 version = "0.39.0"
 source = "git+https://github.com/rust-blockchain/evm?rev=b7b82c7e1fc57b7449d6dfa6826600de37cc1e65#b7b82c7e1fc57b7449d6dfa6826600de37cc1e65"
@@ -3450,6 +3466,19 @@ dependencies = [
  "evm-core",
  "primitive-types",
  "sha3",
+]
+
+[[package]]
+name = "evm-utils"
+version = "1.2.0"
+dependencies = [
+ "frame-support",
+ "hex",
+ "impl-trait-for-tuples",
+ "pallet-evm",
+ "sha3",
+ "sp-core",
+ "sp-std",
 ]
 
 [[package]]
@@ -12116,8 +12145,12 @@ dependencies = [
  "collator-selection",
  "currency",
  "democracy",
+ "dex-stable",
  "escrow",
+ "evm-macro",
+ "evm-utils",
  "fee",
+ "fp-evm",
  "frame-benchmarking",
  "frame-support",
  "frame-system",

@@ -19,7 +19,10 @@ use scale_encode::EncodeAsType;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+mod evm;
+
 pub use bitcoin::types::H256Le;
+pub use evm::*;
 
 pub const BITCOIN_TESTNET: &str = "bitcoin-testnet";
 pub const BITCOIN_MAINNET: &str = "bitcoin-mainnet";
