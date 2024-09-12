@@ -241,13 +241,143 @@ fn store_block_header_on_fork_succeeds() {
     })
 }
 
+mod chainwork {
+    use super::*;
+    use frame_support::assert_ok;
+    use mocktopus::mocking::MockResult;
+    // use scale_info::TypeDefPrimitive::U256;
+    use crate::{
+        migration::v1::migrate_from_v0_to_v1,
+        mock::run_test,
+        pallet::{ChainWork, ChainsHashes, ChainsIndex},
+        tests::{sample_block_header, sample_parsed_genesis_header, store_block_header_tests::from_prev},
+        ONE,
+    };
+    use bitcoin::types::H256Le;
+
+    #[test]
+    fn calculate_chainwork_when_previous_block_has_max_target() {
+        run_test(|| {
+            let mut sample_header = sample_parsed_genesis_header(0, 0);
+            sample_header.block_header.target = U256::max_value();
+            BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(sample_header)));
+
+            let chainwork = BTCRelay::calculate_chainwork(sample_header.block_header.hash).unwrap();
+            assert_eq!(chainwork, U256::one());
+        });
+    }
+
+    #[test]
+    fn calculate_chainwork_when_previous_block_has_min_target() {
+        run_test(|| {
+            let mut sample_header = sample_parsed_genesis_header(0, 0);
+            sample_header.block_header.target = U256::zero();
+            BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(sample_header)));
+
+            let chainwork = BTCRelay::calculate_chainwork(sample_header.block_header.hash).unwrap();
+            assert_eq!(chainwork, U256::from(U256::max_value()).saturating_add(ONE));
+        });
+    }
+
+    // Test Scenario:
+    // Step 1: Start storing block headers with `store_block_header`
+    // Step 2: Perform Migration
+    // Step 3: Relayer Calls Set chain work for previous blocks `set_chainwork_for_block`
+    // Step 4: Add new blocks; they should contain chain work
+    // Step 5: Check if ReOrgs now depends on chain work
+    // Step 6: Perform a reorg based on chainwork
+    #[test]
+    fn switch_reorging_method_from_longest_fork_to_most_work() {
+        run_test(|| {
+            // Step 1: Start storing block headers with `store_block_header`
+            BTCRelay::verify_block_header.mock_safe(|_, _, _| MockResult::Return(Ok(())));
+
+            let mut genesis_block = sample_block_header();
+            genesis_block.nonce = 11;
+            genesis_block.hash = H256Le::from_bytes_le(&[
+                177, 89, 206, 70, 83, 47, 12, 29, 30, 21, 192, 96, 38, 114, 155, 10, 5, 77, 59, 247, 14, 99, 150, 79,
+                228, 250, 72, 71, 124, 92, 197, 19,
+            ]);
+
+            let block_height = 0;
+            assert_ok!(BTCRelay::_initialize(3, genesis_block, block_height));
+
+            let mut blocks = vec![genesis_block];
+
+            let mut prev_hash = genesis_block.hash;
+
+            // Extend chain height from 1 to height 6
+            for _ in 1..7 {
+                let current_block = from_prev(12, prev_hash);
+                blocks.push(current_block);
+                prev_hash = current_block.hash;
+                assert_ok!(BTCRelay::_store_block_header(&3, current_block));
+            }
+
+            // Step 2: Perform Migration
+            let chains = ChainWork::<Test>::iter().collect::<Vec<(H256Le, U256)>>();
+            assert_eq!(chains.len(), 0);
+
+            migrate_from_v0_to_v1::<Test>();
+            assert!(ChainWork::<Test>::get(genesis_block.hash).is_some());
+
+            // Step 3: Relayer Calls Set chain work for previous blocks `set_chainwork_for_block`
+            for index in 1..7 {
+                assert_ok!(BTCRelay::set_chainwork_for_block(
+                    RuntimeOrigin::signed(3),
+                    blocks[index].hash
+                ));
+            }
+
+            // Step 4: Add new blocks; they should contain chain work
+            prev_hash = blocks[5].hash;
+            // Extend chain from height 7 to height 14 with changed nonce
+            for _ in 7..15 {
+                let current_block = from_prev(31 + 12, prev_hash);
+                blocks.push(current_block);
+                prev_hash = current_block.hash;
+                assert_ok!(BTCRelay::_store_block_header(&3, current_block));
+            }
+
+            // Step 5: Check if ReOrgs now depend on most work
+
+            // The best block height remains 6 even though the fork max height is 13; this is because
+            // the fork chain has equal work to that of the main chain.
+            assert_eq!(BTCRelay::get_best_block_height(), 6);
+            assert_eq!(ChainsIndex::<Test>::get(0).unwrap().max_height, 6);
+            assert_eq!(ChainsIndex::<Test>::get(1).unwrap().max_height, 13);
+            let main_chain_best_block_hash = ChainsHashes::<Test>::get(0, 6);
+            let fork_chain_max_ht_hash = ChainsHashes::<Test>::get(1, 13);
+            assert_eq!(
+                ChainWork::<Test>::get(main_chain_best_block_hash),
+                ChainWork::<Test>::get(fork_chain_max_ht_hash)
+            );
+
+            // Step 6: Perform a reorg based on chainwork
+            let mut block_14 = from_prev(31 + 12, prev_hash);
+            // update target so that the next block chain work calculation is more that the best block.
+            block_14.target = U256::max_value();
+            prev_hash = block_14.hash;
+            assert_ok!(BTCRelay::_store_block_header(&3, block_14));
+
+            let block_15 = from_prev(31 + 12, prev_hash);
+            assert_ok!(BTCRelay::_store_block_header(&3, block_15));
+
+            // The fork chain now becomes the best chain
+            assert_eq!(BTCRelay::get_best_block_height(), 15);
+            assert_eq!(ChainsIndex::<Test>::get(0).unwrap().max_height, 15);
+            assert_eq!(ChainsIndex::<Test>::get(1).unwrap().max_height, 6);
+        });
+    }
+}
+
 mod store_block_header_tests {
     use std::iter::successors;
 
     use crate::MAIN_CHAIN_ID;
 
     use super::*;
-    fn from_prev(nonce: u32, prev: H256Le) -> BlockHeader {
+    pub fn from_prev(nonce: u32, prev: H256Le) -> BlockHeader {
         let mut ret = BlockHeader {
             nonce,
             hash_prev_block: prev,
@@ -688,6 +818,8 @@ fn check_and_do_reorg_new_fork_is_main_chain() {
 
         BTCRelay::swap_main_blockchain.mock_safe(move |_| MockResult::Return(Ok((best_block_hash, fork_block_height))));
 
+        BTCRelay::get_block_hash.mock_safe(move |_, _| MockResult::Return(Ok(H256Le::zero())));
+
         assert_ok!(BTCRelay::reorganize_chains(&fork));
         // assert that the new main chain is set
         let reorg_event = TestEvent::BTCRelay(Event::ChainReorg {
@@ -729,6 +861,8 @@ fn check_and_do_reorg_new_fork_below_stable_transaction_confirmations() {
         assert_eq!(current_position, fork_position);
 
         BTCRelay::swap_main_blockchain.mock_safe(move |_| MockResult::Return(Ok((best_block_hash, fork_block_height))));
+
+        BTCRelay::get_block_hash.mock_safe(move |_, _| MockResult::Return(Ok(H256Le::zero())));
 
         assert_ok!(BTCRelay::reorganize_chains(&fork));
         // assert that the fork has not overtaken the main chain
