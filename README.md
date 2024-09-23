@@ -51,7 +51,7 @@ The Substrate runtime configuration is in the [parachain](./parachain) folder.
 - [Kintsugi](parachain/runtime/kintsugi/): The Kintsugi canary network runtime configuration.
 - [Common](parachain/runtime/common/): Common runtime configuration for Interlay and Kintsugi.
 
-Test networks are build from the mainnet runtimes and have no dedicated runtimes.
+Test networks are built from the mainnet runtimes and have no dedicated runtimes.
 
 #### Crates
 
@@ -62,7 +62,7 @@ The chain makes use of various custom pallets that are found in the [crates](./c
 - [btc-relay](crates/btc-relay): Stateful SPV client for Bitcoin. Stores Bitcoin main chain, tracks forks, verifies Merkle proofs and validates specific transaction formats.
 - [clients-info](crates/clients-info): Stores current and future [interbtc-client](https://github.com/interlay/interbtc-clients) software releases.
 - [collator-selection](crates/collator-selection/): Decentralized sequencers (collators) for the chain.
-- [currency](crates/currency) Handles currencies (e.g. DOT/KSM/IBTC).
+- [currency](crates/currency): Handles currencies (e.g. DOT/KSM/IBTC).
 - [democracy](crates/democracy): Optimistic governance fork of `pallet-democracy`.
 - [dex-general](crates/dex-general/): Uniswap v2-style AMM implementation.
 - [dex-stable](crates/dex-stable/): Curve v1-style AMM implementation.
