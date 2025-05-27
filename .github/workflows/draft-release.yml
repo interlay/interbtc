@@ -19,10 +19,10 @@ jobs:
 
       - name: Build ${{ matrix.runtime }} runtime
         id: srtool_build
-        uses: chevdor/srtool-actions@v0.9.2
+        uses: paritytech/srtool-actions@v0.9.3
         with:
-          image: docker.io/interlayhq/srtool
-          tag: nightly-2022-12-15
+          image: paritytech/srtool
+          tag: 1.84.1
           package: ${{ matrix.runtime }}-runtime-parachain
           runtime_dir: ./parachain/runtime/${{ matrix.runtime }}
           chain: ${{ matrix.runtime }}
