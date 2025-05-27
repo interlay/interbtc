@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ReplaceRequestStatus"],"mod":["pallet","types"],"struct":["ReplaceRequest"],"trait":["WeightInfo"]};

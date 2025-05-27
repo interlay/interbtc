@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["REVERT_BYTECODE"],"fn":["endowed_evm_accounts"],"mod":["interlay","kintsugi","testnet_interlay","testnet_kintsugi"],"struct":["Extensions","ExtensionsFork"],"type":["DummyChainSpec"]};

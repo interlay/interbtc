@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["with_fee_swap_path"]};

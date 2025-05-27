@@ -1,0 +1,4 @@
+(function() {var implementors = {
+"interlay_runtime_parachain":[["impl TakeRevenue for <a class=\"struct\" href=\"interlay_runtime_parachain/xcm_config/struct.ToAuthor.html\" title=\"struct interlay_runtime_parachain::xcm_config::ToAuthor\">ToAuthor</a>"]],
+"kintsugi_runtime_parachain":[["impl TakeRevenue for <a class=\"struct\" href=\"kintsugi_runtime_parachain/xcm_config/struct.ToTreasury.html\" title=\"struct kintsugi_runtime_parachain::xcm_config::ToTreasury\">ToTreasury</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

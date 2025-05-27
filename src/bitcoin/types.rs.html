@@ -1,0 +1,2427 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `crates/bitcoin/src/types.rs`."><title>types.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-fbd14db5c88ed452.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="bitcoin" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0-nightly (5e1d3299a 2023-03-31)" data-search-js="search-bc5a112813b5d712.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" data-theme-light-css="light-db279b6232be9c13.css" data-theme-dark-css="dark-cf923f49f397b216.css" data-theme-ayu-css="ayu-be46fdc453a55015.css" ></div><script src="../../static.files/storage-d4a1a279bad1a0c0.js"></script><script defer src="../../static.files/source-script-1b95b7cca98b26e5.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-8e6affb8c73a5ff1.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-db279b6232be9c13.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-cf923f49f397b216.css"><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../bitcoin/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<a href="#2" id="2">2</a>
+<a href="#3" id="3">3</a>
+<a href="#4" id="4">4</a>
+<a href="#5" id="5">5</a>
+<a href="#6" id="6">6</a>
+<a href="#7" id="7">7</a>
+<a href="#8" id="8">8</a>
+<a href="#9" id="9">9</a>
+<a href="#10" id="10">10</a>
+<a href="#11" id="11">11</a>
+<a href="#12" id="12">12</a>
+<a href="#13" id="13">13</a>
+<a href="#14" id="14">14</a>
+<a href="#15" id="15">15</a>
+<a href="#16" id="16">16</a>
+<a href="#17" id="17">17</a>
+<a href="#18" id="18">18</a>
+<a href="#19" id="19">19</a>
+<a href="#20" id="20">20</a>
+<a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
+<a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
+<a href="#25" id="25">25</a>
+<a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
+<a href="#40" id="40">40</a>
+<a href="#41" id="41">41</a>
+<a href="#42" id="42">42</a>
+<a href="#43" id="43">43</a>
+<a href="#44" id="44">44</a>
+<a href="#45" id="45">45</a>
+<a href="#46" id="46">46</a>
+<a href="#47" id="47">47</a>
+<a href="#48" id="48">48</a>
+<a href="#49" id="49">49</a>
+<a href="#50" id="50">50</a>
+<a href="#51" id="51">51</a>
+<a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
+<a href="#1021" id="1021">1021</a>
+<a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
+<a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
+<a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
+<a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
+<a href="#1117" id="1117">1117</a>
+<a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a>
+<a href="#1143" id="1143">1143</a>
+<a href="#1144" id="1144">1144</a>
+<a href="#1145" id="1145">1145</a>
+<a href="#1146" id="1146">1146</a>
+<a href="#1147" id="1147">1147</a>
+<a href="#1148" id="1148">1148</a>
+<a href="#1149" id="1149">1149</a>
+<a href="#1150" id="1150">1150</a>
+<a href="#1151" id="1151">1151</a>
+<a href="#1152" id="1152">1152</a>
+<a href="#1153" id="1153">1153</a>
+<a href="#1154" id="1154">1154</a>
+<a href="#1155" id="1155">1155</a>
+<a href="#1156" id="1156">1156</a>
+<a href="#1157" id="1157">1157</a>
+<a href="#1158" id="1158">1158</a>
+<a href="#1159" id="1159">1159</a>
+<a href="#1160" id="1160">1160</a>
+<a href="#1161" id="1161">1161</a>
+<a href="#1162" id="1162">1162</a>
+<a href="#1163" id="1163">1163</a>
+<a href="#1164" id="1164">1164</a>
+<a href="#1165" id="1165">1165</a>
+<a href="#1166" id="1166">1166</a>
+<a href="#1167" id="1167">1167</a>
+<a href="#1168" id="1168">1168</a>
+<a href="#1169" id="1169">1169</a>
+<a href="#1170" id="1170">1170</a>
+<a href="#1171" id="1171">1171</a>
+<a href="#1172" id="1172">1172</a>
+<a href="#1173" id="1173">1173</a>
+<a href="#1174" id="1174">1174</a>
+<a href="#1175" id="1175">1175</a>
+<a href="#1176" id="1176">1176</a>
+<a href="#1177" id="1177">1177</a>
+<a href="#1178" id="1178">1178</a>
+<a href="#1179" id="1179">1179</a>
+<a href="#1180" id="1180">1180</a>
+<a href="#1181" id="1181">1181</a>
+<a href="#1182" id="1182">1182</a>
+<a href="#1183" id="1183">1183</a>
+<a href="#1184" id="1184">1184</a>
+<a href="#1185" id="1185">1185</a>
+<a href="#1186" id="1186">1186</a>
+<a href="#1187" id="1187">1187</a>
+<a href="#1188" id="1188">1188</a>
+<a href="#1189" id="1189">1189</a>
+<a href="#1190" id="1190">1190</a>
+<a href="#1191" id="1191">1191</a>
+<a href="#1192" id="1192">1192</a>
+<a href="#1193" id="1193">1193</a>
+<a href="#1194" id="1194">1194</a>
+<a href="#1195" id="1195">1195</a>
+<a href="#1196" id="1196">1196</a>
+<a href="#1197" id="1197">1197</a>
+<a href="#1198" id="1198">1198</a>
+<a href="#1199" id="1199">1199</a>
+<a href="#1200" id="1200">1200</a>
+<a href="#1201" id="1201">1201</a>
+<a href="#1202" id="1202">1202</a>
+<a href="#1203" id="1203">1203</a>
+<a href="#1204" id="1204">1204</a>
+<a href="#1205" id="1205">1205</a>
+<a href="#1206" id="1206">1206</a>
+<a href="#1207" id="1207">1207</a>
+<a href="#1208" id="1208">1208</a>
+<a href="#1209" id="1209">1209</a>
+<a href="#1210" id="1210">1210</a>
+<a href="#1211" id="1211">1211</a>
+<a href="#1212" id="1212">1212</a>
+<a href="#1213" id="1213">1213</a>
+</pre><pre class="rust"><code><span class="kw">pub use </span><span class="kw">crate</span>::merkle::MerkleProof;
+<span class="kw">pub use </span>primitive_types::{H160, H256, U256};
+
+<span class="kw">use crate</span>::{
+    formatter::{BoundedWriter, TryFormat, Writer},
+    merkle::{MerkleTree, PartialTransactionProof},
+    utils::{log2, reverse_endianness, sha256d_le},
+    Address, Error, PublicKey, Script,
+};
+<span class="kw">use </span>codec::{Decode, Encode, MaxEncodedLen};
+<span class="kw">use </span>scale_info::TypeInfo;
+
+<span class="attr">#[cfg(any(feature = <span class="string">&quot;parser&quot;</span>, test))]
+</span><span class="kw">use </span><span class="kw">crate</span>::parser::parse_block_header;
+
+<span class="attr">#[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
+</span><span class="kw">use </span>alloc::{vec, vec::Vec};
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="kw">use </span>codec::alloc::string::String;
+
+<span class="kw">use </span>serde::{Deserialize, Serialize};
+
+<span class="doccomment">/// We also check the coinbase proof in order to defend against the &#39;leaf-node weakness&#39;.
+/// See &lt;https://bitslog.com/2018/06/09/leaf-node-weakness-in-bitcoin-merkle-tree-design/&gt; .
+</span><span class="attr">#[derive(Encode, Decode, Clone, TypeInfo, PartialEq)]
+#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Debug))]
+</span><span class="kw">pub struct </span>FullTransactionProof {
+    <span class="kw">pub </span>user_tx_proof: PartialTransactionProof,
+    <span class="kw">pub </span>coinbase_proof: PartialTransactionProof,
+}
+
+<span class="doccomment">/// Bitcoin Script OpCodes
+/// &lt;https://github.com/bitcoin/bitcoin/blob/master/src/script/script.h&gt;
+</span><span class="attr">#[derive(Copy, Clone)]
+</span><span class="kw">pub enum </span>OpCode {
+    <span class="comment">// push value
+    </span>Op0 = <span class="number">0x00</span>,
+    OpPushData1 = <span class="number">0x4c</span>,
+    OpPushData2 = <span class="number">0x4d</span>,
+    OpPushData4 = <span class="number">0x4e</span>,
+    Op1Negate = <span class="number">0x4f</span>,
+    OpReserved = <span class="number">0x50</span>,
+    Op1 = <span class="number">0x51</span>,
+    Op2 = <span class="number">0x52</span>,
+    Op3 = <span class="number">0x53</span>,
+    Op4 = <span class="number">0x54</span>,
+    Op5 = <span class="number">0x55</span>,
+    Op6 = <span class="number">0x56</span>,
+    Op7 = <span class="number">0x57</span>,
+    Op8 = <span class="number">0x58</span>,
+    Op9 = <span class="number">0x59</span>,
+    Op10 = <span class="number">0x5a</span>,
+    Op11 = <span class="number">0x5b</span>,
+    Op12 = <span class="number">0x5c</span>,
+    Op13 = <span class="number">0x5d</span>,
+    Op14 = <span class="number">0x5e</span>,
+    Op15 = <span class="number">0x5f</span>,
+    Op16 = <span class="number">0x60</span>,
+
+    <span class="comment">// control
+    </span>OpNop = <span class="number">0x61</span>,
+    OpVer = <span class="number">0x62</span>,
+    OpIf = <span class="number">0x63</span>,
+    OpNotIf = <span class="number">0x64</span>,
+    OpVerIf = <span class="number">0x65</span>,
+    OpVerNotIf = <span class="number">0x66</span>,
+    OpElse = <span class="number">0x67</span>,
+    OpEndIf = <span class="number">0x68</span>,
+    OpVerify = <span class="number">0x69</span>,
+    OpReturn = <span class="number">0x6a</span>,
+
+    <span class="comment">// stack ops
+    </span>OpToaltStack = <span class="number">0x6b</span>,
+    OpFromAltStack = <span class="number">0x6c</span>,
+    Op2Drop = <span class="number">0x6d</span>,
+    Op2Dup = <span class="number">0x6e</span>,
+    Op3Dup = <span class="number">0x6f</span>,
+    Op2Over = <span class="number">0x70</span>,
+    Op2Rot = <span class="number">0x71</span>,
+    Op2Swap = <span class="number">0x72</span>,
+    OpIfdup = <span class="number">0x73</span>,
+    OpDepth = <span class="number">0x74</span>,
+    OpDrop = <span class="number">0x75</span>,
+    OpDup = <span class="number">0x76</span>,
+    OpNip = <span class="number">0x77</span>,
+    OpOver = <span class="number">0x78</span>,
+    OpPick = <span class="number">0x79</span>,
+    OpRoll = <span class="number">0x7a</span>,
+    OpRot = <span class="number">0x7b</span>,
+    OpSwap = <span class="number">0x7c</span>,
+    OpTuck = <span class="number">0x7d</span>,
+
+    <span class="comment">// splice ops
+    </span>OpCat = <span class="number">0x7e</span>,
+    OpSubstr = <span class="number">0x7f</span>,
+    OpLeft = <span class="number">0x80</span>,
+    OpRight = <span class="number">0x81</span>,
+    OpSize = <span class="number">0x82</span>,
+
+    <span class="comment">// bit logic
+    </span>OpInvert = <span class="number">0x83</span>,
+    OpAnd = <span class="number">0x84</span>,
+    OpOr = <span class="number">0x85</span>,
+    OpXor = <span class="number">0x86</span>,
+    OpEqual = <span class="number">0x87</span>,
+    OpEqualVerify = <span class="number">0x88</span>,
+    OpReserved1 = <span class="number">0x89</span>,
+    OpReserved2 = <span class="number">0x8a</span>,
+
+    <span class="comment">// numeric
+    </span>Op1Add = <span class="number">0x8b</span>,
+    Op1Sub = <span class="number">0x8c</span>,
+    Op2Mul = <span class="number">0x8d</span>,
+    Op2Div = <span class="number">0x8e</span>,
+    OpNegate = <span class="number">0x8f</span>,
+    OpAbs = <span class="number">0x90</span>,
+    OpNot = <span class="number">0x91</span>,
+    Op0NotEqual = <span class="number">0x92</span>,
+
+    OpAdd = <span class="number">0x93</span>,
+    OpSub = <span class="number">0x94</span>,
+    OpMul = <span class="number">0x95</span>,
+    OpDiv = <span class="number">0x96</span>,
+    OpMod = <span class="number">0x97</span>,
+    OpLshift = <span class="number">0x98</span>,
+    OpRshift = <span class="number">0x99</span>,
+
+    OpBooland = <span class="number">0x9a</span>,
+    OpBoolor = <span class="number">0x9b</span>,
+    OpNumEqual = <span class="number">0x9c</span>,
+    OpNumEqualVerify = <span class="number">0x9d</span>,
+    OpNumNotEqual = <span class="number">0x9e</span>,
+    OpLessThan = <span class="number">0x9f</span>,
+    OpGreaterThan = <span class="number">0xa0</span>,
+    OpLessThanOrEqual = <span class="number">0xa1</span>,
+    OpGreaterThanOrEqual = <span class="number">0xa2</span>,
+    OpMin = <span class="number">0xa3</span>,
+    OpMax = <span class="number">0xa4</span>,
+
+    OpWithin = <span class="number">0xa5</span>,
+
+    <span class="comment">// crypto
+    </span>OpRipemd160 = <span class="number">0xa6</span>,
+    OpSha1 = <span class="number">0xa7</span>,
+    OpSha256 = <span class="number">0xa8</span>,
+    OpHash160 = <span class="number">0xa9</span>,
+    OpHash256 = <span class="number">0xaa</span>,
+    OpCodeSeparator = <span class="number">0xab</span>,
+    OpCheckSig = <span class="number">0xac</span>,
+    OpCheckSigverify = <span class="number">0xad</span>,
+    OpCheckMultisig = <span class="number">0xae</span>,
+    OpCheckMultisigVerify = <span class="number">0xaf</span>,
+
+    <span class="comment">// expansion
+    </span>OpNop1 = <span class="number">0xb0</span>,
+    OpCheckLocktimeVerify = <span class="number">0xb1</span>,
+    OpCheckSequenceVerify = <span class="number">0xb2</span>,
+    OpNop4 = <span class="number">0xb3</span>,
+    OpNop5 = <span class="number">0xb4</span>,
+    OpNop6 = <span class="number">0xb5</span>,
+    OpNop7 = <span class="number">0xb6</span>,
+    OpNop8 = <span class="number">0xb7</span>,
+    OpNop9 = <span class="number">0xb8</span>,
+    OpNop10 = <span class="number">0xb9</span>,
+}
+
+<span class="doccomment">/// Custom Types
+
+</span><span class="comment">// Constants
+</span><span class="kw">pub const </span>P2PKH_SCRIPT_SIZE: u32 = <span class="number">25</span>;
+<span class="kw">pub const </span>P2SH_SCRIPT_SIZE: u32 = <span class="number">23</span>;
+<span class="kw">pub const </span>P2WPKH_V0_SCRIPT_SIZE: u32 = <span class="number">22</span>;
+<span class="kw">pub const </span>P2WSH_V0_SCRIPT_SIZE: u32 = <span class="number">34</span>;
+<span class="kw">pub const </span>HASH160_SIZE_HEX: u8 = <span class="number">0x14</span>;
+<span class="kw">pub const </span>HASH256_SIZE_HEX: u8 = <span class="number">0x20</span>;
+<span class="comment">// TODO: reduce to H256 size + op code
+</span><span class="kw">pub const </span>MAX_OPRETURN_SIZE: usize = <span class="number">83</span>;
+
+<span class="doccomment">/// Structs
+
+/// Bitcoin Basic Block Headers
+</span><span class="comment">// TODO: Figure out how to set a pointer to the ChainIndex mapping instead
+</span><span class="attr">#[derive(Encode, Decode, Default, Copy, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
+</span><span class="kw">pub struct </span>BlockHeader {
+    <span class="kw">pub </span>merkle_root: H256Le,
+    <span class="kw">pub </span>target: U256,
+    <span class="kw">pub </span>timestamp: u32,
+    <span class="kw">pub </span>version: i32,
+    <span class="comment">// TODO: remove hash
+    </span><span class="kw">pub </span>hash: H256Le,
+    <span class="kw">pub </span>hash_prev_block: H256Le,
+    <span class="kw">pub </span>nonce: u32,
+}
+
+<span class="kw">impl </span>BlockHeader {
+    <span class="doccomment">/// Returns the hash of the block header using Bitcoin&#39;s double sha256
+    </span><span class="kw">pub fn </span>hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;H256Le, Error&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>bytes = <span class="macro">vec!</span>[];
+        <span class="self">self</span>.try_format(<span class="kw-2">&amp;mut </span>bytes)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(sha256d_le(<span class="kw-2">&amp;</span>bytes))
+    }
+
+    <span class="kw">pub fn </span>ensure_version(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+        <span class="kw">if </span><span class="self">self</span>.version &lt; <span class="number">4 </span>{
+            <span class="comment">// as per bip65, we reject block versions less than 4. Note that the reason
+            // we can hardcode this, is that bitcoin switched to version 4 in december
+            // 2015, and the genesis of the bridge will never be set to a genesis from
+            // before that date.
+            // see https://github.com/bitcoin/bips/blob/master/bip-0065.mediawiki#spv-clients
+            </span><span class="prelude-val">Err</span>(Error::InvalidBlockVersion)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Ok</span>(())
+        }
+    }
+
+    <span class="kw">pub fn </span>update_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;H256Le, Error&gt; {
+        <span class="kw">let </span>new_hash = <span class="self">self</span>.hash()<span class="question-mark">?</span>;
+
+        <span class="self">self</span>.hash = new_hash;
+        <span class="prelude-val">Ok</span>(<span class="self">self</span>.hash)
+    }
+
+    <span class="doccomment">/// Returns a block header from a bytes slice
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - A slice containing the header
+    </span><span class="attr">#[cfg(any(feature = <span class="string">&quot;parser&quot;</span>, test))]
+    </span><span class="kw">pub fn </span>from_bytes&lt;B: AsRef&lt;[u8]&gt;&gt;(bytes: B) -&gt; <span class="prelude-ty">Result</span>&lt;BlockHeader, Error&gt; {
+        <span class="kw">let </span>slice = bytes.as_ref();
+        <span class="kw">if </span>slice.len() != <span class="number">80 </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(Error::InvalidHeaderSize);
+        }
+        <span class="kw">let </span><span class="kw-2">mut </span>result = [<span class="number">0u8</span>; <span class="number">80</span>];
+        result.copy_from_slice(slice);
+        parse_block_header(<span class="kw-2">&amp;</span>result)
+    }
+
+    <span class="doccomment">/// Returns a block header from a hex string
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - A string containing the header
+    </span><span class="attr">#[cfg(all(feature = <span class="string">&quot;std&quot;</span>, any(feature = <span class="string">&quot;parser&quot;</span>, test)))]
+    </span><span class="kw">pub fn </span>from_hex&lt;T: AsRef&lt;[u8]&gt;&gt;(data: T) -&gt; <span class="prelude-ty">Result</span>&lt;BlockHeader, Error&gt; {
+        <span class="kw">let </span>bytes = hex::decode(data).map_err(|_e| Error::MalformedHeader)<span class="question-mark">?</span>;
+        <span class="self">Self</span>::from_bytes(<span class="kw-2">&amp;</span>bytes)
+    }
+}
+
+<span class="attr">#[derive(Encode, Decode, TypeInfo, PartialEq, Clone, Debug)]
+</span><span class="kw">pub enum </span>TransactionInputSource {
+    <span class="doccomment">/// Spending from transaction with the given hash, from output with the given index
+    </span>FromOutput(H256Le, u32),
+    <span class="doccomment">/// coinbase transaction with given height
+    </span>Coinbase(<span class="prelude-ty">Option</span>&lt;u32&gt;),
+}
+
+<span class="doccomment">/// Bitcoin transaction input
+</span><span class="attr">#[derive(Encode, Decode, TypeInfo, PartialEq, Clone, Debug)]
+</span><span class="kw">pub struct </span>TransactionInput {
+    <span class="kw">pub </span>source: TransactionInputSource,
+    <span class="kw">pub </span>script: Vec&lt;u8&gt;,
+    <span class="kw">pub </span>sequence: u32,
+    <span class="kw">pub </span>witness: Vec&lt;Vec&lt;u8&gt;&gt;,
+}
+
+<span class="kw">impl </span>TransactionInput {
+    <span class="kw">pub fn </span>with_witness(<span class="kw-2">&amp;mut </span><span class="self">self</span>, witness: Vec&lt;Vec&lt;u8&gt;&gt;) {
+        <span class="self">self</span>.witness = witness;
+    }
+
+    <span class="comment">// used by the benchmarks to make the
+    // transaction be an expected length
+    </span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+    </span><span class="kw">pub fn </span>pad_script(<span class="kw-2">&amp;mut </span><span class="self">self</span>, padding: usize) {
+        <span class="kw">let </span>total_len = <span class="self">self</span>.script.len() + padding;
+        <span class="kw">let </span>compact_len = <span class="kw">match </span>total_len {
+            <span class="number">0</span>..=<span class="number">0xFC </span>=&gt; <span class="number">1</span>,
+            <span class="number">0xFD</span>..=<span class="number">0xFFFF </span>=&gt; <span class="number">3</span>,
+            <span class="number">0x10000</span>..=<span class="number">0xFFFFFFFF </span>=&gt; <span class="number">5</span>,
+            <span class="kw">_ </span>=&gt; <span class="number">9</span>,
+        };
+        <span class="self">self</span>.script.append(<span class="kw-2">&amp;mut </span><span class="macro">vec!</span>[<span class="number">0</span>; total_len - compact_len]);
+    }
+}
+
+<span class="kw">pub type </span>Value = i64;
+
+<span class="doccomment">/// Bitcoin transaction output
+</span><span class="attr">#[derive(Encode, Decode, TypeInfo, PartialEq, Debug, Clone)]
+</span><span class="kw">pub struct </span>TransactionOutput {
+    <span class="kw">pub </span>value: Value,
+    <span class="kw">pub </span>script: Script,
+}
+
+<span class="kw">impl </span>TransactionOutput {
+    <span class="kw">pub fn </span>payment(value: Value, address: <span class="kw-2">&amp;</span>Address) -&gt; TransactionOutput {
+        TransactionOutput {
+            value,
+            script: address.to_script_pub_key(),
+        }
+    }
+
+    <span class="kw">pub fn </span>op_return(value: Value, return_content: <span class="kw-2">&amp;</span>[u8]) -&gt; TransactionOutput {
+        TransactionOutput {
+            value,
+            script: Script::op_return(return_content),
+        }
+    }
+
+    <span class="kw">pub fn </span>extract_address(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Address, Error&gt; {
+        Address::from_script_pub_key(<span class="kw-2">&amp;</span><span class="self">self</span>.script)
+    }
+}
+
+<span class="doccomment">/// Bitcoin transaction
+</span><span class="comment">// Note: the `default` implementation is used only for testing code
+</span><span class="attr">#[derive(Encode, Decode, TypeInfo, Default, PartialEq, Debug, Clone)]
+</span><span class="kw">pub struct </span>Transaction {
+    <span class="kw">pub </span>version: i32,
+    <span class="kw">pub </span>inputs: Vec&lt;TransactionInput&gt;,
+    <span class="kw">pub </span>outputs: Vec&lt;TransactionOutput&gt;,
+    <span class="kw">pub </span>lock_at: LockTime,
+}
+
+<span class="attr">#[cfg_attr(test, mocktopus::macros::mockable)]
+</span><span class="kw">impl </span>Transaction {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>format_no_witness&lt;W: Writer&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, w: <span class="kw-2">&amp;mut </span>W) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+        <span class="self">self</span>.version.try_format(w)<span class="question-mark">?</span>;
+        <span class="self">self</span>.inputs.try_format(w)<span class="question-mark">?</span>;
+        <span class="self">self</span>.outputs.try_format(w)<span class="question-mark">?</span>;
+        <span class="self">self</span>.lock_at.try_format(w)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">pub fn </span>tx_id_bounded(<span class="kw-2">&amp;</span><span class="self">self</span>, length_bound: u32) -&gt; <span class="prelude-ty">Result</span>&lt;H256Le, Error&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>bytes = BoundedWriter::new(length_bound);
+        <span class="self">self</span>.format_no_witness(<span class="kw-2">&amp;mut </span>bytes)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(sha256d_le(<span class="kw-2">&amp;</span>bytes.result()))
+    }
+
+    <span class="kw">pub fn </span>tx_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; H256Le {
+        <span class="kw">let </span><span class="kw-2">mut </span>bytes = <span class="macro">vec!</span>[];
+        <span class="self">self</span>.format_no_witness(<span class="kw-2">&amp;mut </span>bytes).expect(<span class="string">&quot;Not bounded&quot;</span>);
+        sha256d_le(<span class="kw-2">&amp;</span>bytes)
+    }
+
+    <span class="kw">pub fn </span>hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; H256Le {
+        <span class="kw">let </span><span class="kw-2">mut </span>bytes = <span class="macro">vec!</span>[];
+        <span class="self">self</span>.try_format(<span class="kw-2">&amp;mut </span>bytes).expect(<span class="string">&quot;Not bounded&quot;</span>);
+        sha256d_le(<span class="kw-2">&amp;</span>bytes)
+    }
+
+    <span class="kw">pub fn </span>size_no_witness(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="kw">let </span><span class="kw-2">mut </span>bytes = <span class="macro">vec!</span>[];
+        <span class="self">self</span>.format_no_witness(<span class="kw-2">&amp;mut </span>bytes).expect(<span class="string">&quot;Not bounded&quot;</span>);
+        bytes.len()
+    }
+
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>has_witness(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="comment">// check if any of the inputs has a witness
+        </span><span class="self">self</span>.inputs.iter().any(|v| !v.witness.is_empty())
+    }
+
+    <span class="kw">pub fn </span>is_coinbase(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.inputs.len() == <span class="number">1
+            </span>&amp;&amp; <span class="macro">matches!</span>(
+                <span class="self">self</span>.inputs.get(<span class="number">0</span>),
+                <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>TransactionInput {
+                    source: TransactionInputSource::Coinbase(<span class="kw">_</span>),
+                    ..
+                })
+            )
+    }
+}
+
+<span class="comment">// https://en.bitcoin.it/wiki/NLockTime
+</span><span class="attr">#[derive(Encode, Decode, TypeInfo, PartialEq, Debug, Clone)]
+</span><span class="kw">pub enum </span>LockTime {
+    <span class="doccomment">/// time as unix timestamp
+    </span>Time(u32),
+    BlockHeight(u32),
+}
+
+<span class="comment">// for testing code
+</span><span class="kw">impl </span>Default <span class="kw">for </span>LockTime {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::BlockHeight(<span class="number">0</span>)
+    }
+}
+
+<span class="doccomment">/// Bitcoin block: header and transactions
+</span><span class="attr">#[derive(Default, Clone, PartialEq, Debug)]
+</span><span class="kw">pub struct </span>Block {
+    <span class="kw">pub </span>header: BlockHeader,
+    <span class="kw">pub </span>transactions: Vec&lt;Transaction&gt;,
+}
+
+<span class="kw">impl </span>Block {
+    <span class="kw">pub fn </span>merkle_proof(<span class="kw-2">&amp;</span><span class="self">self</span>, include: <span class="kw-2">&amp;</span>[H256Le]) -&gt; <span class="prelude-ty">Result</span>&lt;MerkleProof, Error&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>proof = MerkleProof {
+            block_header: <span class="self">self</span>.header,
+            transactions_count: <span class="self">self</span>.transactions.len() <span class="kw">as </span>u32,
+            flag_bits: Vec::with_capacity(include.len()),
+            hashes: <span class="macro">vec!</span>[],
+        };
+
+        <span class="kw">let </span><span class="kw-2">mut </span>tx_ids = Vec::with_capacity(<span class="self">self</span>.transactions.len());
+        <span class="kw">for </span>tx <span class="kw">in </span><span class="self">self</span>.transactions.iter() {
+            tx_ids.push(tx.tx_id());
+        }
+
+        <span class="kw">let </span>matches: Vec&lt;bool&gt; = <span class="self">self
+            </span>.transactions
+            .iter()
+            .map(|tx| include.contains(<span class="kw-2">&amp;</span>tx.tx_id()))
+            .collect();
+
+        <span class="kw">let </span>height = proof.compute_partial_tree_height();
+        proof.traverse_and_build(height <span class="kw">as </span>u32, <span class="number">0</span>, <span class="kw-2">&amp;</span>tx_ids, <span class="kw-2">&amp;</span>matches)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(proof)
+    }
+}
+
+<span class="doccomment">/// Generates a new block
+/// mined with the given difficulty
+///
+/// # Example
+/// ```ignore
+/// let block = BlockBuilder::new()
+///     .with_version(4) // or whatever version
+///     .with_timestamp(some_timestamp)
+///     .with_previous_hash(previous_hash)
+///     .with_coinbase(some_address)   // will add the coinbase transaction
+///     .add_transaction(some_transaction)
+///     .mine(difficulty);
+/// ```
+</span><span class="kw">pub struct </span>BlockBuilder {
+    block: Block,
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>BlockBuilder {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        BlockBuilder {
+            block: Default::default(),
+        }
+    }
+}
+
+<span class="kw">impl </span>BlockBuilder {
+    <span class="kw">pub fn </span>new() -&gt; BlockBuilder {
+        <span class="kw">let </span><span class="kw-2">mut </span>ret = <span class="self">Self</span>::default();
+        ret.block.header.version = <span class="number">4</span>;
+        ret
+    }
+
+    <span class="kw">pub fn </span>with_timestamp(<span class="kw-2">&amp;mut </span><span class="self">self</span>, timestamp: u32) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.block.header.timestamp = timestamp;
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>with_previous_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>, previous_hash: H256Le) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.block.header.hash_prev_block = previous_hash;
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>with_version(<span class="kw-2">&amp;mut </span><span class="self">self</span>, version: i32) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.block.header.version = version;
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>mine(<span class="kw-2">&amp;mut </span><span class="self">self</span>, target: U256) -&gt; <span class="prelude-ty">Result</span>&lt;Block, Error&gt; {
+        <span class="comment">// NOTE: this function is used only for testing
+        // so we panic instead of returning a Result
+        // as this is a problem on the caller side
+        </span><span class="kw">if </span><span class="self">self</span>.block.transactions.is_empty() {
+            <span class="macro">panic!</span>(<span class="string">&quot;trying to mine a block without a coinbase&quot;</span>);
+        }
+        <span class="self">self</span>.block.header.target = target;
+        <span class="self">self</span>.block.header.merkle_root = <span class="self">self</span>.compute_merkle_root()<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>nonce: u32 = <span class="number">0</span>;
+        <span class="comment">// NOTE: this is inefficient because we are serializing the header
+        // over and over again but it should not matter because
+        // this is meant to be used only for very low difficulty
+        // and not for any sort of real-world mining
+        </span><span class="kw">while </span><span class="self">self</span>.block.header.update_hash()<span class="question-mark">?</span>.as_u256() &gt;= target {
+            <span class="self">self</span>.block.header.nonce = nonce;
+            nonce += <span class="number">1</span>;
+        }
+        <span class="prelude-val">Ok</span>(<span class="self">self</span>.block.clone())
+    }
+
+    <span class="kw">pub fn </span>add_transaction(<span class="kw-2">&amp;mut </span><span class="self">self</span>, transaction: Transaction) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.block.transactions.push(transaction);
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>with_coinbase(<span class="kw-2">&amp;mut </span><span class="self">self</span>, address: <span class="kw-2">&amp;</span>Address, reward: Value, height: u32) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="comment">// TODO: compute witness commitment
+        </span><span class="self">self</span>.block
+            .transactions
+            .insert(<span class="number">0</span>, generate_coinbase_transaction(address, reward, height, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>));
+        <span class="self">self
+    </span>}
+
+    <span class="kw">fn </span>compute_merkle_root(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;H256Le, Error&gt; {
+        <span class="kw">let </span>height = log2(<span class="self">self</span>.block.transactions.len() <span class="kw">as </span>u64);
+        <span class="kw">let </span><span class="kw-2">mut </span>tx_ids = Vec::with_capacity(<span class="self">self</span>.block.transactions.len());
+        <span class="kw">for </span>tx <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.block.transactions {
+            tx_ids.push(tx.tx_id());
+        }
+        MerkleTree::compute_root(<span class="number">0</span>, height, tx_ids.len() <span class="kw">as </span>u32, <span class="kw-2">&amp;</span>tx_ids)
+    }
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+    </span><span class="kw">pub fn </span>build_max(previous_hash: H256Le, hashes: u32, transaction: Transaction) -&gt; Block {
+        <span class="kw">let </span><span class="kw-2">mut </span>block_builder = <span class="self">Self</span>::new();
+        block_builder
+            .with_previous_hash(previous_hash)
+            .with_version(<span class="number">4</span>)
+            .with_coinbase(<span class="kw-2">&amp;</span>Address::default(), <span class="number">50</span>, <span class="number">3</span>)
+            .with_timestamp(u32::MAX);
+
+        <span class="comment">// we expect at least two hashes for payment + merkle root
+        </span><span class="kw">let </span>tree_height = hashes - <span class="number">1</span>; <span class="comment">// remove the merkle root to get height
+        </span><span class="kw">let </span>transactions_count = <span class="number">2u32</span>.pow(tree_height);
+
+        <span class="comment">// we always have two txs for coinbase + payment
+        </span><span class="kw">for _ in </span><span class="number">0</span>..(transactions_count - <span class="number">2</span>) {
+            block_builder.add_transaction(
+                TransactionBuilder::new()
+                    .with_version(<span class="number">2</span>)
+                    .add_input(TransactionInputBuilder::build_max(<span class="number">1</span>))
+                    .add_output(TransactionOutput::payment(<span class="number">0</span>, <span class="kw-2">&amp;</span>Address::default()))
+                    .build(),
+            );
+        }
+
+        <span class="kw">let </span>tx_id = transaction.tx_id();
+        block_builder.add_transaction(transaction);
+        <span class="kw">let </span>block = block_builder.mine(U256::from(<span class="number">2</span>).pow(<span class="number">254</span>.into())).unwrap();
+
+        <span class="comment">// sanity check that the proof has the correct size
+        </span><span class="kw">let </span>merkle_proof = block.merkle_proof(<span class="kw-2">&amp;</span>[tx_id]).unwrap();
+        <span class="macro">assert_eq!</span>(merkle_proof.transactions_count, transactions_count);
+        <span class="macro">assert_eq!</span>(merkle_proof.hashes.len() <span class="kw">as </span>u32, hashes);
+
+        block
+    }
+}
+
+<span class="kw">fn </span>generate_coinbase_transaction(
+    address: <span class="kw-2">&amp;</span>Address,
+    reward: Value,
+    height: u32,
+    input_script: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
+    witness_commitment: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
+) -&gt; Transaction {
+    <span class="kw">let </span><span class="kw-2">mut </span>tx_builder = TransactionBuilder::new();
+
+    <span class="kw">let </span><span class="kw-2">mut </span>input_builder = TransactionInputBuilder::new();
+    input_builder
+        .with_source(TransactionInputSource::Coinbase(<span class="prelude-val">Some</span>(height)))
+        .add_witness(<span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>])
+        .with_sequence(u32::MAX);
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(script) = input_script {
+        input_builder.with_script(<span class="kw-2">&amp;</span>script);
+    }
+    tx_builder.add_input(input_builder.build());
+
+    <span class="comment">// FIXME: this is most likely not what real-world transactions look like
+    </span>tx_builder.add_output(TransactionOutput::payment(reward, address));
+
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(commitment) = witness_commitment {
+        <span class="comment">// https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#commitment-structure
+        </span>tx_builder.add_output(TransactionOutput::op_return(<span class="number">0</span>, <span class="kw-2">&amp;</span>commitment));
+    }
+
+    tx_builder.build()
+}
+
+<span class="doccomment">/// Representation of a Bitcoin blockchain
+</span><span class="attr">#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+</span><span class="kw">pub struct </span>BlockChain {
+    <span class="kw">pub </span>chain_id: u32,
+    <span class="kw">pub </span>start_height: u32,
+    <span class="kw">pub </span>max_height: u32,
+}
+
+<span class="doccomment">/// Represents a bitcoin 32 bytes hash digest encoded in little-endian
+</span><span class="attr">#[derive(
+    Serialize, Deserialize, Encode, Decode, Default, PartialEq, Eq, Clone, Copy, Debug, TypeInfo, MaxEncodedLen,
+)]
+</span><span class="kw">pub struct </span>H256Le {
+    content: [u8; <span class="number">32</span>],
+}
+
+<span class="kw">impl </span>H256Le {
+    <span class="doccomment">/// Creates a new H256Le hash equals to zero
+    </span><span class="kw">pub fn </span>zero() -&gt; H256Le {
+        H256Le { content: [<span class="number">0</span>; <span class="number">32</span>] }
+    }
+
+    <span class="kw">pub fn </span>is_zero(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.content == [<span class="number">0</span>; <span class="number">32</span>]
+    }
+
+    <span class="doccomment">/// Creates a H256Le from little endian bytes
+    </span><span class="kw">pub fn </span>from_bytes_le(bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; H256Le {
+        <span class="kw">let </span><span class="kw-2">mut </span>content: [u8; <span class="number">32</span>] = Default::default();
+        content.copy_from_slice(<span class="kw-2">&amp;</span>bytes);
+        H256Le { content }
+    }
+
+    <span class="doccomment">/// Creates a H256Le from big endian bytes
+    </span><span class="kw">pub fn </span>from_bytes_be(bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; H256Le {
+        <span class="kw">let </span>bytes_le = reverse_endianness(bytes);
+        <span class="kw">let </span><span class="kw-2">mut </span>content: [u8; <span class="number">32</span>] = Default::default();
+        content.copy_from_slice(<span class="kw-2">&amp;</span>bytes_le);
+        H256Le { content }
+    }
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+    </span><span class="kw">pub fn </span>from_hex_le(hex: <span class="kw-2">&amp;</span>str) -&gt; H256Le {
+        H256Le::from_bytes_le(<span class="kw-2">&amp;</span>hex::decode(hex).unwrap())
+    }
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+    </span><span class="kw">pub fn </span>from_hex_be(hex: <span class="kw-2">&amp;</span>str) -&gt; H256Le {
+        H256Le::from_bytes_be(<span class="kw-2">&amp;</span>hex::decode(hex).unwrap())
+    }
+
+    <span class="doccomment">/// Returns the content of the H256Le encoded in big endian
+    </span><span class="kw">pub fn </span>to_bytes_be(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [u8; <span class="number">32</span>] {
+        <span class="kw">let </span><span class="kw-2">mut </span>content: [u8; <span class="number">32</span>] = Default::default();
+        content.copy_from_slice(<span class="kw-2">&amp;</span>reverse_endianness(<span class="kw-2">&amp;</span><span class="self">self</span>.content[..]));
+        content
+    }
+
+    <span class="doccomment">/// Returns the content of the H256Le encoded in little endian
+    </span><span class="kw">pub fn </span>to_bytes_le(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [u8; <span class="number">32</span>] {
+        <span class="self">self</span>.content
+    }
+
+    <span class="doccomment">/// Returns the content of the H256Le encoded in little endian hex
+    </span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+    </span><span class="kw">pub fn </span>to_hex_le(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+        hex::encode(<span class="kw-2">&amp;</span><span class="self">self</span>.to_bytes_le())
+    }
+
+    <span class="doccomment">/// Returns the content of the H256Le encoded in big endian hex
+    </span><span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+    </span><span class="kw">pub fn </span>to_hex_be(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+        hex::encode(<span class="kw-2">&amp;</span><span class="self">self</span>.to_bytes_be())
+    }
+
+    <span class="doccomment">/// Returns the value as a U256
+    </span><span class="kw">pub fn </span>as_u256(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; U256 {
+        U256::from_little_endian(<span class="kw-2">&amp;</span><span class="self">self</span>.to_bytes_le())
+    }
+
+    <span class="doccomment">/// Hashes the value a single time using sha256
+    </span><span class="kw">pub fn </span>sha256d(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        sha256d_le(<span class="kw-2">&amp;</span><span class="self">self</span>.to_bytes_le())
+    }
+}
+
+<span class="macro">macro_rules! </span>impl_h256le_from_integer {
+    (<span class="macro-nonterminal">$</span><span class="kw">type</span>:<span class="macro-nonterminal">ty</span>) =&gt; {
+        <span class="kw">impl </span>From&lt;<span class="macro-nonterminal">$</span><span class="kw">type</span>&gt; <span class="kw">for </span><span class="macro-nonterminal">H256Le </span>{
+            <span class="kw">fn </span>from(value: <span class="macro-nonterminal">$</span><span class="kw">type</span>) -&gt; <span class="macro-nonterminal">H256Le </span>{
+                <span class="kw">let </span><span class="kw-2">mut </span>bytes: [u8; <span class="number">32</span>] = Default::default();
+                <span class="kw">let </span>le_bytes = value.to_le_bytes();
+                <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..le_bytes.len() {
+                    bytes[i] = le_bytes[i];
+                }
+                H256Le { content: bytes }
+            }
+        }
+    };
+}
+
+<span class="macro">impl_h256le_from_integer!</span>(u8);
+<span class="macro">impl_h256le_from_integer!</span>(u16);
+<span class="macro">impl_h256le_from_integer!</span>(u32);
+<span class="macro">impl_h256le_from_integer!</span>(u64);
+<span class="macro">impl_h256le_from_integer!</span>(i8);
+<span class="macro">impl_h256le_from_integer!</span>(i16);
+<span class="macro">impl_h256le_from_integer!</span>(i32);
+<span class="macro">impl_h256le_from_integer!</span>(i64);
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>H256Le {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="macro">write!</span>(f, <span class="string">&quot;0x{}&quot;</span>, <span class="self">self</span>.to_hex_be())
+    }
+}
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;std&quot;</span>)]
+</span><span class="kw">impl </span>std::fmt::LowerHex <span class="kw">for </span>H256Le {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.to_hex_be())
+    }
+}
+
+<span class="kw">impl </span>PartialEq&lt;H256Le&gt; <span class="kw">for </span>H256 {
+    <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span>H256Le) -&gt; bool {
+        <span class="kw">let </span>bytes_le = H256Le::from_bytes_be(<span class="self">self</span>.as_bytes());
+        bytes_le == <span class="kw-2">*</span>other
+    }
+}
+
+<span class="kw">impl </span>PartialEq&lt;H256&gt; <span class="kw">for </span>H256Le {
+    <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span>H256) -&gt; bool {
+        <span class="kw-2">*</span>other == <span class="kw-2">*</span><span class="self">self
+    </span>}
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>CompactUint {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) value: u64,
+}
+
+<span class="kw">impl </span>CompactUint {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>from_usize(value: usize) -&gt; CompactUint {
+        CompactUint { value: value <span class="kw">as </span>u64 }
+    }
+}
+
+<span class="doccomment">/// Construct txs from inputs and outputs
+</span><span class="kw">pub struct </span>TransactionBuilder {
+    transaction: Transaction,
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>TransactionBuilder {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        TransactionBuilder {
+            transaction: Transaction {
+                version: <span class="number">2</span>,
+                inputs: <span class="macro">vec!</span>[],
+                outputs: <span class="macro">vec!</span>[],
+                lock_at: LockTime::BlockHeight(<span class="number">0</span>),
+            },
+        }
+    }
+}
+
+<span class="kw">impl </span>TransactionBuilder {
+    <span class="kw">pub fn </span>new() -&gt; TransactionBuilder {
+        <span class="self">Self</span>::default()
+    }
+
+    <span class="kw">pub fn </span>with_version(<span class="kw-2">&amp;mut </span><span class="self">self</span>, version: i32) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.transaction.version = version;
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>with_block_height(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block_height: u32) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.transaction.lock_at = LockTime::BlockHeight(block_height);
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>with_locktime(<span class="kw-2">&amp;mut </span><span class="self">self</span>, locktime: u32) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.transaction.lock_at = LockTime::Time(locktime);
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>add_input(<span class="kw-2">&amp;mut </span><span class="self">self</span>, input: TransactionInput) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.transaction.inputs.push(input);
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>add_output(<span class="kw-2">&amp;mut </span><span class="self">self</span>, output: TransactionOutput) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.transaction.outputs.push(output);
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Transaction {
+        <span class="self">self</span>.transaction.clone()
+    }
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+    </span><span class="kw">pub fn </span>build_max(vin: u32, vout: Vec&lt;TransactionOutput&gt;) -&gt; Transaction {
+        <span class="kw">let </span><span class="kw-2">mut </span>transaction_builder = <span class="self">Self</span>::new();
+        transaction_builder.with_version(<span class="number">2</span>);
+
+        <span class="comment">// add tx inputs
+        </span><span class="kw">for _ in </span><span class="number">0</span>..vin {
+            transaction_builder.add_input(TransactionInputBuilder::build_max(<span class="number">1</span>));
+        }
+
+        <span class="comment">// add tx outputs
+        </span><span class="kw">for </span>output <span class="kw">in </span>vout {
+            transaction_builder.add_output(output);
+        }
+
+        transaction_builder.build()
+    }
+}
+
+<span class="doccomment">/// Construct transaction inputs
+</span><span class="kw">pub struct </span>TransactionInputBuilder {
+    transaction_input: TransactionInput,
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>TransactionInputBuilder {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        TransactionInputBuilder {
+            transaction_input: TransactionInput {
+                source: TransactionInputSource::FromOutput(H256Le::zero(), <span class="number">0</span>),
+                script: <span class="macro">vec!</span>[],
+                sequence: <span class="number">0</span>,
+                witness: <span class="macro">vec!</span>[],
+            },
+        }
+    }
+}
+
+<span class="kw">impl </span>TransactionInputBuilder {
+    <span class="kw">pub fn </span>new() -&gt; TransactionInputBuilder {
+        <span class="self">Self</span>::default()
+    }
+
+    <span class="kw">pub fn </span>with_source(<span class="kw-2">&amp;mut </span><span class="self">self</span>, source: TransactionInputSource) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.transaction_input.source = source;
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>with_script(<span class="kw-2">&amp;mut </span><span class="self">self</span>, script: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.transaction_input.script = Vec::from(script);
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>with_p2pkh(<span class="kw-2">&amp;mut </span><span class="self">self</span>, public_key: <span class="kw-2">&amp;</span>PublicKey, sig: Vec&lt;u8&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.transaction_input.script = public_key.to_p2pkh_script_sig(sig).as_bytes().to_vec();
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>with_p2sh(<span class="kw-2">&amp;mut </span><span class="self">self</span>, public_key: <span class="kw-2">&amp;</span>PublicKey, sig: Vec&lt;u8&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.transaction_input.script = public_key.to_p2sh_script_sig(sig).as_bytes().to_vec();
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>with_p2wpkh(<span class="kw-2">&amp;mut </span><span class="self">self</span>, public_key: <span class="kw-2">&amp;</span>PublicKey, sig: Vec&lt;u8&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.transaction_input.witness = <span class="macro">vec!</span>[sig, public_key.as_bytes().to_vec()];
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>with_p2wsh(<span class="kw-2">&amp;mut </span><span class="self">self</span>, public_key: <span class="kw-2">&amp;</span>PublicKey, sig: Vec&lt;u8&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.transaction_input.witness = <span class="macro">vec!</span>[sig, public_key.to_redeem_script()];
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>with_sequence(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sequence: u32) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.transaction_input.sequence = sequence;
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>add_witness(<span class="kw-2">&amp;mut </span><span class="self">self</span>, witness: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.transaction_input.witness.push(Vec::from(witness));
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TransactionInput {
+        <span class="self">self</span>.transaction_input.clone()
+    }
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+    </span><span class="kw">pub fn </span>build_max(padding: usize) -&gt; TransactionInput {
+        <span class="self">Self</span>::new()
+            .with_source(TransactionInputSource::FromOutput(H256Le::zero(), u32::MAX))
+            .with_script(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="number">0</span>; padding])
+            <span class="comment">// technically we can ignore the witnesses for benchmarks
+            // since computing the tx_id would skip those values but
+            // we anyway give the max values for a P2WPKH program here
+            </span>.add_witness(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">72</span>]) <span class="comment">// max signature size
+            </span>.add_witness(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">65</span>]) <span class="comment">// uncompressed public key
+            </span>.build()
+    }
+}
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use </span>frame_support::assert_err;
+    <span class="kw">use </span>mocktopus::mocking::<span class="kw-2">*</span>;
+
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="kw">use </span>std::str::FromStr;
+
+    <span class="kw">use crate</span>::{parser::parse_transaction, Address};
+
+    <span class="kw">fn </span>sample_example_real_rawtx() -&gt; String {
+        <span class="string">&quot;0200000000010140d43a99926d43eb0e619bf0b3d83b4a31f60c176beecfb9d35bf45e54d0f7420100000017160014a4b4ca48de0b3fffc15404a1acdc8dbaae226955ffffffff0100e1f5050000000017a9144a1154d50b03292b3024370901711946cb7cccc387024830450221008604ef8f6d8afa892dee0f31259b6ce02dd70c545cfcfed8148179971876c54a022076d771d6e91bed212783c9b06e0de600fab2d518fad6f15a2b191d7fbd262a3e0121039d25ab79f41f75ceaf882411fd41fa670a4c672c23ffaf0e361a969cde0692e800000000&quot;</span>.to_owned()
+    }
+
+    <span class="kw">fn </span>sample_example_real_txid() -&gt; String {
+        <span class="string">&quot;c586389e5e4b3acb9d6c8be1c19ae8ab2795397633176f5a6442a261bbdefc3a&quot;</span>.to_owned()
+    }
+
+    <span class="kw">fn </span>sample_example_real_transaction_hash() -&gt; String {
+        <span class="string">&quot;b759d39a8596b70b3a46700b83e1edb247e17ba58df305421864fe7a9ac142ea&quot;</span>.to_owned()
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_h256() {
+        <span class="kw">let </span><span class="kw-2">mut </span>bytes: [u8; <span class="number">32</span>] = [<span class="number">0</span>; <span class="number">32</span>];
+        bytes[<span class="number">0</span>] = <span class="number">5</span>;
+        bytes[<span class="number">1</span>] = <span class="number">10</span>;
+        <span class="kw">let </span>content = H256Le::from_bytes_le(<span class="kw-2">&amp;</span>bytes);
+        <span class="macro">assert_eq!</span>(content.to_bytes_le(), bytes);
+        <span class="kw">let </span>bytes_be = content.to_bytes_be();
+        <span class="macro">assert_eq!</span>(bytes_be[<span class="number">31</span>], <span class="number">5</span>);
+        <span class="macro">assert_eq!</span>(bytes_be[<span class="number">30</span>], <span class="number">10</span>);
+        <span class="kw">let </span>content_be = H256Le::from_bytes_be(<span class="kw-2">&amp;</span>bytes);
+        <span class="macro">assert_eq!</span>(content_be.to_bytes_be(), bytes);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_partial_eq() {
+        <span class="kw">let </span><span class="kw-2">mut </span>bytes: [u8; <span class="number">32</span>] = [<span class="number">0</span>; <span class="number">32</span>];
+        bytes[<span class="number">0</span>] = <span class="number">5</span>;
+        bytes[<span class="number">1</span>] = <span class="number">10</span>;
+        <span class="kw">let </span>h256 = H256::from_slice(<span class="kw-2">&amp;</span>bytes);
+        <span class="kw">let </span>h256_le = H256Le::from_bytes_be(<span class="kw-2">&amp;</span>bytes);
+        <span class="macro">assert_eq!</span>(h256, h256_le);
+        <span class="macro">assert_eq!</span>(h256_le, h256);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_transaction_hash() {
+        <span class="kw">let </span>raw_tx = hex::decode(<span class="kw-2">&amp;</span>sample_example_real_rawtx()).unwrap();
+        <span class="kw">let </span>transaction = parse_transaction(<span class="kw-2">&amp;</span>raw_tx).unwrap();
+        <span class="kw">let </span>expected_hash = H256Le::from_hex_be(<span class="kw-2">&amp;</span>sample_example_real_transaction_hash());
+        <span class="macro">assert_eq!</span>(transaction.hash(), expected_hash);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_transaction_txid() {
+        clear_mocks();
+        <span class="kw">let </span>raw_tx = hex::decode(<span class="kw-2">&amp;</span>sample_example_real_rawtx()).unwrap();
+        <span class="kw">let </span>transaction = parse_transaction(<span class="kw-2">&amp;</span>raw_tx).unwrap();
+        <span class="kw">let </span>expected_txid = H256Le::from_hex_be(<span class="kw-2">&amp;</span>sample_example_real_txid());
+        <span class="macro">assert_eq!</span>(transaction.tx_id(), expected_txid);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_transaction_txid_with_witness() {
+        <span class="comment">// the witness data should not be included in the input of the hashfunction that calculates the txid  - check
+        // that we correctly exclude it.
+
+        // real tx with txinwitness. Look for the txid on https://chainquery.com/bitcoin-cli/getrawtransaction for details
+        </span><span class="kw">let </span>raw_tx = <span class="string">&quot;0200000000010140d43a99926d43eb0e619bf0b3d83b4a31f60c176beecfb9d35bf45e54d0f7420100000017160014a4b4ca48de0b3fffc15404a1acdc8dbaae226955ffffffff0100e1f5050000000017a9144a1154d50b03292b3024370901711946cb7cccc387024830450221008604ef8f6d8afa892dee0f31259b6ce02dd70c545cfcfed8148179971876c54a022076d771d6e91bed212783c9b06e0de600fab2d518fad6f15a2b191d7fbd262a3e0121039d25ab79f41f75ceaf882411fd41fa670a4c672c23ffaf0e361a969cde0692e800000000&quot;</span>;
+
+        <span class="kw">let </span>tx_bytes = hex::decode(<span class="kw-2">&amp;</span>raw_tx).unwrap();
+        <span class="kw">let </span>transaction = parse_transaction(<span class="kw-2">&amp;</span>tx_bytes).unwrap();
+        <span class="kw">let </span>txid = transaction.tx_id();
+        <span class="kw">let </span>expected_txid = H256Le::from_hex_be(<span class="string">&quot;c586389e5e4b3acb9d6c8be1c19ae8ab2795397633176f5a6442a261bbdefc3a&quot;</span>);
+        <span class="macro">assert_eq!</span>(txid, expected_txid);
+
+        <span class="comment">// txid of transaction without witness is NOT equal to the hash of all bytes
+        </span><span class="macro">assert_ne!</span>(sha256d_le(<span class="kw-2">&amp;</span>tx_bytes), expected_txid);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_transaction_txid_without_witness() {
+        <span class="comment">// the witness data should not be included in the input of the hashfunction that calculates the txid  - check
+        // that without witness, the txid is equal to the hash of the raw bytes
+
+        // real tx with txinwitness. Look for the txid on https://chainquery.com/bitcoin-cli/getrawtransaction for details
+        </span><span class="kw">let </span>raw_tx = <span class="string">&quot;020000000210b8fbfb6e1a5d2d30677c4ce797b0520774a6a250c22192eacd63b2f8025970110000006b483045022100819b0bdc0568a549cb5230c4f5fc0561764dd95b2e191efe9ab154bb8a5a95820220021f3547cefe915a5bb2906a89bc7ec4e858077ec9b023b48f7929898207de91012102279da390217bff00f6dbae65c993c714e5cd6b7ea384ffb9d4a51f09f044fa30ffffffff43ac430a2b980dbd82911eed89ec70526ed33ac614137e310f2ca70fefaa8c29010000006a473044022069e74ad037fe7304f8545230a32eff39e8fc6133640ee4bc8eb1b9108d79cfa702206dee0ba9b9e0e329074d414bb92609a34e1ae3c7ef2d0658c29230f4b5e85a2b012103bb7b040b18c3ab6d6c4ea8f42e47cb8628ccbcad016804c327603d80951a5850ffffffff02b80581000000000017a914dfea03c60b988da73084af5c9c863d988ae99a18874c113b00000000001976a914c8b46a12370c76a1e382773a3d044fa17beea53288ac00000000&quot;</span>;
+
+        <span class="kw">let </span>tx_bytes = hex::decode(<span class="kw-2">&amp;</span>raw_tx).unwrap();
+        <span class="kw">let </span>transaction = parse_transaction(<span class="kw-2">&amp;</span>tx_bytes).unwrap();
+        <span class="kw">let </span>txid = transaction.tx_id();
+        <span class="kw">let </span>expected_txid = H256Le::from_hex_be(<span class="string">&quot;c052ff9439346a70488f308b009501178be6bb8cb1ecb2ceac8e8a3a8143c687&quot;</span>);
+        <span class="macro">assert_eq!</span>(txid, expected_txid);
+
+        <span class="comment">// txid of transaction without witness is just the hash of all bytes
+        </span><span class="macro">assert_eq!</span>(sha256d_le(<span class="kw-2">&amp;</span>tx_bytes), expected_txid);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_transaction_input_builder() {
+        <span class="kw">let </span>source = TransactionInputSource::FromOutput(H256Le::from_bytes_le(<span class="kw-2">&amp;</span>[<span class="number">5</span>; <span class="number">32</span>]), <span class="number">123</span>);
+        <span class="kw">let </span>input = TransactionInputBuilder::new()
+            .with_sequence(<span class="number">10</span>)
+            .with_source(source.clone())
+            .build();
+        <span class="macro">assert_eq!</span>(input.sequence, <span class="number">10</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>bytes: [u8; <span class="number">32</span>] = Default::default();
+        bytes[<span class="number">0</span>] = <span class="number">100</span>;
+        <span class="macro">assert_eq!</span>(input.source, source);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_transaction_builder() {
+        <span class="kw">let </span>address = Address::P2PKH(H160::from_str(<span class="kw-2">&amp;</span><span class="string">&quot;66c7060feb882664ae62ffad0051fe843e318e85&quot;</span>).unwrap());
+        <span class="kw">let </span>return_data = hex::decode(<span class="string">&quot;01a0&quot;</span>).unwrap();
+        <span class="kw">let </span>transaction = TransactionBuilder::new()
+            .with_version(<span class="number">2</span>)
+            .add_input(TransactionInputBuilder::new().build())
+            .add_output(TransactionOutput::payment(<span class="number">100</span>, <span class="kw-2">&amp;</span>address))
+            .add_output(TransactionOutput::op_return(<span class="number">0</span>, <span class="kw-2">&amp;</span>return_data))
+            .build();
+        <span class="macro">assert_eq!</span>(transaction.version, <span class="number">2</span>);
+        <span class="macro">assert_eq!</span>(transaction.inputs.len(), <span class="number">1</span>);
+        <span class="macro">assert_eq!</span>(transaction.outputs.len(), <span class="number">2</span>);
+        <span class="macro">assert_eq!</span>(transaction.outputs[<span class="number">0</span>].value, <span class="number">100</span>);
+        <span class="macro">assert_eq!</span>(transaction.outputs[<span class="number">0</span>].extract_address().unwrap(), address);
+        <span class="macro">assert_eq!</span>(transaction.outputs[<span class="number">1</span>].value, <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(
+            transaction.outputs[<span class="number">1</span>].script.extract_op_return_data().unwrap(),
+            return_data
+        );
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_compute_merkle_root_balanced() {
+        <span class="comment">// https://www.blockchain.com/btc/block/100000
+        </span><span class="kw">let </span>transactions = <span class="macro">vec!</span>[
+            TransactionBuilder::new().with_version(<span class="number">1</span>).build(),
+            TransactionBuilder::new().with_version(<span class="number">2</span>).build(),
+            TransactionBuilder::new().with_version(<span class="number">3</span>).build(),
+            TransactionBuilder::new().with_version(<span class="number">4</span>).build(),
+        ];
+        Transaction::tx_id.mock_safe(|tx| {
+            <span class="kw">let </span>txid = <span class="kw">match </span>tx.version {
+                <span class="number">1 </span>=&gt; H256Le::from_hex_be(<span class="string">&quot;8c14f0db3df150123e6f3dbbf30f8b955a8249b62ac1d1ff16284aefa3d06d87&quot;</span>),
+                <span class="number">2 </span>=&gt; H256Le::from_hex_be(<span class="string">&quot;fff2525b8931402dd09222c50775608f75787bd2b87e56995a7bdd30f79702c4&quot;</span>),
+                <span class="number">3 </span>=&gt; H256Le::from_hex_be(<span class="string">&quot;6359f0868171b1d194cbee1af2f16ea598ae8fad666d9b012c8ed2b79a236ec4&quot;</span>),
+                <span class="number">4 </span>=&gt; H256Le::from_hex_be(<span class="string">&quot;e9a66845e05d5abc0ad04ec80f774a7e585c6e8db975962d069a522137b80c1d&quot;</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;should not happen&quot;</span>),
+            };
+            MockResult::Return(txid)
+        });
+        <span class="kw">let </span><span class="kw-2">mut </span>builder = BlockBuilder::new();
+        <span class="kw">for </span>tx <span class="kw">in </span>transactions {
+            builder.add_transaction(tx);
+        }
+        <span class="kw">let </span>merkle_root = builder.compute_merkle_root().unwrap();
+        <span class="kw">let </span>expected = H256Le::from_hex_be(<span class="string">&quot;f3e94742aca4b5ef85488dc37c06c3282295ffec960994b2c0d5ac2a25a95766&quot;</span>);
+        <span class="macro">assert_eq!</span>(merkle_root, expected);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_compute_merkle_root_inbalanced() {
+        <span class="comment">// https://www.blockchain.com/btc/block/100018
+        </span><span class="kw">let </span>transactions = <span class="macro">vec!</span>[
+            TransactionBuilder::new().with_version(<span class="number">1</span>).build(),
+            TransactionBuilder::new().with_version(<span class="number">2</span>).build(),
+            TransactionBuilder::new().with_version(<span class="number">3</span>).build(),
+            TransactionBuilder::new().with_version(<span class="number">4</span>).build(),
+            TransactionBuilder::new().with_version(<span class="number">5</span>).build(),
+        ];
+        Transaction::tx_id.mock_safe(|tx| {
+            <span class="kw">let </span>txid = <span class="kw">match </span>tx.version {
+                <span class="number">1 </span>=&gt; H256Le::from_hex_be(<span class="string">&quot;a335b243f5e343049fccac2cf4d70578ad705831940d3eef48360b0ea3829ed4&quot;</span>),
+                <span class="number">2 </span>=&gt; H256Le::from_hex_be(<span class="string">&quot;d5fd11cb1fabd91c75733f4cf8ff2f91e4c0d7afa4fd132f792eacb3ef56a46c&quot;</span>),
+                <span class="number">3 </span>=&gt; H256Le::from_hex_be(<span class="string">&quot;0441cb66ef0cbf78c9ecb3d5a7d0acf878bfdefae8a77541b3519a54df51e7fd&quot;</span>),
+                <span class="number">4 </span>=&gt; H256Le::from_hex_be(<span class="string">&quot;1a8a27d690889b28d6cb4dacec41e354c62f40d85a7f4b2d7a54ffc736c6ff35&quot;</span>),
+                <span class="number">5 </span>=&gt; H256Le::from_hex_be(<span class="string">&quot;1d543d550676f82bf8bf5b0cc410b16fc6fc353b2a4fd9a0d6a2312ed7338701&quot;</span>),
+                <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;should not happen&quot;</span>),
+            };
+            MockResult::Return(txid)
+        });
+        <span class="kw">let </span><span class="kw-2">mut </span>builder = BlockBuilder::new();
+        <span class="kw">for </span>tx <span class="kw">in </span>transactions {
+            builder.add_transaction(tx);
+        }
+        <span class="kw">let </span>merkle_root = builder.compute_merkle_root().unwrap();
+        <span class="kw">let </span>expected = H256Le::from_hex_be(<span class="string">&quot;5766798857e436d6243b46b5c1e0af5b6806aa9c2320b3ffd4ecff7b31fd4647&quot;</span>);
+        <span class="macro">assert_eq!</span>(merkle_root, expected);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_mine_block() {
+        clear_mocks();
+        <span class="kw">let </span>address = Address::P2PKH(H160::from_str(<span class="kw-2">&amp;</span><span class="string">&quot;66c7060feb882664ae62ffad0051fe843e318e85&quot;</span>).unwrap());
+        <span class="kw">let </span>block = BlockBuilder::new()
+            .with_version(<span class="number">4</span>)
+            .with_coinbase(<span class="kw-2">&amp;</span>address, <span class="number">50</span>, <span class="number">3</span>)
+            .with_timestamp(<span class="number">1588814835</span>)
+            .mine(U256::from(<span class="number">2</span>).pow(<span class="number">254</span>.into()))
+            .unwrap();
+        <span class="macro">assert_eq!</span>(block.header.version, <span class="number">4</span>);
+        <span class="macro">assert_eq!</span>(block.header.merkle_root, block.transactions[<span class="number">0</span>].tx_id());
+        <span class="comment">// should be 2, might change if block is changed (last change was due to coinbase txid calculation fix)
+        </span><span class="macro">assert_eq!</span>(block.header.nonce, <span class="number">3</span>);
+        <span class="macro">assert!</span>(block.header.nonce &gt; <span class="number">0</span>);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_merkle_proof() {
+        clear_mocks();
+        <span class="kw">let </span>address = Address::P2PKH(H160::from_str(<span class="kw-2">&amp;</span><span class="string">&quot;66c7060feb882664ae62ffad0051fe843e318e85&quot;</span>).unwrap());
+
+        <span class="kw">let </span>transaction = TransactionBuilder::new()
+            .with_version(<span class="number">2</span>)
+            .add_input(TransactionInputBuilder::new().build())
+            .add_output(TransactionOutput::payment(<span class="number">100</span>, <span class="kw-2">&amp;</span>address))
+            .build();
+
+        <span class="kw">let </span>block = BlockBuilder::new()
+            .with_version(<span class="number">4</span>)
+            .with_coinbase(<span class="kw-2">&amp;</span>address, <span class="number">50</span>, <span class="number">3</span>)
+            .with_timestamp(<span class="number">1588814835</span>)
+            .add_transaction(transaction.clone())
+            .mine(U256::from(<span class="number">2</span>).pow(<span class="number">254</span>.into()))
+            .unwrap();
+
+        <span class="comment">// FIXME: flag_bits incorrect
+        </span><span class="kw">let </span>proof = block.merkle_proof(<span class="kw-2">&amp;</span>[transaction.tx_id()]).unwrap();
+        <span class="kw">let </span><span class="kw-2">mut </span>bytes = <span class="macro">vec!</span>[];
+        proof.try_format(<span class="kw-2">&amp;mut </span>bytes).unwrap();
+        MerkleProof::parse(<span class="kw-2">&amp;</span>bytes).unwrap();
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>extract_witness_address_native_p2ms_output() {
+        <span class="comment">// source: https://www.blockstream.info/testnet/tx/219a49b6a376e8f4ef86866e93483552679b5157318f0e4085430a3cee24e3d8?expand
+        </span><span class="kw">let </span>raw_tx = <span class="string">&quot;010000000125314e40cfc816ae562c10cc1855df21ff2ed2fad43046a4b6dabbb35c393c20000000006a47304402200cd7aa9166960f3374bf655a5c5ba0a47801ae22f8231baa2412e8f47941792e02206b21c44642887b32fd87fb82a052363605c109b31d971ce502322e8148caf1670121023f3b8d04b9fac2ac10b8b8e7a4d5f033f259d26a74d2b0b77313f41585b3d1b5ffffffff0160e18709000000006952210218597441c292cb6d73174c1662ac9d60b76688fd359f90e2d653d1a089c9aba921022bda026d6aee8133f0290449a282f8cfbccafdc064b0b47068854457f38af3bc21030a230982d9706247d5997df1aea7144266c33a2e6c64c6a3a44c5cdf9c0ff58a53ae00000000&quot;</span>;
+        <span class="kw">let </span>tx_bytes = hex::decode(<span class="kw-2">&amp;</span>raw_tx).unwrap();
+        <span class="kw">let </span>transaction = parse_transaction(<span class="kw-2">&amp;</span>tx_bytes).unwrap();
+
+        <span class="macro">assert_err!</span>(transaction.outputs[<span class="number">0</span>].extract_address(), Error::InvalidBtcAddress);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>extract_witness_address_p2wsh_output() {
+        <span class="comment">// d2853110a8b1dc1f670b0fc3bb8441b2a9e94ede13751a08e788da2250d938fa (1717580)
+        </span><span class="kw">let </span>raw_tx = <span class="string">&quot;02000000000101f46a33da6e2488101516a1087b755d9523cf13c26b7038782ed2b6334789d61d010000001716001428e31af3bbf39bb5137efb54fb0c4843f20fde47ffffffff02e8030000000000002200201863143c14c5166804bd19203356da136c985678cd4d27a1b8c63296049032623ec057020000000017a91408b94c89e0dc283638716d571daefb9633c4d121870247304402205bf259e237b20ec437e53e44891599571439c4db16e656d225b850acd3871e9502201a0169eb0e925331f1018a54b55c6dd36951e494c56f3fc7ddc266a6384560ec012102ac1d49442824063855aef270fceaab850e87f897ba146a8c7ee2c9f6e78e13e900000000&quot;</span>;
+        <span class="kw">let </span>tx_bytes = hex::decode(<span class="kw-2">&amp;</span>raw_tx).unwrap();
+        <span class="kw">let </span>transaction = parse_transaction(<span class="kw-2">&amp;</span>tx_bytes).unwrap();
+
+        <span class="kw">let </span>address = Address::P2WSHv0(H256([
+            <span class="number">24</span>, <span class="number">99</span>, <span class="number">20</span>, <span class="number">60</span>, <span class="number">20</span>, <span class="number">197</span>, <span class="number">22</span>, <span class="number">104</span>, <span class="number">4</span>, <span class="number">189</span>, <span class="number">25</span>, <span class="number">32</span>, <span class="number">51</span>, <span class="number">86</span>, <span class="number">218</span>, <span class="number">19</span>, <span class="number">108</span>, <span class="number">152</span>, <span class="number">86</span>, <span class="number">120</span>, <span class="number">205</span>, <span class="number">77</span>, <span class="number">39</span>, <span class="number">161</span>,
+            <span class="number">184</span>, <span class="number">198</span>, <span class="number">50</span>, <span class="number">150</span>, <span class="number">4</span>, <span class="number">144</span>, <span class="number">50</span>, <span class="number">98</span>,
+        ]));
+
+        <span class="kw">let </span>extr_address = transaction.outputs[<span class="number">0</span>].extract_address().unwrap();
+
+        <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>extr_address, <span class="kw-2">&amp;</span>address);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>p2pk_not_allowed() {
+        <span class="comment">// source: https://blockstream.info/tx/f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16?expand
+        </span><span class="kw">let </span>raw_tx = <span class="string">&quot;0100000001c997a5e56e104102fa209c6a852dd90660a20b2d9c352423edce25857fcd3704000000004847304402204e45e16932b8af514961a1d3a1a25fdf3f4f7732e9d624c6c61548ab5fb8cd410220181522ec8eca07de4860a4acdd12909d831cc56cbbac4622082221a8768d1d0901ffffffff0200ca9a3b00000000434104ae1a62fe09c5f51b13905f07f06b99a2f7159b2225f374cd378d71302fa28414e7aab37397f554a7df5f142c21c1b7303b8a0626f1baded5c72a704f7e6cd84cac00286bee0000000043410411db93e1dcdb8a016b49840f8c53bc1eb68a382e97b1482ecad7b148a6909a5cb2e0eaddfb84ccf9744464f82e160bfa9b8b64f9d4c03f999b8643f656b412a3ac00000000&quot;</span>;
+        <span class="kw">let </span>tx_bytes = hex::decode(<span class="kw-2">&amp;</span>raw_tx).unwrap();
+        <span class="kw">let </span>transaction = parse_transaction(<span class="kw-2">&amp;</span>tx_bytes).unwrap();
+
+        <span class="macro">assert_err!</span>(transaction.outputs[<span class="number">0</span>].extract_address(), Error::InvalidBtcAddress);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>decode_and_generate_coinbase_transaction() {
+        <span class="comment">// testnet - 1896103
+        </span><span class="kw">let </span>raw_tx = <span class="string">&quot;020000000001010000000000000000000000000000000000000000000000000000000000000000ffffffff2e03a7ee1c20706f6f6c2e656e6a6f79626f646965732e636f6d2031343262393163303337f72631e9f5cd76000001ffffffff025c05af00000000001600140bdd9a64240a255ee1aac57bca1df5a0f9c6a82d0000000000000000266a24aa21a9ed173684441d99dd383ca57e6a073f62694c4f7c12a158964f050b84f69ba10ec30120000000000000000000000000000000000000000000000000000000000000000000000000&quot;</span>;
+        <span class="kw">let </span>tx_bytes = hex::decode(<span class="kw-2">&amp;</span>raw_tx).unwrap();
+        <span class="kw">let </span>expected = parse_transaction(<span class="kw-2">&amp;</span>tx_bytes).unwrap();
+
+        <span class="comment">// tb1qp0we5epypgj4acd2c4au58045ruud2pd6heuee
+        </span><span class="kw">let </span>address = Address::P2WPKHv0(H160::from_str(<span class="string">&quot;0bdd9a64240a255ee1aac57bca1df5a0f9c6a82d&quot;</span>).unwrap());
+
+        <span class="kw">let </span>input_script =
+            hex::decode(<span class="string">&quot;20706f6f6c2e656e6a6f79626f646965732e636f6d2031343262393163303337f72631e9f5cd76000001&quot;</span>)
+                .unwrap();
+
+        <span class="kw">let </span>witness_commitment =
+            hex::decode(<span class="string">&quot;aa21a9ed173684441d99dd383ca57e6a073f62694c4f7c12a158964f050b84f69ba10ec3&quot;</span>).unwrap();
+
+        <span class="kw">let </span>actual = generate_coinbase_transaction(
+            <span class="kw-2">&amp;</span>address,
+            <span class="number">11470172</span>,
+            <span class="number">1896103</span>,
+            <span class="prelude-val">Some</span>(input_script),
+            <span class="prelude-val">Some</span>(witness_commitment),
+        );
+
+        <span class="macro">assert_eq!</span>(expected, actual);
+    }
+
+    <span class="comment">// check the minimum tx size for benchmarks, if this
+    // fails we need to adjust the bounds
+    </span><span class="attr">#[cfg(feature = <span class="string">&quot;runtime-benchmarks&quot;</span>)]
+    #[test]
+    </span><span class="kw">fn </span>minimum_tx_sizes() {
+        <span class="macro">assert_eq!</span>(
+            <span class="number">770</span>,
+            TransactionBuilder::build_max(
+                <span class="number">10</span>,
+                (<span class="number">0</span>..<span class="number">10</span>)
+                    .map(|<span class="kw">_</span>| TransactionOutput::payment(Value::MAX, <span class="kw-2">&amp;</span>Address::default()))
+                    .collect()
+            )
+            .size_no_witness()
+        );
+
+        <span class="macro">assert_eq!</span>(
+            <span class="number">541</span>,
+            TransactionBuilder::build_max(
+                <span class="number">10</span>,
+                <span class="macro">vec!</span>[
+                    TransactionOutput::payment(Value::MAX, <span class="kw-2">&amp;</span>Address::default()),
+                    TransactionOutput::op_return(<span class="number">0</span>, H256::zero().as_bytes()),
+                    TransactionOutput::payment(Value::MAX, <span class="kw-2">&amp;</span>Address::default()),
+                ]
+            )
+            .size_no_witness()
+        );
+    }
+}
+</code></pre></div></section></main></body></html>

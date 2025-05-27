@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"multi_transaction_payment":[["impl&lt;T&gt; OnChargeTransaction&lt;T&gt; for <a class=\"struct\" href=\"multi_transaction_payment/pallet/struct.Pallet.html\" title=\"struct multi_transaction_payment::pallet::Pallet\">Pallet</a>&lt;T&gt;<span class=\"where fmt-newline\">where\n    T: <a class=\"trait\" href=\"multi_transaction_payment/pallet/trait.Config.html\" title=\"trait multi_transaction_payment::pallet::Config\">Config</a> + Config,</span>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

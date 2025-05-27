@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"kintsugi_runtime_parachain":[["impl Randomness&lt;H256, <a class=\"primitive\" href=\"https://doc.rust-lang.org/nightly/std/primitive.u32.html\">u32</a>&gt; for <a class=\"struct\" href=\"kintsugi_runtime_parachain/contracts/struct.NoRandomness.html\" title=\"struct kintsugi_runtime_parachain::contracts::NoRandomness\">NoRandomness</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

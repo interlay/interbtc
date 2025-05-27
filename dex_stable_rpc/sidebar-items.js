@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Error"],"struct":["DexStable"],"trait":["DexStableApiClient","DexStableApiServer","DexStableRuntimeApi"]};

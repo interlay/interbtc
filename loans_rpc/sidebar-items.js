@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Error"],"struct":["Loans"],"trait":["LoansApiClient","LoansApiServer","LoansRuntimeApi"]};

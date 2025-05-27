@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PARA_ID"],"fn":["interlay_dev_config","interlay_genesis","interlay_mainnet_config"],"struct":["InterlayDevGenesisExt"],"type":["InterlayChainSpec","InterlayDevChainSpec"]};

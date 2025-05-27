@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["set_commission","set_issue_fee","set_issue_griefing_collateral","set_premium_redeem_fee","set_punishment_fee","set_redeem_fee","set_replace_griefing_collateral","withdraw_rewards"]};

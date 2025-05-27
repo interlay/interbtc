@@ -1,0 +1,4 @@
+(function() {var implementors = {
+"interlay_runtime_parachain":[["impl&lt;Block: BlockT, C&gt; ConstructRuntimeApi&lt;Block, C&gt; for <a class=\"struct\" href=\"interlay_runtime_parachain/struct.RuntimeApi.html\" title=\"struct interlay_runtime_parachain::RuntimeApi\">RuntimeApi</a><span class=\"where fmt-newline\">where\n    C: CallApiAt&lt;Block&gt; + 'static,</span>"]],
+"kintsugi_runtime_parachain":[["impl&lt;Block: BlockT, C&gt; ConstructRuntimeApi&lt;Block, C&gt; for <a class=\"struct\" href=\"kintsugi_runtime_parachain/struct.RuntimeApi.html\" title=\"struct kintsugi_runtime_parachain::RuntimeApi\">RuntimeApi</a><span class=\"where fmt-newline\">where\n    C: CallApiAt&lt;Block&gt; + 'static,</span>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

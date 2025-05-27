@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BtcAddress","CurrencySource","VaultStatus","Version"],"mod":["v1"],"struct":["BtcPublicKey","RichSystemVault","RichVault","SystemVault","Vault","VaultCurrencyPair","VaultId"],"trait":["UpdatableVault"],"type":["CurrencyId","DefaultSystemVault","DefaultVault","DefaultVaultCurrencyPair","DefaultVaultId","UnsignedFixedPoint"]};

@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"interbtc_primitives":[["impl EncodeAsType for <a class=\"enum\" href=\"interbtc_primitives/enum.CurrencyId.html\" title=\"enum interbtc_primitives::CurrencyId\">CurrencyId</a>"],["impl EncodeAsType for <a class=\"enum\" href=\"interbtc_primitives/enum.TokenSymbol.html\" title=\"enum interbtc_primitives::TokenSymbol\">TokenSymbol</a>"],["impl EncodeAsType for <a class=\"enum\" href=\"interbtc_primitives/enum.LpToken.html\" title=\"enum interbtc_primitives::LpToken\">LpToken</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["swap_exact_tokens_for_tokens"]};

@@ -1,0 +1,5 @@
+(function() {var implementors = {
+"interlay_runtime_parachain":[["impl&lt;T: Config&gt; <a class=\"trait\" href=\"issue/default_weights/trait.WeightInfo.html\" title=\"trait issue::default_weights::WeightInfo\">WeightInfo</a> for <a class=\"struct\" href=\"interlay_runtime_parachain/weights/issue/struct.WeightInfo.html\" title=\"struct interlay_runtime_parachain::weights::issue::WeightInfo\">WeightInfo</a>&lt;T&gt;"]],
+"issue":[],
+"kintsugi_runtime_parachain":[["impl&lt;T: Config&gt; <a class=\"trait\" href=\"issue/default_weights/trait.WeightInfo.html\" title=\"trait issue::default_weights::WeightInfo\">WeightInfo</a> for <a class=\"struct\" href=\"kintsugi_runtime_parachain/weights/issue/struct.WeightInfo.html\" title=\"struct kintsugi_runtime_parachain::weights::issue::WeightInfo\">WeightInfo</a>&lt;T&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

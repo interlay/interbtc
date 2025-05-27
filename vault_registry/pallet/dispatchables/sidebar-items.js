@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["accept_new_issues","recover_vault_id","register_public_key","register_vault","report_undercollateralized_vault","set_custom_secure_threshold","set_liquidation_collateral_threshold","set_minimum_collateral","set_premium_redeem_threshold","set_secure_collateral_threshold","set_system_collateral_ceiling"]};

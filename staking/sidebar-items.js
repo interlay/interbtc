@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["migration","pallet"],"trait":["RewardsApi","StakingApi"],"type":["DefaultVaultCurrencyPair","DefaultVaultId","NominatorId"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["pallet","rpc","traits"],"trait":["WeightInfo"]};

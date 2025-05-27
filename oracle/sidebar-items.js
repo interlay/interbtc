@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CurrencyId","OracleKey"],"mod":["pallet","types"],"struct":["TimestampedValue"],"trait":["OnExchangeRateChange","TruncateFixedPointToInt","WeightInfo"],"type":["NameOf"]};

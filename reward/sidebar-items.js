@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":["checked_add_mut"],"mod":["pallet"],"trait":["RewardsApi"]};

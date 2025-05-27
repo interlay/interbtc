@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["claim","deposit","remove_reward_schedule","update_reward_schedule","withdraw"]};
