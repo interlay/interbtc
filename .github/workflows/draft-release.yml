@@ -5,6 +5,7 @@ on:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+.*"
       - "[0-9]+.[0-9]+.[0-9]+.*"
+  workflow_dispatch:
 
 jobs:
   build-runtimes:
