@@ -21,12 +21,12 @@ jobs:
         id: srtool_build
         uses: paritytech/srtool-actions@v0.9.3
         with:
-          image: paritytech/srtool
-          tag: 1.84.1
+          #image: paritytech/srtool
+          #tag: 1.84.1
           package: ${{ matrix.runtime }}-runtime-parachain
-          runtime_dir: ${{ github.workspace }}/parachain/runtime/${{ matrix.runtime }}
+          runtime_dir: parachain/runtime/${{ matrix.runtime }}
           chain: ${{ matrix.runtime }}
-          workdir: ${{ github.workspace }}
+          # workdir: ${{ github.workspace }}
       - name: Store srtool digest to disk
         run: |
           echo '${{ steps.srtool_build.outputs.json }}' | jq > ${{ matrix.runtime }}_srtool_output.json
