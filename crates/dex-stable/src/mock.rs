@@ -29,7 +29,6 @@ type Block = frame_system::mocking::MockBlock<Test>;
 
 parameter_types! {
     pub const ExistentialDeposit: u64 = 1;
-
     pub const BlockHashCount: u64 = 250;
     pub const StableAmmPalletId: PalletId = PalletId(*b"dex/stbl");
     pub const MaxReserves: u32 = 50;
@@ -76,6 +75,7 @@ pub enum CurrencyId {
     Token(TokenSymbol),
     StableLP(PoolType),
     StableLPV2(PoolId),
+    Rebase(TokenSymbol),
 }
 
 impl From<u32> for CurrencyId {
@@ -199,6 +199,37 @@ impl pallet_timestamp::Config for Test {
     type WeightInfo = ();
 }
 
+#[frame_support::pallet]
+pub mod oracle {
+    use super::{Balance, CurrencyId};
+    use frame_support::pallet_prelude::*;
+
+    #[pallet::config]
+    pub trait Config: frame_system::Config {}
+
+    #[pallet::pallet]
+    #[pallet::generate_store(pub(super) trait Store)]
+    pub struct Pallet<T>(_);
+
+    // base / quote
+    #[pallet::storage]
+    pub type Price<T: Config> = StorageMap<_, Blake2_128Concat, (CurrencyId, CurrencyId), Balance, OptionQuery>;
+
+    impl<T: Config> crate::rebase::CurrencyConversion<Balance, CurrencyId> for Pallet<T> {
+        fn convert(amount: Balance, from: CurrencyId, to: CurrencyId) -> Result<Balance, sp_runtime::DispatchError> {
+            Ok(match Price::<T>::get((from, to)) {
+                Some(price) => amount * price,
+                None => match Price::<T>::get((to, from)) {
+                    Some(price) => amount / price,
+                    None => amount,
+                },
+            })
+        }
+    }
+}
+
+impl oracle::Config for Test {}
+
 impl Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type CurrencyId = CurrencyId;
@@ -211,6 +242,7 @@ impl Config for Test {
     type PoolCurrencySymbolLimit = PoolCurrencySymbolLimit;
     type PalletId = StableAmmPalletId;
     type WeightInfo = ();
+    type RebaseConvert = crate::rebase::RebaseAdapter<Test, Oracle>;
 }
 
 pub struct ExtBuilder;
@@ -266,6 +298,7 @@ frame_support::construct_runtime!(
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 8,
         StableAMM: dex_stable::{Pallet, Call, Storage, Event<T>} = 9,
         Tokens: orml_tokens::{Pallet, Storage, Event<T>, Config<T>} = 11,
+        Oracle: oracle::{Pallet, Storage} = 12,
     }
 );
 
@@ -304,10 +337,12 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
             (ALICE, CurrencyId::Token(TOKEN2_SYMBOL), TOKEN2_UNIT * 1_00_000_000),
             (ALICE, CurrencyId::Token(TOKEN3_SYMBOL), TOKEN3_UNIT * 1_00_000_000),
             (ALICE, CurrencyId::Token(TOKEN4_SYMBOL), TOKEN4_UNIT * 1_00_000_000),
+            (ALICE, CurrencyId::Rebase(TOKEN1_SYMBOL), TOKEN1_UNIT * 1_00_000_000),
             (BOB, CurrencyId::Token(TOKEN1_SYMBOL), TOKEN1_UNIT * 1_00),
             (BOB, CurrencyId::Token(TOKEN2_SYMBOL), TOKEN2_UNIT * 1_00),
             (BOB, CurrencyId::Token(TOKEN3_SYMBOL), TOKEN3_UNIT * 1_00),
             (BOB, CurrencyId::Token(TOKEN4_SYMBOL), TOKEN4_UNIT * 1_00),
+            (BOB, CurrencyId::Rebase(TOKEN1_SYMBOL), TOKEN1_UNIT * 1_00_000_000),
             (CHARLIE, CurrencyId::Token(TOKEN1_SYMBOL), TOKEN1_UNIT * 1_00_000_000),
             (CHARLIE, CurrencyId::Token(TOKEN2_SYMBOL), TOKEN2_UNIT * 1_00_000_000),
             (CHARLIE, CurrencyId::Token(TOKEN3_SYMBOL), TOKEN3_UNIT * 1_00_000_000),
