@@ -48,6 +48,8 @@ mod mock;
 #[cfg(test)]
 extern crate mocktopus;
 
+pub mod migration;
+
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
@@ -86,6 +88,7 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
 
     #[pallet::pallet]
+    #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
     #[pallet::config]
@@ -102,8 +105,15 @@ pub mod pallet {
         type ParachainBlocksPerBitcoinBlock: Get<BlockNumberFor<Self>>;
     }
 
+    /// The current storage version.
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+
     #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> Weight {
+            migration::v1::migrate_from_v0_to_v1::<T>()
+        }
+    }
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -152,6 +162,8 @@ pub mod pallet {
                     .max(<T as Config>::WeightInfo::store_block_header_new_fork_sorted(f))
                     .max(<T as Config>::WeightInfo::store_block_header_new_fork_unsorted(f))
                     .max(<T as Config>::WeightInfo::store_block_header_reorganize_chains(f))
+                    .max(<T as Config>::WeightInfo::store_block_header_reorganize_chains_based_on_chainwork(f))
+                    .max(<T as Config>::WeightInfo::store_block_header_when_adding_chainwork())
             },
             DispatchClass::Operational
         ))]
@@ -175,6 +187,29 @@ pub mod pallet {
 
             Self::_validate_block_header(&mut block_header)?;
             Self::_store_block_header(&relayer, block_header)?;
+
+            // don't take tx fees on success
+            Ok(Pays::No.into())
+        }
+
+        /// Stores a chainwork for block header
+        #[pallet::call_index(2)]
+        #[pallet::weight((
+            <T as Config>::WeightInfo::set_chainwork_for_block(),
+            DispatchClass::Operational
+        ))]
+        #[transactional]
+        pub fn set_chainwork_for_block(origin: OriginFor<T>, block_hash: H256Le) -> DispatchResultWithPostInfo {
+            let _relayer = ensure_signed(origin)?;
+            let block_header = Self::get_block_header_from_hash(block_hash)?.block_header;
+
+            // ensure previous block contains chainwork
+            ensure!(
+                Self::contains_chainwork(block_header.hash_prev_block),
+                Error::<T>::ChainWorkDoesNotExist
+            );
+
+            Self::_set_chainwork_for_block(&block_header)?;
 
             // don't take tx fees on success
             Ok(Pays::No.into())
@@ -318,7 +353,16 @@ pub mod pallet {
         BoundExceeded,
         /// Coinbase tx must be the first transaction in the block
         InvalidCoinbasePosition,
+        /// The Chain Work for the block doesn't exist
+        ChainWorkDoesNotExist,
+        /// Checked Division failed
+        DivisionError,
     }
+
+    /// Store ChainWork
+    /// mapping block hash -> chain work
+    #[pallet::storage]
+    pub(super) type ChainWork<T: Config> = StorageMap<_, Blake2_128Concat, H256Le, U256, OptionQuery>;
 
     /// Store Bitcoin block headers
     #[pallet::storage]
@@ -419,6 +463,8 @@ pub const UNROUNDED_MAX_TARGET: U256 = U256([<u64>::MAX, <u64>::MAX, <u64>::MAX,
 
 /// Main chain id
 pub const MAIN_CHAIN_ID: u32 = 0;
+
+pub const ONE: U256 = U256::one();
 
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
@@ -767,6 +813,14 @@ impl<T: Config> Pallet<T> {
         ChainCounter::<T>::get()
     }
 
+    pub fn contains_chainwork(block_hash: H256Le) -> bool {
+        if let None = ChainWork::<T>::get(block_hash) {
+            false
+        } else {
+            true
+        }
+    }
+
     /// Get a block hash from a blockchain
     ///
     /// # Arguments
@@ -781,7 +835,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Get a block header from its hash
-    fn get_block_header_from_hash(block_hash: H256Le) -> Result<RichBlockHeader<BlockNumberFor<T>>, DispatchError> {
+    pub fn get_block_header_from_hash(block_hash: H256Le) -> Result<RichBlockHeader<BlockNumberFor<T>>, DispatchError> {
         BlockHeaders::<T>::try_get(block_hash).or(Err(Error::<T>::BlockNotFound.into()))
     }
 
@@ -861,6 +915,11 @@ impl<T: Config> Pallet<T> {
 
         Self::store_rich_header(basic_block_header.clone(), block_height, blockchain.chain_id);
 
+        // Add chainwork for block if prev block contains chainwork
+        if Self::contains_chainwork(basic_block_header.hash_prev_block) {
+            Self::_set_chainwork_for_block(basic_block_header)?;
+        }
+
         Ok(blockchain.chain_id)
     }
 
@@ -877,7 +936,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    fn insert_block_hash(chain_id: u32, block_height: u32, block_hash: H256Le) {
+    pub fn insert_block_hash(chain_id: u32, block_height: u32, block_hash: H256Le) {
         ChainsHashes::<T>::insert(chain_id, block_height, block_hash);
     }
 
@@ -902,6 +961,11 @@ impl<T: Config> Pallet<T> {
         Self::set_block_chain_from_id(blockchain.chain_id, &blockchain);
 
         Self::store_rich_header(basic_block_header.clone(), block_height, blockchain.chain_id);
+
+        // Add chainwork for block if prev block contains chainwork
+        if Self::contains_chainwork(basic_block_header.hash_prev_block) {
+            Self::_set_chainwork_for_block(basic_block_header)?;
+        }
 
         Ok(blockchain)
     }
@@ -1181,7 +1245,8 @@ impl<T: Config> Pallet<T> {
                     // and the current height is more than the
                     // STABLE_TRANSACTION_CONFIRMATIONS ahead
                     // we are swapping the main chain
-                    if prev_height.saturating_add(Self::get_stable_transaction_confirmations()) <= current_height {
+                    // update: ensure_no_ongoing_fork
+                    if Self::is_reorg_required(prev_blockchain_id, current_position, prev_height, current_height)? {
                         // Swap the mainchain. As an optimization, this function returns the
                         // new best block hash and its height
                         let (new_chain_tip_hash, new_chain_tip_height) = Self::swap_main_blockchain(&fork)?;
@@ -1214,6 +1279,57 @@ impl<T: Config> Pallet<T> {
                 break;
             }
         }
+
+        Ok(())
+    }
+
+    fn is_reorg_required(
+        prev_blockchain_id: u32,
+        current_position: u32,
+        prev_height: u32,
+        current_height: u32,
+    ) -> Result<bool, DispatchError> {
+        let previous_block_hash = Self::get_block_hash(prev_blockchain_id, prev_height)?;
+        let current_chain_id = Self::get_chain_id_from_position(current_position)?;
+        let current_block_hash = Self::get_block_hash(current_chain_id, current_height)?;
+
+        match (
+            ChainWork::<T>::get(previous_block_hash),
+            ChainWork::<T>::get(current_block_hash),
+        ) {
+            // if both block have chain work use chain work to determine reorg
+            (Some(previous_block_chain_work), Some(current_block_chain_work)) => {
+                Ok(previous_block_chain_work > current_block_chain_work)
+            }
+            // otherwise use longest chain to determine reorg
+            _ => Ok(prev_height.saturating_add(Self::get_stable_transaction_confirmations()) <= current_height),
+        }
+    }
+
+    pub fn calculate_chainwork(prev_block_hash: H256Le) -> Result<U256, DispatchError> {
+        // Retrieve the previous block's header
+        let prev_block_header = Self::get_block_header_from_hash(prev_block_hash)?;
+
+        // Calculate the chainwork
+        let chainwork = U256::max_value()
+            .saturating_sub(prev_block_header.block_header.target)
+            .saturating_sub(ONE);
+
+        // Check if division is possible, and perform the division if so
+        if let Some(chainwork_done) = chainwork.checked_div(prev_block_header.block_header.target.saturating_add(ONE)) {
+            Ok(chainwork_done.saturating_add(ONE))
+        } else {
+            // Handle division error
+            Err(Error::<T>::DivisionError.into())
+        }
+    }
+
+    fn _set_chainwork_for_block(block_header: &BlockHeader) -> Result<(), DispatchError> {
+        //calculate chain work for current block
+        let chain_work = Self::calculate_chainwork(block_header.hash_prev_block)?;
+
+        //set chain work for the block
+        ChainWork::<T>::insert(block_header.hash, chain_work);
 
         Ok(())
     }
