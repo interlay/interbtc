@@ -19,8 +19,8 @@ use secp256k1::{constants::PUBLIC_KEY_SIZE, Error as Secp256k1Error, PublicKey a
 )]
 #[cfg_attr(feature = "std", derive(std::hash::Hash))]
 pub enum Address {
-    // input: {signature} {pubkey}
-    // output: OP_DUP OP_HASH160 {hash160(pubkey)} OP_EQUALVERIFY OP_CHECKSIG
+    // input: {signature} {pub_key}
+    // output: OP_DUP OP_HASH160 {hash160(pub_key)} OP_EQUALVERIFY OP_CHECKSIG
     // witness: <>
     P2PKH(H160),
     // input: [redeem_script_sig ...] {redeem_script}
@@ -28,13 +28,19 @@ pub enum Address {
     // witness: <?>
     P2SH(H160),
     // input: <>
-    // output: OP_0 {hash160(pubkey)}
-    // witness: {signature} {pubkey}
+    // output: OP_0 {hash160(pub_key)}
+    // witness: {signature} {pub_key}
     P2WPKHv0(H160),
     // input: <>
     // output: OP_0 {sha256(redeem_script)}
     // witness: [redeem_script_sig ...] {redeem_script}
     P2WSHv0(H256),
+    // input: <>
+    // output: OP_1 {tweaked_pub_key}
+    // witness:
+    // - key path: {signature}
+    // - script path: [arguments ...] {script} {untweaked_pub_key}
+    P2TRv1(H256),
 }
 
 impl Address {
@@ -45,6 +51,7 @@ impl Address {
         const OP_CHECK_SIG: u8 = OpCode::OpCheckSig as u8;
         const OP_EQUAL: u8 = OpCode::OpEqual as u8;
         const OP_0: u8 = OpCode::Op0 as u8;
+        const OP_1: u8 = OpCode::Op1 as u8;
         const MAX_ADDRESS_BYTES: usize = HASH256_SIZE_HEX as usize + 2; // max length is for P2WSHv0; see the match below
 
         let bytes = script.as_bytes();
@@ -69,6 +76,9 @@ impl Address {
             }
             &[OP_0, HASH160_SIZE_HEX, ref addr @ ..] if addr.len() == HASH160_SIZE_HEX as usize => {
                 Ok(Self::P2WPKHv0(H160::from_slice(addr)))
+            }
+            &[OP_1, HASH256_SIZE_HEX, ref addr @ ..] if addr.len() == HASH256_SIZE_HEX as usize => {
+                Ok(Self::P2TRv1(H256::from_slice(addr)))
             }
             _ => Err(Error::InvalidBtcAddress),
         }
@@ -108,6 +118,13 @@ impl Address {
                 script.append(script_hash);
                 script
             }
+            Self::P2TRv1(tweaked_pub_key) => {
+                let mut script = Script::new();
+                script.append(OpCode::Op1);
+                script.append(HASH256_SIZE_HEX);
+                script.append(tweaked_pub_key);
+                script
+            }
         }
     }
 
@@ -126,7 +143,7 @@ impl Address {
     pub fn is_zero(&self) -> bool {
         match self {
             Self::P2PKH(hash) | Self::P2SH(hash) | Self::P2WPKHv0(hash) => hash.is_zero(),
-            Self::P2WSHv0(hash) => hash.is_zero(),
+            Self::P2WSHv0(hash) | Self::P2TRv1(hash) => hash.is_zero(),
         }
     }
 }
@@ -396,5 +413,53 @@ mod tests {
                 150, 183, 243, 61, 110, 8, 152, 132, 99, 49, 189,
             ])
         );
+    }
+
+    #[test]
+    fn test_convert_address_script() {
+        // 1MsmX1jpgyJY3h8det2VZz9NYXs6WhpjdT
+        let script = Script {
+            bytes: hex::decode("76a914e4fc799e2e718d64064af4cd15b2a6c11780fe2a88ac").unwrap(),
+        };
+        assert!(script.is_p2pkh());
+        let address = Address::from_script_pub_key(&script).unwrap();
+        assert!(matches!(address, Address::P2PKH(_)));
+        assert_eq!(script, address.to_script_pub_key());
+
+        // 3NZbxHNESLkkAPCaTgrgSZQgkmhnv2cdxz
+        let script = Script {
+            bytes: hex::decode("a914e4f3b8771c0eff8645a9669eef1fb1ea0cf1dec187").unwrap(),
+        };
+        assert!(script.is_p2sh());
+        let address = Address::from_script_pub_key(&script).unwrap();
+        assert!(matches!(address, Address::P2SH(_)));
+        assert_eq!(script, address.to_script_pub_key());
+
+        // bc1q4m304aj7c3xcxaqdz9kl6axnex2gkufmh7rsqw
+        let script = Script {
+            bytes: hex::decode("0014aee2faf65ec44d83740d116dfd74d3c9948b713b").unwrap(),
+        };
+        assert!(script.is_p2wpkh_v0());
+        let address = Address::from_script_pub_key(&script).unwrap();
+        assert!(matches!(address, Address::P2WPKHv0(_)));
+        assert_eq!(script, address.to_script_pub_key());
+
+        // bc1qgdjqv0av3q56jvd82tkdjpy7gdp9ut8tlqmgrpmv24sq90ecnvqqjwvw97
+        let script = Script {
+            bytes: hex::decode("00204364063fac8829a931a752ecd9049e43425e2cebf83681876c556002bf389b00").unwrap(),
+        };
+        assert!(script.is_p2wsh_v0());
+        let address = Address::from_script_pub_key(&script).unwrap();
+        assert!(matches!(address, Address::P2WSHv0(_)));
+        assert_eq!(script, address.to_script_pub_key());
+
+        // bc1pq2cealz0zkvse0sxus2hwx8jquchtyvs64v4cwqnelrhs3helunsxyral2
+        let script = Script {
+            bytes: hex::decode("512002b19efc4f15990cbe06e4157718f20731759190d5595c3813cfc77846f9ff27").unwrap(),
+        };
+        assert!(script.is_p2tr_v1());
+        let address = Address::from_script_pub_key(&script).unwrap();
+        assert!(matches!(address, Address::P2TRv1(_)));
+        assert_eq!(script, address.to_script_pub_key());
     }
 }

@@ -168,14 +168,21 @@ pub enum OpCode {
 /// Custom Types
 
 // Constants
-pub const P2PKH_SCRIPT_SIZE: u32 = 25;
-pub const P2SH_SCRIPT_SIZE: u32 = 23;
-pub const P2WPKH_V0_SCRIPT_SIZE: u32 = 22;
-pub const P2WSH_V0_SCRIPT_SIZE: u32 = 34;
+pub const P2PKH_SCRIPT_SIZE: usize = 25;
+pub const P2SH_SCRIPT_SIZE: usize = 23;
 pub const HASH160_SIZE_HEX: u8 = 0x14;
 pub const HASH256_SIZE_HEX: u8 = 0x20;
 // TODO: reduce to H256 size + op code
 pub const MAX_OPRETURN_SIZE: usize = 83;
+
+// https://github.com/bitcoin/bitcoin/blob/2fa60f0b683cefd7956273986dafe3bde00c98fd/src/script/interpreter.h#L225-L227
+pub const WITNESS_V0_KEYHASH_SIZE: usize = 20;
+pub const WITNESS_V0_SCRIPTHASH_SIZE: usize = 32;
+pub const WITNESS_V1_TAPROOT_SIZE: usize = 32;
+
+pub const P2WPKH_V0_SCRIPT_SIZE: usize = WITNESS_V0_KEYHASH_SIZE + 2;
+pub const P2WSH_V0_SCRIPT_SIZE: usize = WITNESS_V0_SCRIPTHASH_SIZE + 2;
+pub const P2TR_V1_SCRIPT_SIZE: usize = WITNESS_V1_TAPROOT_SIZE + 2;
 
 /// Structs
 
@@ -1139,6 +1146,23 @@ mod tests {
         ]));
 
         let extr_address = transaction.outputs[0].extract_address().unwrap();
+
+        assert_eq!(&extr_address, &address);
+    }
+
+    #[test]
+    fn extract_address_p2tr_output() {
+        // 33e794d097969002ee05d336686fc03c9e15a597c1b9827669460fac98799036
+        let raw_tx = "01000000000101d1f1c1f8cdf6759167b90f52c9ad358a369f95284e841d7a2536cef31c0549580100000000fdffffff020000000000000000316a2f49206c696b65205363686e6f7272207369677320616e6420492063616e6e6f74206c69652e204062697462756734329e06010000000000225120a37c3903c8d0db6512e2b40b0dffa05e5a3ab73603ce8c9c4b7771e5412328f90140a60c383f71bac0ec919b1d7dbc3eb72dd56e7aa99583615564f9f99b8ae4e837b758773a5b2e4c51348854c8389f008e05029db7f464a5ff2e01d5e6e626174affd30a00";
+        let tx_bytes = hex::decode(&raw_tx).unwrap();
+        let transaction = parse_transaction(&tx_bytes).unwrap();
+
+        let address = Address::P2TRv1(H256([
+            163, 124, 57, 3, 200, 208, 219, 101, 18, 226, 180, 11, 13, 255, 160, 94, 90, 58, 183, 54, 3, 206, 140, 156,
+            75, 119, 113, 229, 65, 35, 40, 249,
+        ]));
+
+        let extr_address = transaction.outputs[1].extract_address().unwrap();
 
         assert_eq!(&extr_address, &address);
     }
