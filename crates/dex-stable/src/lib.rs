@@ -63,6 +63,7 @@ use sp_std::{ops::Sub, vec, vec::Vec};
 
 pub use default_weights::WeightInfo;
 pub use pallet::*;
+pub use primitives::Pool;
 use primitives::*;
 use traits::{StablePoolLpCurrencyIdGenerate, ValidateCurrency};
 

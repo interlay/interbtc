@@ -8,6 +8,8 @@ version = "1.2.0"
 targets = ['x86_64-unknown-linux-gnu']
 
 [dependencies]
+evm-macro = { path = "evm/macro", default-features = false }
+evm-utils = { path = "evm/utils", default-features = false }
 
 # Substrate dependencies
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.31", default-features = false }
@@ -30,6 +32,7 @@ clients-info = { path = "../../../crates/clients-info", default-features = false
 collator-selection = { path = "../../../crates/collator-selection", default-features = false }
 currency = { path = "../../../crates/currency", default-features = false }
 democracy = { path = "../../../crates/democracy", default-features = false }
+dex-stable = { path = "../../../crates/dex-stable", default-features = false }
 escrow = { path = "../../../crates/escrow", default-features = false }
 fee = { path = "../../../crates/fee", default-features = false }
 issue = { path = "../../../crates/issue", default-features = false }
@@ -58,6 +61,7 @@ orml-xcm-support = { git = "https://github.com/open-web3-stack/open-runtime-modu
 orml-unknown-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "3fcd3cf9e63fe80fd9671912833a900ba09d1cc0", default-features = false }
 
 # Frontier dependencies
+fp-evm = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
 pallet-base-fee = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
 pallet-ethereum = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
 pallet-evm = { git = "https://github.com/paritytech/frontier", branch = "polkadot-v0.9.42", default-features = false }
@@ -73,6 +77,9 @@ pallet-evm-precompile-simple = { git = "https://github.com/paritytech/frontier",
 [features]
 default = ["std"]
 std = [
+  "evm-macro/std",
+  "evm-utils/std",
+
   "sp-std/std",
   "sp-runtime/std",
   "sp-core/std",
@@ -91,6 +98,7 @@ std = [
   "currency/std",
   "collator-selection/std",
   "democracy/std",
+  "dex-stable/std",
   "escrow/std",
   "fee/std",
   "issue/std",
@@ -117,6 +125,7 @@ std = [
   "orml-xcm-support/std",
   "orml-unknown-tokens/std",
 
+  "fp-evm/std",
   "pallet-base-fee/std",
   "pallet-ethereum/std",
   "pallet-evm/std",
