@@ -273,11 +273,6 @@ pub fn parse_transaction(raw_transaction: &[u8]) -> Result<Transaction, Error> {
     let mut parser = BytesParser::new(raw_transaction);
     let version: i32 = parser.parse()?;
 
-    // fail if incorrect version: we only support version 1 and 2
-    if version != 1 && version != 2 {
-        return Err(Error::MalformedTransaction);
-    }
-
     let allow_witness = (version & SERIALIZE_TRANSACTION_NO_WITNESS) == 0;
 
     // TODO: bound maximum?
