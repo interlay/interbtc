@@ -273,7 +273,8 @@ pub fn parse_transaction(raw_transaction: &[u8]) -> Result<Transaction, Error> {
     let mut parser = BytesParser::new(raw_transaction);
     let version: i32 = parser.parse()?;
 
-    let allow_witness = (version & SERIALIZE_TRANSACTION_NO_WITNESS) == 0;
+    // Updated: For version > 2, assume witness is allowed regardless of the NO_WITNESS flag
+    let allow_witness = version > 2 || (version & SERIALIZE_TRANSACTION_NO_WITNESS) == 0;
 
     // TODO: bound maximum?
     let mut inputs: Vec<TransactionInput> = parser.parse_with(version)?;
