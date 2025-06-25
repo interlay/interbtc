@@ -272,16 +272,18 @@ pub fn parse_compact_uint(varint: &[u8]) -> Result<(u64, usize), Error> {
 pub fn parse_transaction(raw_transaction: &[u8]) -> Result<Transaction, Error> {
     let mut parser = BytesParser::new(raw_transaction);
     let version: i32 = parser.parse()?;
+    // For version > 2, treat it as version 2 for parsing behavior
+    let effective_version = if version > 2 { 2 } else { version };
 
-    let allow_witness = (version & SERIALIZE_TRANSACTION_NO_WITNESS) == 0;
+    let allow_witness = (effective_version & SERIALIZE_TRANSACTION_NO_WITNESS) == 0;
 
     // TODO: bound maximum?
-    let mut inputs: Vec<TransactionInput> = parser.parse_with(version)?;
+    let mut inputs: Vec<TransactionInput> = parser.parse_with(effective_version)?;
 
     let mut flags: u8 = 0;
     if inputs.is_empty() && allow_witness {
         flags = parser.parse()?;
-        inputs = parser.parse_with(version)?;
+        inputs = parser.parse_with(effective_version)?;
     }
 
     // TODO: bound maximum?
