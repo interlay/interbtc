@@ -9,7 +9,7 @@ jobs:
   publish:
     runs-on: [self-hosted, linux]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: git fetch --prune --unshallow
       - name: Install System Dependencies
         run: |
