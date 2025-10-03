@@ -8,7 +8,7 @@ use frame_support::{
 use orml_asset_registry::{AssetRegistryTrader, FixedRateAssetRegistryTrader};
 use orml_traits::{parameter_type_with_key, FixedConversionRateProvider, MultiCurrency};
 use orml_xcm_support::{DepositToAlternative, IsNativeConcrete, MultiCurrencyAdapter, MultiNativeAsset};
-use orml_xtokens::AbsoluteReserveProviderMigrationPhase;
+use orml_xtokens::{AbsoluteReserveProviderMigrationPhase, MigrationPhase};
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
 use runtime_common::Transactless;
@@ -230,6 +230,33 @@ parameter_types! {
     pub const ReachableDest: MultiLocation = MultiLocation::parent();
 }
 
+// A reserve filter to disable pallet xcm reserve transfers during AHM. The reserve provider used
+// in the XcmExecutor isn't catching it for some reason (probably the super outdated xcm version)
+pub struct PalletXcmReserveTransferFilterMigrationPhase;
+impl frame_support::traits::Contains<(MultiLocation, Vec<MultiAsset>)>
+    for PalletXcmReserveTransferFilterMigrationPhase
+{
+    fn contains((_, assets): &(MultiLocation, Vec<MultiAsset>)) -> bool {
+        let migration_phase = orml_xtokens::MigrationStatus::<Runtime>::get();
+        let return_ = if let MigrationPhase::InProgress = migration_phase {
+            assets.iter().any(|asset| {
+                if let AssetId::Concrete(MultiLocation {
+                    parents: 1,
+                    interior: Junctions::Here,
+                }) = &asset.id
+                {
+                    false
+                } else {
+                    true
+                }
+            })
+        } else {
+            true
+        };
+        return_
+    }
+}
+
 impl pallet_xcm::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
@@ -240,7 +267,7 @@ impl pallet_xcm::Config for Runtime {
     type XcmExecuteFilter = Nothing;
     type XcmExecutor = XcmExecutor<XcmConfig>;
     type XcmTeleportFilter = Everything;
-    type XcmReserveTransferFilter = Everything;
+    type XcmReserveTransferFilter = PalletXcmReserveTransferFilterMigrationPhase;
     type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
     type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
     const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
