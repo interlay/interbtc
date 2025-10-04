@@ -238,8 +238,8 @@ impl frame_support::traits::Contains<(MultiLocation, Vec<MultiAsset>)>
 {
     fn contains((_, assets): &(MultiLocation, Vec<MultiAsset>)) -> bool {
         let migration_phase = orml_xtokens::MigrationStatus::<Runtime>::get();
-        let return_ = if let MigrationPhase::InProgress = migration_phase {
-            assets.iter().any(|asset| {
+        match migration_phase {
+            MigrationPhase::InProgress | MigrationPhase::Completed => assets.iter().any(|asset| {
                 if let AssetId::Concrete(MultiLocation {
                     parents: 1,
                     interior: Junctions::Here,
@@ -249,11 +249,9 @@ impl frame_support::traits::Contains<(MultiLocation, Vec<MultiAsset>)>
                 } else {
                     true
                 }
-            })
-        } else {
-            true
-        };
-        return_
+            }),
+            _ => true,
+        }
     }
 }
 

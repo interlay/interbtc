@@ -854,27 +854,23 @@ fn ahm_transfer_of_ksm_via_pallet_xcm() {
         );
     });
 
-    // After the migration, the transfer is available again, but the reserve is now KAH
+    // After the migration, the transfer is still disabled
     Kintsugi::execute_with(|| {
         assert_ok!(XTokens::set_migration_phase(
             RuntimeOrigin::root(),
             MigrationPhase::Completed
         ));
 
-        assert_ok!(PolkadotXcm::reserve_transfer_assets(
-            RuntimeOrigin::signed(ALICE.into()),
-            Box::new(MultiLocation::parent().into()),
-            Box::new(MultiLocation::new(0, X1(Junction::AccountId32 { id: BOB, network: None })).into()),
-            Box::new(concrete_fungible(MultiLocation::parent()).into()),
-            0
-        ));
-    });
-
-    KusamaNet::execute_with(|| {
-        let bob_balance = kusama_runtime::Balances::free_balance(&AccountId::from(BOB));
-
-        // A little bit less to pay fees
-        assert!(bob_balance < 2 * KSM.one());
+        assert_noop!(
+            PolkadotXcm::reserve_transfer_assets(
+                RuntimeOrigin::signed(ALICE.into()),
+                Box::new(MultiLocation::parent().into()),
+                Box::new(MultiLocation::new(0, X1(Junction::AccountId32 { id: BOB, network: None })).into()),
+                Box::new(concrete_fungible(MultiLocation::parent()).into()),
+                0
+            ),
+            pallet_xcm::Error::<Runtime>::Filtered
+        );
     });
 }
 
