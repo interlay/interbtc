@@ -10,6 +10,7 @@ pub use primitives::{
 use sp_runtime::traits::AccountIdConversion;
 use xcm_emulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain};
 
+pub const ASSET_HUB_ID: u32 = 1_000;
 pub const KINTSUGI_PARA_ID: u32 = 2092;
 pub const SIBLING_PARA_ID: u32 = 2001;
 
@@ -41,11 +42,24 @@ decl_test_parachain! {
     }
 }
 
+// This isn't the asset hub runtime but we don't care too much about that, we only need to have a
+// parachain registered using the AH ID, so the reserve after the AHM exists on the network
+decl_test_parachain! {
+    pub struct AssetHub {
+        Runtime = kintsugi_runtime_parachain::Runtime,
+        RuntimeOrigin = kintsugi_runtime_parachain::RuntimeOrigin,
+        XcmpMessageHandler = kintsugi_runtime_parachain::XcmpQueue,
+        DmpMessageHandler = kintsugi_runtime_parachain::DmpQueue,
+        new_ext = para_ext(ASSET_HUB_ID),
+    }
+}
+
 // note: can't use SIBLING_PARA_ID and KINTSUGI_PARA_ID in this macro - we are forced to use raw numbers
 decl_test_network! {
     pub struct TestNet {
         relay_chain = KusamaNet,
         parachains = vec![
+            (1_000, AssetHub),
             (2092, Kintsugi),
             (2001, Sibling),
         ],

@@ -6,10 +6,9 @@ use frame_support::{
     traits::{Everything, Get, Nothing},
 };
 use orml_asset_registry::{AssetRegistryTrader, FixedRateAssetRegistryTrader};
-use orml_traits::{
-    location::AbsoluteReserveProvider, parameter_type_with_key, FixedConversionRateProvider, MultiCurrency,
-};
+use orml_traits::{parameter_type_with_key, FixedConversionRateProvider, MultiCurrency};
 use orml_xcm_support::{DepositToAlternative, IsNativeConcrete, MultiCurrencyAdapter, MultiNativeAsset};
+use orml_xtokens::{AbsoluteReserveProviderMigrationPhase, MigrationPhase};
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
 use runtime_common::Transactless;
@@ -192,7 +191,7 @@ impl xcm_executor::Config for XcmConfig {
     #[cfg(not(feature = "runtime-benchmarks"))]
     type AssetTransactor = LocalAssetTransactor;
     type OriginConverter = XcmOriginToTransactDispatchOrigin;
-    type IsReserve = MultiNativeAsset<AbsoluteReserveProvider>;
+    type IsReserve = MultiNativeAsset<AbsoluteReserveProviderMigrationPhase<Runtime>>;
     type IsTeleporter = Nothing; // no teleportation allowed
     type Barrier = Barrier;
     type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
@@ -231,6 +230,31 @@ parameter_types! {
     pub const ReachableDest: MultiLocation = MultiLocation::parent();
 }
 
+// A reserve filter to disable pallet xcm reserve transfers during AHM. The reserve provider used
+// in the XcmExecutor isn't catching it for some reason (probably the super outdated xcm version)
+pub struct PalletXcmReserveTransferFilterMigrationPhase;
+impl frame_support::traits::Contains<(MultiLocation, Vec<MultiAsset>)>
+    for PalletXcmReserveTransferFilterMigrationPhase
+{
+    fn contains((_, assets): &(MultiLocation, Vec<MultiAsset>)) -> bool {
+        let migration_phase = orml_xtokens::MigrationStatus::<Runtime>::get();
+        match migration_phase {
+            MigrationPhase::InProgress | MigrationPhase::Completed => assets.iter().any(|asset| {
+                if let AssetId::Concrete(MultiLocation {
+                    parents: 1,
+                    interior: Junctions::Here,
+                }) = &asset.id
+                {
+                    false
+                } else {
+                    true
+                }
+            }),
+            _ => true,
+        }
+    }
+}
+
 impl pallet_xcm::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
@@ -241,7 +265,7 @@ impl pallet_xcm::Config for Runtime {
     type XcmExecuteFilter = Nothing;
     type XcmExecutor = XcmExecutor<XcmConfig>;
     type XcmTeleportFilter = Everything;
-    type XcmReserveTransferFilter = Everything;
+    type XcmReserveTransferFilter = PalletXcmReserveTransferFilterMigrationPhase;
     type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
     type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
     const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
@@ -426,8 +450,9 @@ impl orml_xtokens::Config for Runtime {
     type MaxAssetsForTransfer = MaxAssetsForTransfer;
     type MinXcmFee = ParachainMinFee;
     type MultiLocationsFilter = Everything;
-    type ReserveProvider = AbsoluteReserveProvider;
+    type ReserveProvider = AbsoluteReserveProviderMigrationPhase<Runtime>;
     type UniversalLocation = UniversalLocation;
+    type MigrationPhaseUpdateOrigin = EnsureRoot<AccountId>;
 }
 
 #[cfg(feature = "runtime-benchmarks")]

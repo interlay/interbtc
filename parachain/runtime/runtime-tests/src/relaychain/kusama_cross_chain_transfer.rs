@@ -1,16 +1,23 @@
 use crate::relaychain::kusama_test_net::*;
 use codec::Encode;
-use frame_support::assert_ok;
-use orml_traits::MultiCurrency;
+use frame_support::{assert_noop, assert_ok};
+use orml_traits::{location::Reserve, MultiCurrency};
+use orml_xtokens::{AbsoluteReserveProviderMigrationPhase, MigrationPhase};
 use primitives::{
     CurrencyId::{ForeignAsset, Token},
     CustomMetadata, TokenSymbol,
 };
+use sp_core::crypto::Ss58Codec;
 use sp_runtime::{FixedPointNumber, FixedU128};
 use xcm::latest::{prelude::*, Weight};
 use xcm_builder::ParentIsPreset;
 use xcm_emulator::{TestExt, XcmExecutor};
 use xcm_executor::traits::Convert;
+
+fn sibling_sovereign_account() -> AccountId {
+    use sp_runtime::traits::AccountIdConversion;
+    polkadot_parachain::primitives::Sibling::from(SIBLING_PARA_ID).into_account_truncating()
+}
 
 mod fees {
     use super::*;
@@ -271,11 +278,6 @@ fn transfer_to_relay_chain() {
 /// integrated.
 #[test]
 fn transfer_to_sibling_and_back() {
-    fn sibling_sovereign_account() -> AccountId {
-        use sp_runtime::traits::AccountIdConversion;
-        polkadot_parachain::primitives::Sibling::from(SIBLING_PARA_ID).into_account_truncating()
-    }
-
     Sibling::execute_with(|| {
         register_kint_as_foreign_asset();
     });
@@ -690,4 +692,345 @@ fn register_kint_as_foreign_asset() {
         },
     };
     AssetRegistry::register_asset(RuntimeOrigin::root(), metadata, None).unwrap();
+}
+
+// ** ASSET HUB MIGRATION TESTS**
+const SIBLING_PARACHAIN: Junction = Parachain(SIBLING_PARA_ID);
+const ASSET_HUB: Junction = Parachain(ASSET_HUB_ID);
+
+fn concrete_fungible(id: MultiLocation) -> MultiAsset {
+    (id, 1).into()
+}
+fn register_sibling_asset_as_foreign_asset() {
+    let metadata = AssetMetadata {
+        decimals: 8,
+        name: "kBTC".as_bytes().to_vec(),
+        symbol: "KBTC".as_bytes().to_vec(),
+        existential_deposit: 0,
+        location: Some(MultiLocation::new(1, X1(Parachain(SIBLING_PARA_ID))).into()),
+        additional: CustomMetadata {
+            fee_per_second: 1_000_000_000_000,
+            coingecko_id: "kbtc".as_bytes().to_vec(),
+        },
+    };
+    AssetRegistry::register_asset(RuntimeOrigin::root(), metadata, None).unwrap();
+}
+
+// Test that xtokens transfers are disabled during the AHM, and that the KSM reserve is correct
+// both before and after the migration. the patch was introduced here:
+// https://github.com/r0gue-io/open-runtime-module-library/blob/master/xtokens/src/lib.rs#L556.
+// This function is called by every call on xtokens, so it's enough with testing this out just with
+// the transfer method.
+#[test]
+fn ahm_transfer_of_ksm_via_xtokens() {
+    let public = sp_core::sr25519::Public::from_ss58check("5Eg2fnsjADUqvPPTJ17bGgphuxi754R7LsCCqPjt7M5MqVKB").unwrap();
+    let kintsugi_sovereign_account_on_asset_hub = AccountId::new(public.0);
+
+    let public = sp_core::sr25519::Public::from_ss58check("5Eg2fntJDju46yds4uKzu2zuQssqw7JZWohhLMj6mZZjg2pK").unwrap();
+    let sibling_sovereign_account_on_asset_hub = AccountId::new(public.0);
+
+    TestNet::reset();
+    // Before the migration => Everything goes as always, transfers are possible and the reserve is
+    // KSM
+    KusamaNet::execute_with(|| {
+        assert_ok!(kusama_runtime::Balances::transfer(
+            kusama_runtime::RuntimeOrigin::signed(ALICE.into()),
+            sp_runtime::MultiAddress::Id(kintsugi_sovereign_account_on_kusama()),
+            10 * KSM.one()
+        ));
+    });
+
+    // Fund sovereign accounts on AH
+    AssetHub::execute_with(|| {
+        assert_ok!(Tokens::deposit(
+            Token(KINT),
+            &kintsugi_sovereign_account_on_asset_hub,
+            100_000_000_000_000
+        ));
+        assert_ok!(Tokens::deposit(
+            Token(KSM),
+            &kintsugi_sovereign_account_on_asset_hub,
+            100_000_000_000_000
+        ));
+        assert_ok!(Tokens::deposit(
+            Token(KINT),
+            &sibling_sovereign_account_on_asset_hub,
+            100_000_000_000_000
+        ));
+        assert_ok!(Tokens::deposit(
+            Token(KSM),
+            &sibling_sovereign_account_on_asset_hub,
+            100_000_000_000_000
+        ));
+    });
+
+    Kintsugi::execute_with(|| {
+        assert_eq!(
+            AbsoluteReserveProviderMigrationPhase::<Runtime>::reserve(&concrete_fungible(MultiLocation::parent())),
+            Some(MultiLocation::parent())
+        );
+
+        assert_ok!(XTokens::transfer(
+            RuntimeOrigin::signed(ALICE.into()),
+            Token(KSM),
+            KSM.one(),
+            Box::new(
+                MultiLocation::new(
+                    1,
+                    X2(
+                        Junction::Parachain(SIBLING_PARA_ID),
+                        Junction::AccountId32 { id: BOB, network: None }
+                    )
+                )
+                .into()
+            ),
+            WeightLimit::Unlimited
+        ));
+    });
+
+    Sibling::execute_with(|| {
+        let bob_balance = Tokens::free_balance(Token(KSM), &AccountId::from(BOB));
+
+        // A little bit less to pay fees
+        assert!(bob_balance > 0);
+        assert!(bob_balance < KSM.one());
+    });
+
+    // During the migration the transfer is deactivated
+    Kintsugi::execute_with(|| {
+        assert_ok!(XTokens::set_migration_phase(
+            RuntimeOrigin::root(),
+            MigrationPhase::InProgress
+        ));
+
+        assert_noop!(
+            XTokens::transfer(
+                RuntimeOrigin::signed(ALICE.into()),
+                Token(KSM),
+                KSM.one(),
+                Box::new(MultiLocation::new(1, X1(Junction::AccountId32 { id: BOB, network: None })).into()),
+                WeightLimit::Unlimited
+            ),
+            orml_xtokens::Error::<Runtime>::InvalidDest
+        );
+    });
+
+    // Sibling has Kintsugi runtime anyway, so we need to updatee the migration phase to recognize
+    // AssetHub as the reserve
+    Sibling::execute_with(|| {
+        assert_ok!(XTokens::set_migration_phase(
+            RuntimeOrigin::root(),
+            MigrationPhase::Completed
+        ));
+    });
+
+    // After the migration, the transfer is available again, but the reserve is now KAH
+    Kintsugi::execute_with(|| {
+        assert_ok!(XTokens::set_migration_phase(
+            RuntimeOrigin::root(),
+            MigrationPhase::Completed
+        ));
+
+        assert_eq!(
+            AbsoluteReserveProviderMigrationPhase::<Runtime>::reserve(&concrete_fungible(MultiLocation::parent())),
+            Some(MultiLocation::new(1, ASSET_HUB))
+        );
+
+        assert_ok!(XTokens::transfer(
+            RuntimeOrigin::signed(ALICE.into()),
+            Token(KSM),
+            KSM.one(),
+            Box::new(
+                MultiLocation::new(
+                    1,
+                    X2(
+                        Junction::Parachain(SIBLING_PARA_ID),
+                        Junction::AccountId32 { id: BOB, network: None }
+                    )
+                )
+                .into()
+            ),
+            WeightLimit::Unlimited
+        ));
+    });
+
+    AssetHub::execute_with(|| {
+        let kintsugi_balance = Tokens::free_balance(Token(KSM), &kintsugi_sovereign_account_on_asset_hub);
+        let sibling_balance = Tokens::free_balance(Token(KSM), &sibling_sovereign_account_on_asset_hub);
+        assert!(kintsugi_balance < 100_000_000_000_000);
+        assert!(sibling_balance > 100_000_000_000_000);
+    });
+
+    Sibling::execute_with(|| {
+        let bob_balance = Tokens::free_balance(Token(KSM), &AccountId::from(BOB));
+
+        // A little bit less to pay fees
+        assert!(bob_balance > KSM.one());
+        assert!(bob_balance < 2 * KSM.one());
+    });
+}
+
+// Other tokens aren't affected by the migration
+#[test]
+fn ahm_transfer_with_xtokens_not_ksm() {
+    TestNet::reset();
+    Kintsugi::execute_with(|| {
+        register_sibling_asset_as_foreign_asset();
+
+        assert_ok!(Tokens::deposit(
+            ForeignAsset(1),
+            &AccountId::from(ALICE),
+            100_000_000_000_000
+        ));
+    });
+
+    Kintsugi::execute_with(|| {
+        // Before the migration => transfer works. The reserve is the sibling
+        assert_ok!(XTokens::transfer(
+            RuntimeOrigin::signed(ALICE.into()),
+            ForeignAsset(1),
+            10_000_000_000_000,
+            Box::new(
+                MultiLocation::new(
+                    1,
+                    X2(
+                        Parachain(SIBLING_PARA_ID),
+                        Junction::AccountId32 {
+                            network: None,
+                            id: BOB.into(),
+                        }
+                    )
+                )
+                .into()
+            ),
+            WeightLimit::Unlimited,
+        ));
+
+        assert_eq!(
+            AbsoluteReserveProviderMigrationPhase::<Runtime>::reserve(&concrete_fungible(MultiLocation::new(
+                1,
+                SIBLING_PARACHAIN
+            ))),
+            Some(MultiLocation::new(1, SIBLING_PARACHAIN))
+        );
+
+        // During the migration => transfer works. The reserve is still the sibling
+        assert_ok!(XTokens::set_migration_phase(
+            RuntimeOrigin::root(),
+            MigrationPhase::InProgress
+        ));
+
+        assert_eq!(
+            AbsoluteReserveProviderMigrationPhase::<Runtime>::reserve(&concrete_fungible(MultiLocation::new(
+                1,
+                SIBLING_PARACHAIN
+            ))),
+            Some(MultiLocation::new(1, SIBLING_PARACHAIN))
+        );
+
+        assert_ok!(XTokens::transfer(
+            RuntimeOrigin::signed(ALICE.into()),
+            ForeignAsset(1),
+            10_000_000_000_000,
+            Box::new(
+                MultiLocation::new(
+                    1,
+                    X2(
+                        Parachain(SIBLING_PARA_ID),
+                        Junction::AccountId32 {
+                            network: None,
+                            id: BOB.into(),
+                        }
+                    )
+                )
+                .into()
+            ),
+            WeightLimit::Unlimited,
+        ));
+
+        // After the migration => transfer works. The reserve is still the sibling
+        assert_ok!(XTokens::set_migration_phase(
+            RuntimeOrigin::root(),
+            MigrationPhase::Completed
+        ));
+
+        assert_eq!(
+            AbsoluteReserveProviderMigrationPhase::<Runtime>::reserve(&concrete_fungible(MultiLocation::new(
+                1,
+                SIBLING_PARACHAIN
+            ))),
+            Some(MultiLocation::new(1, SIBLING_PARACHAIN))
+        );
+
+        assert_ok!(XTokens::transfer(
+            RuntimeOrigin::signed(ALICE.into()),
+            ForeignAsset(1),
+            10_000_000_000_000,
+            Box::new(
+                MultiLocation::new(
+                    1,
+                    X2(
+                        Parachain(SIBLING_PARA_ID),
+                        Junction::AccountId32 {
+                            network: None,
+                            id: BOB.into(),
+                        }
+                    )
+                )
+                .into()
+            ),
+            WeightLimit::Unlimited,
+        ));
+    });
+}
+
+#[test]
+fn ahm_transfer_not_ksm_via_pallet_xcm() {
+    TestNet::reset();
+    Kintsugi::execute_with(|| {
+        register_sibling_asset_as_foreign_asset();
+
+        assert_ok!(Tokens::deposit(
+            ForeignAsset(1),
+            &AccountId::from(ALICE),
+            100_000_000_000_000
+        ));
+    });
+    // Before the migration => Everything works
+    Kintsugi::execute_with(|| {
+        assert_ok!(PolkadotXcm::reserve_transfer_assets(
+            RuntimeOrigin::signed(ALICE.into()),
+            Box::new(MultiLocation::new(1, SIBLING_PARACHAIN).into()),
+            Box::new(MultiLocation::new(0, X1(Junction::AccountId32 { id: BOB, network: None })).into()),
+            Box::new(concrete_fungible(MultiLocation::new(1, SIBLING_PARACHAIN)).into()),
+            0
+        ));
+        // During the migration the transfer is deactivated
+        assert_ok!(XTokens::set_migration_phase(
+            RuntimeOrigin::root(),
+            MigrationPhase::InProgress
+        ));
+
+        assert_ok!(PolkadotXcm::reserve_transfer_assets(
+            RuntimeOrigin::signed(ALICE.into()),
+            Box::new(MultiLocation::new(1, SIBLING_PARACHAIN).into()),
+            Box::new(MultiLocation::new(0, X1(Junction::AccountId32 { id: BOB, network: None })).into()),
+            Box::new(concrete_fungible(MultiLocation::new(1, SIBLING_PARACHAIN)).into()),
+            0
+        ));
+
+        // After the migration, the transfer is available again, but the reserve is now KAH
+        assert_ok!(XTokens::set_migration_phase(
+            RuntimeOrigin::root(),
+            MigrationPhase::Completed
+        ));
+
+        assert_ok!(PolkadotXcm::reserve_transfer_assets(
+            RuntimeOrigin::signed(ALICE.into()),
+            Box::new(MultiLocation::new(1, SIBLING_PARACHAIN).into()),
+            Box::new(MultiLocation::new(0, X1(Junction::AccountId32 { id: BOB, network: None })).into()),
+            Box::new(concrete_fungible(MultiLocation::new(1, SIBLING_PARACHAIN)).into()),
+            0
+        ));
+    });
 }
