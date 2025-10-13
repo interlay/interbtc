@@ -224,6 +224,7 @@ polkadot-node-metrics = { git = "https://github.com/paritytech//polkadot", branc
 polkadot-node-subsystem-types = { git = "https://github.com/paritytech//polkadot", branch = "release-v0.9.42" }
 
 [patch."https://github.com/paritytech/cumulus"]
+polkadot-asset-hub-runtime = { git = "https://github.com/paritytech//cumulus", branch = "polkadot-v0.9.42", package = "statemint-runtime"}
 cumulus-client-cli = { git = "https://github.com/paritytech//cumulus", branch = "polkadot-v0.9.42" }
 cumulus-client-consensus-aura = { git = "https://github.com/paritytech//cumulus", branch = "polkadot-v0.9.42" }
 cumulus-client-consensus-common = { git = "https://github.com/paritytech//cumulus", branch = "polkadot-v0.9.42" }

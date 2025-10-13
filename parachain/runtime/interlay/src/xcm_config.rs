@@ -7,11 +7,9 @@ use frame_support::{
     traits::{Everything, Get, Nothing},
 };
 use orml_asset_registry::{AssetRegistryTrader, FixedRateAssetRegistryTrader};
-use orml_traits::{
-    parameter_type_with_key, FixedConversionRateProvider, MultiCurrency,
-};
-use orml_xtokens::AbsoluteReserveProviderMigrationPhase;
+use orml_traits::{parameter_type_with_key, FixedConversionRateProvider, MultiCurrency};
 use orml_xcm_support::{DepositToAlternative, IsNativeConcrete, MultiCurrencyAdapter, MultiNativeAsset};
+use orml_xtokens::AbsoluteReserveProviderMigrationPhase;
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
 use runtime_common::Transactless;

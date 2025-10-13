@@ -10,6 +10,7 @@ pub use primitives::{
 use sp_runtime::traits::AccountIdConversion;
 use xcm_emulator::{decl_test_network, decl_test_parachain, decl_test_relay_chain};
 
+pub const POLKADOT_ASSET_HUB_PARA_ID: u32 = 1000;
 pub const INTERLAY_PARA_ID: u32 = 2032;
 pub const SIBLING_PARA_ID: u32 = 2001;
 
@@ -41,11 +42,22 @@ decl_test_parachain! {
     }
 }
 
+decl_test_parachain! {
+    pub struct AssetHub {
+        Runtime = polkadot_asset_hub_runtime::Runtime,
+        RuntimeOrigin = polkadot_asset_hub_runtime::RuntimeOrigin,
+        XcmpMessageHandler = polkadot_asset_hub_runtime::XcmpQueue,
+        DmpMessageHandler = polkadot_asset_hub_runtime::DmpQueue,
+        new_ext = para_ext(POLKADOT_ASSET_HUB_PARA_ID),
+    }
+}
+
 // note: can't use SIBLING_PARA_ID and INTERLAY_PARA_ID in this macro - we are forced to use raw numbers
 decl_test_network! {
     pub struct TestNet {
         relay_chain = PolkadotNet,
         parachains = vec![
+            (1000, AssetHub),
             (2032, Interlay),
             (2001, Sibling),
         ],

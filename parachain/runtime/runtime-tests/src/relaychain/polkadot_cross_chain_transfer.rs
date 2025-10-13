@@ -1,10 +1,11 @@
 use crate::relaychain::polkadot_test_net::*;
 use codec::Encode;
 use frame_support::{
-    assert_ok,
+    assert_noop, assert_ok,
     weights::{Weight as FrameWeight, WeightToFee},
 };
-use orml_traits::MultiCurrency;
+use orml_traits::{location::Reserve, MultiCurrency};
+use orml_xtokens::{AbsoluteReserveProviderMigrationPhase, MigrationPhase};
 use primitives::{
     CurrencyId::{ForeignAsset, Token},
     CustomMetadata, TokenSymbol,
@@ -733,4 +734,292 @@ fn register_intr_as_foreign_asset() {
         },
     };
     AssetRegistry::register_asset(RuntimeOrigin::root(), metadata, None).unwrap();
+}
+
+// ** ASSET HUB MIGRATION TESTS**
+fn concrete_fungible(id: MultiLocation) -> MultiAsset {
+    (id, 1).into()
+}
+fn register_sibling_asset_as_foreign_asset() {
+    let metadata = AssetMetadata {
+        decimals: 8,
+        name: "kBTC".as_bytes().to_vec(),
+        symbol: "KBTC".as_bytes().to_vec(),
+        existential_deposit: 0,
+        location: Some(MultiLocation::new(1, X1(Parachain(SIBLING_PARA_ID))).into()),
+        additional: CustomMetadata {
+            fee_per_second: 1_000_000_000_000,
+            coingecko_id: "kbtc".as_bytes().to_vec(),
+        },
+    };
+    AssetRegistry::register_asset(RuntimeOrigin::root(), metadata, None).unwrap();
+}
+
+fn sovereign_account_on_sibling(para_id: u32) -> AccountId {
+    use sp_runtime::traits::AccountIdConversion;
+    polkadot_parachain::primitives::Sibling::from(para_id).into_account_truncating()
+}
+
+// Test that xtokens transfers are disabled during the AHM, and that the DOT reserve is correct
+// both before and after the migration. The patch was introduced here:
+// https://github.com/r0gue-io/open-runtime-module-library/blob/master/xtokens/src/lib.rs#L556.
+// so, it's called by every call on xtokens, so it's enough with testing this out just with
+// the transfer method.
+#[test]
+fn ahm_transfer_of_dot_via_xtokens_to_sibling_parachain() {
+    let interlay_sovereign_account_on_asset_hub = sovereign_account_on_sibling(INTERLAY_PARA_ID);
+    let sibling_sovereign_account_on_asset_hub = sovereign_account_on_sibling(SIBLING_PARA_ID);
+
+    TestNet::reset();
+
+    // Before the migration => Everything goes as always, transfers are possible and the reserve is
+    // Polkadot
+    PolkadotNet::execute_with(|| {
+        assert_ok!(polkadot_runtime::Balances::transfer(
+            polkadot_runtime::RuntimeOrigin::signed(ALICE.into()),
+            sp_runtime::MultiAddress::Id(interlay_sovereign_account_on_polkadot()),
+            10 * DOT.one()
+        ));
+    });
+
+    Interlay::execute_with(|| {
+        assert_eq!(
+            AbsoluteReserveProviderMigrationPhase::<Runtime>::reserve(&concrete_fungible(MultiLocation::parent())),
+            Some(MultiLocation::parent())
+        );
+
+        assert_ok!(XTokens::transfer(
+            RuntimeOrigin::signed(ALICE.into()),
+            Token(DOT),
+            DOT.one(),
+            Box::new(
+                MultiLocation::new(
+                    1,
+                    X2(
+                        Junction::Parachain(SIBLING_PARA_ID),
+                        Junction::AccountId32 { id: BOB, network: None }
+                    )
+                )
+                .into()
+            ),
+            WeightLimit::Unlimited
+        ));
+    });
+
+    Sibling::execute_with(|| {
+        let bob_balance = Tokens::free_balance(Token(DOT), &AccountId::from(BOB));
+
+        // A little bit less to pay fees
+        assert!(bob_balance > 0);
+        assert!(bob_balance < DOT.one());
+    });
+
+    // During the migration the transfer is deactivated
+    Interlay::execute_with(|| {
+        assert_ok!(XTokens::set_migration_phase(
+            RuntimeOrigin::root(),
+            MigrationPhase::InProgress
+        ));
+
+        assert_noop!(
+            XTokens::transfer(
+                RuntimeOrigin::signed(ALICE.into()),
+                Token(DOT),
+                DOT.one(),
+                Box::new(
+                    MultiLocation::new(
+                        1,
+                        X2(
+                            Junction::Parachain(SIBLING_PARA_ID),
+                            Junction::AccountId32 { id: BOB, network: None }
+                        )
+                    )
+                    .into()
+                ),
+                WeightLimit::Unlimited
+            ),
+            orml_xtokens::Error::<Runtime>::AssetHasNoReserve
+        );
+    });
+
+    // After the migration, the transfer is available again, but the reserve is now Polkadot AH
+    Interlay::execute_with(|| {
+        assert_ok!(XTokens::set_migration_phase(
+            RuntimeOrigin::root(),
+            MigrationPhase::Completed
+        ));
+    });
+
+    // Before executing the transfer, we need to set the sibling's migration status to Completed.
+    // It's runtime is Interlay's runtime anyway, so it should be able to recognize AH as the
+    // reserve. Additionally we need to fund Interlay's sovereign account on AH
+    Sibling::execute_with(|| {
+        assert_ok!(XTokens::set_migration_phase(
+            RuntimeOrigin::root(),
+            MigrationPhase::Completed
+        ));
+    });
+    // Fund sovereign accounts on AH
+    AssetHub::execute_with(|| {
+        assert_ok!(polkadot_asset_hub_runtime::Balances::force_set_balance(
+            polkadot_asset_hub_runtime::RuntimeOrigin::root(),
+            sp_runtime::MultiAddress::Id(interlay_sovereign_account_on_asset_hub.clone()),
+            10 * DOT.one()
+        ));
+    });
+
+    Interlay::execute_with(|| {
+        assert_eq!(
+            AbsoluteReserveProviderMigrationPhase::<Runtime>::reserve(&concrete_fungible(MultiLocation::parent())),
+            Some(MultiLocation::new(1, Junction::Parachain(POLKADOT_ASSET_HUB_PARA_ID)))
+        );
+
+        assert_ok!(XTokens::transfer(
+            RuntimeOrigin::signed(ALICE.into()),
+            Token(DOT),
+            DOT.one(),
+            Box::new(
+                MultiLocation::new(
+                    1,
+                    X2(
+                        Junction::Parachain(SIBLING_PARA_ID),
+                        Junction::AccountId32 { id: BOB, network: None }
+                    )
+                )
+                .into()
+            ),
+            WeightLimit::Unlimited
+        ));
+    });
+
+    AssetHub::execute_with(|| {
+        let interlay_balance =
+            polkadot_asset_hub_runtime::Balances::free_balance(interlay_sovereign_account_on_asset_hub);
+        let sibling_balance =
+            polkadot_asset_hub_runtime::Balances::free_balance(sibling_sovereign_account_on_asset_hub);
+        assert!(interlay_balance < 10 * DOT.one());
+        assert!(sibling_balance > 0);
+    });
+
+    Sibling::execute_with(|| {
+        let bob_balance = Tokens::free_balance(Token(DOT), &AccountId::from(BOB));
+
+        // A little bit less to pay fees
+        assert!(bob_balance > DOT.one());
+        assert!(bob_balance < 2 * DOT.one());
+    });
+}
+
+// Other tokens aren't affected by the migration
+#[test]
+fn ahm_transfer_with_xtokens_not_dot() {
+    TestNet::reset();
+    Interlay::execute_with(|| {
+        register_sibling_asset_as_foreign_asset();
+
+        assert_ok!(Tokens::deposit(
+            ForeignAsset(1),
+            &AccountId::from(ALICE),
+            100_000_000_000_000
+        ));
+    });
+
+    Interlay::execute_with(|| {
+        // Before the migration => transfer works. The reserve is the sibling
+        assert_ok!(XTokens::transfer(
+            RuntimeOrigin::signed(ALICE.into()),
+            ForeignAsset(1),
+            10_000_000_000_000,
+            Box::new(
+                MultiLocation::new(
+                    1,
+                    X2(
+                        Junction::Parachain(SIBLING_PARA_ID),
+                        Junction::AccountId32 {
+                            network: None,
+                            id: BOB.into(),
+                        }
+                    )
+                )
+                .into()
+            ),
+            WeightLimit::Unlimited,
+        ));
+
+        assert_eq!(
+            AbsoluteReserveProviderMigrationPhase::<Runtime>::reserve(&concrete_fungible(MultiLocation::new(
+                1,
+                X1(Junction::Parachain(SIBLING_PARA_ID))
+            ))),
+            Some(MultiLocation::new(1, Junction::Parachain(SIBLING_PARA_ID)))
+        );
+
+        // During the migration => transfer works. The reserve is still the sibling
+        assert_ok!(XTokens::set_migration_phase(
+            RuntimeOrigin::root(),
+            MigrationPhase::InProgress
+        ));
+
+        assert_eq!(
+            AbsoluteReserveProviderMigrationPhase::<Runtime>::reserve(&concrete_fungible(MultiLocation::new(
+                1,
+                Junction::Parachain(SIBLING_PARA_ID)
+            ))),
+            Some(MultiLocation::new(1, Junction::Parachain(SIBLING_PARA_ID)))
+        );
+
+        assert_ok!(XTokens::transfer(
+            RuntimeOrigin::signed(ALICE.into()),
+            ForeignAsset(1),
+            10_000_000_000_000,
+            Box::new(
+                MultiLocation::new(
+                    1,
+                    X2(
+                        Junction::Parachain(SIBLING_PARA_ID),
+                        Junction::AccountId32 {
+                            network: None,
+                            id: BOB.into(),
+                        }
+                    )
+                )
+                .into()
+            ),
+            WeightLimit::Unlimited,
+        ));
+
+        // After the migration => transfer works. The reserve is still the sibling
+        assert_ok!(XTokens::set_migration_phase(
+            RuntimeOrigin::root(),
+            MigrationPhase::Completed
+        ));
+
+        assert_eq!(
+            AbsoluteReserveProviderMigrationPhase::<Runtime>::reserve(&concrete_fungible(MultiLocation::new(
+                1,
+                Junction::Parachain(SIBLING_PARA_ID)
+            ))),
+            Some(MultiLocation::new(1, Junction::Parachain(SIBLING_PARA_ID)))
+        );
+
+        assert_ok!(XTokens::transfer(
+            RuntimeOrigin::signed(ALICE.into()),
+            ForeignAsset(1),
+            10_000_000_000_000,
+            Box::new(
+                MultiLocation::new(
+                    1,
+                    X2(
+                        Junction::Parachain(SIBLING_PARA_ID),
+                        Junction::AccountId32 {
+                            network: None,
+                            id: BOB.into(),
+                        }
+                    )
+                )
+                .into()
+            ),
+            WeightLimit::Unlimited,
+        ));
+    });
 }

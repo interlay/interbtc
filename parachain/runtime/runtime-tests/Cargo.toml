@@ -84,6 +84,7 @@ polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch =
 polkadot-runtime-parachains = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31" }
 kusama-runtime = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31"  }
 polkadot-runtime = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31"  }
+polkadot-asset-hub-runtime = { git = "https://github.com/paritytech//cumulus", branch = "polkadot-v0.9.42", package = "statemint-runtime"}
 xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31" }
 xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31" }
 xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.31" }
