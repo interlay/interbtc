@@ -7354,7 +7354,7 @@ dependencies = [
 [[package]]
 name = "orml-asset-registry"
 version = "0.4.1-dev"
-source = "git+https://github.com/open-web3-stack//open-runtime-module-library?rev=ca05423f4f32be1d30765caacdc7d90130f5554a#ca05423f4f32be1d30765caacdc7d90130f5554a"
+source = "git+https://github.com/r0gue-io//open-runtime-module-library?branch=master#00f4e142772a0dcf8cf06450c6b53600de413575"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -7373,7 +7373,7 @@ dependencies = [
 [[package]]
 name = "orml-oracle"
 version = "0.4.1-dev"
-source = "git+https://github.com/open-web3-stack//open-runtime-module-library?rev=ca05423f4f32be1d30765caacdc7d90130f5554a#ca05423f4f32be1d30765caacdc7d90130f5554a"
+source = "git+https://github.com/r0gue-io//open-runtime-module-library?branch=master#00f4e142772a0dcf8cf06450c6b53600de413575"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -7391,7 +7391,7 @@ dependencies = [
 [[package]]
 name = "orml-tokens"
 version = "0.4.1-dev"
-source = "git+https://github.com/open-web3-stack//open-runtime-module-library?rev=ca05423f4f32be1d30765caacdc7d90130f5554a#ca05423f4f32be1d30765caacdc7d90130f5554a"
+source = "git+https://github.com/r0gue-io//open-runtime-module-library?branch=master#00f4e142772a0dcf8cf06450c6b53600de413575"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -7407,7 +7407,7 @@ dependencies = [
 [[package]]
 name = "orml-traits"
 version = "0.4.1-dev"
-source = "git+https://github.com/open-web3-stack//open-runtime-module-library?rev=ca05423f4f32be1d30765caacdc7d90130f5554a#ca05423f4f32be1d30765caacdc7d90130f5554a"
+source = "git+https://github.com/r0gue-io//open-runtime-module-library?branch=master#00f4e142772a0dcf8cf06450c6b53600de413575"
 dependencies = [
  "frame-support",
  "impl-trait-for-tuples",
@@ -7426,7 +7426,7 @@ dependencies = [
 [[package]]
 name = "orml-unknown-tokens"
 version = "0.4.1-dev"
-source = "git+https://github.com/open-web3-stack//open-runtime-module-library?rev=ca05423f4f32be1d30765caacdc7d90130f5554a#ca05423f4f32be1d30765caacdc7d90130f5554a"
+source = "git+https://github.com/r0gue-io//open-runtime-module-library?branch=master#00f4e142772a0dcf8cf06450c6b53600de413575"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -7441,7 +7441,7 @@ dependencies = [
 [[package]]
 name = "orml-utilities"
 version = "0.4.1-dev"
-source = "git+https://github.com/open-web3-stack//open-runtime-module-library?rev=ca05423f4f32be1d30765caacdc7d90130f5554a#ca05423f4f32be1d30765caacdc7d90130f5554a"
+source = "git+https://github.com/r0gue-io//open-runtime-module-library?branch=master#00f4e142772a0dcf8cf06450c6b53600de413575"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -7455,7 +7455,7 @@ dependencies = [
 [[package]]
 name = "orml-vesting"
 version = "0.4.1-dev"
-source = "git+https://github.com/open-web3-stack//open-runtime-module-library?rev=ca05423f4f32be1d30765caacdc7d90130f5554a#ca05423f4f32be1d30765caacdc7d90130f5554a"
+source = "git+https://github.com/r0gue-io//open-runtime-module-library?branch=master#00f4e142772a0dcf8cf06450c6b53600de413575"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -7470,7 +7470,7 @@ dependencies = [
 [[package]]
 name = "orml-xcm"
 version = "0.4.1-dev"
-source = "git+https://github.com/open-web3-stack//open-runtime-module-library?rev=ca05423f4f32be1d30765caacdc7d90130f5554a#ca05423f4f32be1d30765caacdc7d90130f5554a"
+source = "git+https://github.com/r0gue-io//open-runtime-module-library?branch=master#00f4e142772a0dcf8cf06450c6b53600de413575"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -7484,7 +7484,7 @@ dependencies = [
 [[package]]
 name = "orml-xcm-support"
 version = "0.4.1-dev"
-source = "git+https://github.com/open-web3-stack//open-runtime-module-library?rev=ca05423f4f32be1d30765caacdc7d90130f5554a#ca05423f4f32be1d30765caacdc7d90130f5554a"
+source = "git+https://github.com/r0gue-io//open-runtime-module-library?branch=master#00f4e142772a0dcf8cf06450c6b53600de413575"
 dependencies = [
  "frame-support",
  "orml-traits",
@@ -7498,7 +7498,7 @@ dependencies = [
 [[package]]
 name = "orml-xtokens"
 version = "0.4.1-dev"
-source = "git+https://github.com/open-web3-stack//open-runtime-module-library?rev=ca05423f4f32be1d30765caacdc7d90130f5554a#ca05423f4f32be1d30765caacdc7d90130f5554a"
+source = "git+https://github.com/r0gue-io//open-runtime-module-library?branch=master#00f4e142772a0dcf8cf06450c6b53600de413575"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",

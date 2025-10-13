@@ -428,6 +428,7 @@ impl orml_xtokens::Config for Runtime {
     type MultiLocationsFilter = Everything;
     type ReserveProvider = AbsoluteReserveProvider;
     type UniversalLocation = UniversalLocation;
+    type MigrationPhaseUpdateOrigin = EnsureRoot<AccountId>;
 }
 
 #[cfg(feature = "runtime-benchmarks")]

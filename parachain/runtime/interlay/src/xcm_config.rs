@@ -8,8 +8,9 @@ use frame_support::{
 };
 use orml_asset_registry::{AssetRegistryTrader, FixedRateAssetRegistryTrader};
 use orml_traits::{
-    location::AbsoluteReserveProvider, parameter_type_with_key, FixedConversionRateProvider, MultiCurrency,
+    parameter_type_with_key, FixedConversionRateProvider, MultiCurrency,
 };
+use orml_xtokens::AbsoluteReserveProviderMigrationPhase;
 use orml_xcm_support::{DepositToAlternative, IsNativeConcrete, MultiCurrencyAdapter, MultiNativeAsset};
 use pallet_xcm::XcmPassthrough;
 use polkadot_parachain::primitives::Sibling;
@@ -198,7 +199,7 @@ impl xcm_executor::Config for XcmConfig {
     #[cfg(not(feature = "runtime-benchmarks"))]
     type AssetTransactor = LocalAssetTransactor;
     type OriginConverter = XcmOriginToTransactDispatchOrigin;
-    type IsReserve = MultiNativeAsset<AbsoluteReserveProvider>;
+    type IsReserve = MultiNativeAsset<AbsoluteReserveProviderMigrationPhase<Runtime>>;
     type IsTeleporter = Nothing; // no teleportation allowed
     type Barrier = Barrier;
     type Weigher = FixedWeightBounds<UnitWeightCost, RuntimeCall, MaxInstructions>;
@@ -432,8 +433,9 @@ impl orml_xtokens::Config for Runtime {
     type MaxAssetsForTransfer = MaxAssetsForTransfer;
     type MinXcmFee = ParachainMinFee;
     type MultiLocationsFilter = Everything;
-    type ReserveProvider = AbsoluteReserveProvider;
+    type ReserveProvider = AbsoluteReserveProviderMigrationPhase<Runtime>;
     type UniversalLocation = UniversalLocation;
+    type MigrationPhaseUpdateOrigin = EnsureRoot<AccountId>;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
