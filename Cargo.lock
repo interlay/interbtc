@@ -1974,6 +1974,7 @@ name = "cumulus-pallet-session-benchmarking"
 version = "3.0.0"
 source = "git+https://github.com/paritytech//cumulus?branch=polkadot-v0.9.42#f603a61ff370fc33740c9373833c3c6ba1486846"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-session",
@@ -14540,10 +14541,13 @@ dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-timestamp",
  "cumulus-primitives-utility",
+ "frame-benchmarking",
  "frame-executive",
  "frame-support",
  "frame-system",
+ "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
+ "hex-literal 0.4.1",
  "log",
  "pallet-asset-tx-payment",
  "pallet-assets",
@@ -14560,6 +14564,7 @@ dependencies = [
  "pallet-uniques",
  "pallet-utility",
  "pallet-xcm",
+ "pallet-xcm-benchmarks",
  "parachain-info",
  "parachains-common",
  "parity-scale-codec",
