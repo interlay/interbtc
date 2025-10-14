@@ -771,9 +771,7 @@ fn ahm_transfer_of_dot_via_xtokens_to_sibling_parachain() {
     let sibling_sovereign_account_on_asset_hub = sovereign_account_on_sibling(SIBLING_PARA_ID);
 
     TestNet::reset();
-
-    // Before the migration => Everything goes as always, transfers are possible and the reserve is
-    // Polkadot
+    // Fund sovereign accounts
     PolkadotNet::execute_with(|| {
         assert_ok!(polkadot_runtime::Balances::transfer(
             polkadot_runtime::RuntimeOrigin::signed(ALICE.into()),
@@ -781,7 +779,16 @@ fn ahm_transfer_of_dot_via_xtokens_to_sibling_parachain() {
             10 * DOT.one()
         ));
     });
+    AssetHub::execute_with(|| {
+        assert_ok!(polkadot_asset_hub_runtime::Balances::force_set_balance(
+            polkadot_asset_hub_runtime::RuntimeOrigin::root(),
+            sp_runtime::MultiAddress::Id(interlay_sovereign_account_on_asset_hub.clone()),
+            10 * DOT.one()
+        ));
+    });
 
+    // Before the migration => Everything goes as always, transfers are possible and the reserve is
+    // Polkadot
     Interlay::execute_with(|| {
         assert_eq!(
             AbsoluteReserveProviderMigrationPhase::<Runtime>::reserve(&concrete_fungible(MultiLocation::parent())),
@@ -852,19 +859,11 @@ fn ahm_transfer_of_dot_via_xtokens_to_sibling_parachain() {
 
     // Before executing the transfer, we need to set the sibling's migration status to Completed.
     // It's runtime is Interlay's runtime anyway, so it should be able to recognize AH as the
-    // reserve. Additionally we need to fund Interlay's sovereign account on AH
+    // reserve.
     Sibling::execute_with(|| {
         assert_ok!(XTokens::set_migration_phase(
             RuntimeOrigin::root(),
             MigrationPhase::Completed
-        ));
-    });
-    // Fund sovereign accounts on AH
-    AssetHub::execute_with(|| {
-        assert_ok!(polkadot_asset_hub_runtime::Balances::force_set_balance(
-            polkadot_asset_hub_runtime::RuntimeOrigin::root(),
-            sp_runtime::MultiAddress::Id(interlay_sovereign_account_on_asset_hub.clone()),
-            10 * DOT.one()
         ));
     });
 
@@ -907,6 +906,346 @@ fn ahm_transfer_of_dot_via_xtokens_to_sibling_parachain() {
         // A little bit less to pay fees
         assert!(bob_balance > DOT.one());
         assert!(bob_balance < 2 * DOT.one());
+    });
+}
+
+#[test]
+fn ahm_transfer_dot_from_polkadot_to_interlay() {
+    TestNet::reset();
+
+    // Pre migration -> Everything's ok
+    PolkadotNet::execute_with(|| {
+        assert_ok!(polkadot_runtime::XcmPallet::reserve_transfer_assets(
+            polkadot_runtime::RuntimeOrigin::signed(ALICE.into()),
+            Box::new(Parachain(INTERLAY_PARA_ID).into_versioned()),
+            Box::new(Junction::AccountId32 { id: BOB, network: None }.into_versioned()),
+            Box::new((Here, DOT.one()).into()),
+            0
+        ));
+    });
+
+    Interlay::execute_with(|| {
+        let bob = Tokens::free_balance(Token(DOT), &AccountId::from(BOB));
+        assert!(bob > 0);
+        assert!(bob < DOT.one());
+
+        // Change the migration status
+        assert_ok!(XTokens::set_migration_phase(
+            RuntimeOrigin::root(),
+            MigrationPhase::InProgress
+        ));
+    });
+
+    // During the migration, the extrinsic's ok in Polkadot but the balance doesn't get to BOB.
+    // NOTE: This is Ok here because this Polkadot version's not aware of the migration. In
+    // production, this extrinsic will be directly blocked on Polkadot. But this proves that
+    // Interlay's reserve is deactivated.
+    PolkadotNet::execute_with(|| {
+        assert_ok!(polkadot_runtime::XcmPallet::reserve_transfer_assets(
+            polkadot_runtime::RuntimeOrigin::signed(ALICE.into()),
+            Box::new(Parachain(INTERLAY_PARA_ID).into_versioned()),
+            Box::new(Junction::AccountId32 { id: BOB, network: None }.into_versioned()),
+            Box::new((Here, DOT.one()).into()),
+            0
+        ));
+    });
+
+    Interlay::execute_with(|| {
+        let bob = Tokens::free_balance(Token(DOT), &AccountId::from(BOB));
+        assert!(bob > 0);
+        assert!(bob < DOT.one());
+
+        // Coomplete the migration
+        assert_ok!(XTokens::set_migration_phase(
+            RuntimeOrigin::root(),
+            MigrationPhase::Completed
+        ));
+    });
+
+    // After the migration, reserve transfer from Polkadot doesn't work as the reserve is now AH.
+    PolkadotNet::execute_with(|| {
+        assert_ok!(polkadot_runtime::XcmPallet::reserve_transfer_assets(
+            polkadot_runtime::RuntimeOrigin::signed(ALICE.into()),
+            Box::new(Parachain(INTERLAY_PARA_ID).into_versioned()),
+            Box::new(Junction::AccountId32 { id: BOB, network: None }.into_versioned()),
+            Box::new((Here, DOT.one()).into()),
+            0
+        ));
+    });
+
+    Interlay::execute_with(|| {
+        let bob = Tokens::free_balance(Token(DOT), &AccountId::from(BOB));
+        assert!(bob > 0);
+        assert!(bob < DOT.one());
+    })
+}
+
+#[test]
+fn ahm_transfer_dot_from_interlay_to_polkadot() {
+    TestNet::reset();
+    PolkadotNet::execute_with(|| {
+        assert_ok!(polkadot_runtime::Balances::force_set_balance(
+            polkadot_runtime::RuntimeOrigin::root(),
+            sp_runtime::MultiAddress::Id(interlay_sovereign_account_on_polkadot()),
+            10 * DOT.one()
+        ));
+    });
+    AssetHub::execute_with(|| {
+        assert_ok!(polkadot_asset_hub_runtime::Balances::force_set_balance(
+            polkadot_asset_hub_runtime::RuntimeOrigin::root(),
+            sp_runtime::MultiAddress::Id(sovereign_account_on_sibling(INTERLAY_PARA_ID)),
+            10 * DOT.one()
+        ));
+    });
+
+    // Before the migration -> Everything ok
+    Interlay::execute_with(|| {
+        assert_ok!(XTokens::transfer(
+            RuntimeOrigin::signed(ALICE.into()),
+            Token(DOT),
+            2 * DOT.one(),
+            Box::new(MultiLocation::new(1, X1(Junction::AccountId32 { id: BOB, network: None })).into()),
+            WeightLimit::Unlimited
+        ));
+    });
+
+    PolkadotNet::execute_with(|| {
+        let bob = polkadot_runtime::Balances::free_balance(AccountId::from(BOB));
+        assert!(bob > 0);
+        assert!(bob < 2 * DOT.one());
+    });
+
+    // During the migration => Extrinsic blocked as expected
+    Interlay::execute_with(|| {
+        assert_ok!(XTokens::set_migration_phase(
+            RuntimeOrigin::root(),
+            MigrationPhase::InProgress
+        ));
+
+        assert_noop!(
+            XTokens::transfer(
+                RuntimeOrigin::signed(ALICE.into()),
+                Token(DOT),
+                DOT.one(),
+                Box::new(
+                    MultiLocation::new(
+                        1,
+                        X2(
+                            Junction::Parachain(SIBLING_PARA_ID),
+                            Junction::AccountId32 { id: BOB, network: None }
+                        )
+                    )
+                    .into()
+                ),
+                WeightLimit::Unlimited
+            ),
+            orml_xtokens::Error::<Runtime>::AssetHasNoReserve
+        );
+    });
+
+    // After the migration => Extrinsic succeed
+    Interlay::execute_with(|| {
+        assert_ok!(XTokens::set_migration_phase(
+            RuntimeOrigin::root(),
+            MigrationPhase::Completed
+        ));
+
+        assert_ok!(XTokens::transfer(
+            RuntimeOrigin::signed(ALICE.into()),
+            Token(DOT),
+            2 * DOT.one(),
+            Box::new(MultiLocation::new(1, X1(Junction::AccountId32 { id: BOB, network: None })).into()),
+            WeightLimit::Unlimited
+        ));
+    });
+
+    // **BUT** Polkadot doesn't receive the tokens perse. This is because Polkadot is teleporter
+    // of DOT, so the reserve (AH) doesn't forward the reserve transfer message. Tokens can be found in AH tho
+    PolkadotNet::execute_with(|| {
+        let bob = polkadot_runtime::Balances::free_balance(AccountId::from(BOB));
+        assert!(bob > 0);
+        assert!(bob < 2 * DOT.one());
+    });
+    AssetHub::execute_with(|| {
+        let bob = polkadot_asset_hub_runtime::Balances::free_balance(AccountId::from(BOB));
+        assert!(bob > 0);
+        assert!(bob < 2 * DOT.one());
+    });
+}
+
+#[test]
+fn ahm_transfer_dot_from_asset_hub_to_interlay() {
+    TestNet::reset();
+
+    // Pre migration -> The DOT reserve is Interlay, so AH isn't trusted
+    AssetHub::execute_with(|| {
+        assert_ok!(polkadot_asset_hub_runtime::PolkadotXcm::reserve_transfer_assets(
+            polkadot_asset_hub_runtime::RuntimeOrigin::signed(ALICE.into()),
+            Box::new(MultiLocation::new(1, Parachain(INTERLAY_PARA_ID)).into()),
+            Box::new(Junction::AccountId32 { id: BOB, network: None }.into_versioned()),
+            Box::new((MultiLocation::parent(), DOT.one()).into()),
+            0
+        ));
+    });
+
+    Interlay::execute_with(|| {
+        let bob = Tokens::free_balance(Token(DOT), &AccountId::from(BOB));
+        assert!(bob == 0);
+
+        // Change the migration status
+        assert_ok!(XTokens::set_migration_phase(
+            RuntimeOrigin::root(),
+            MigrationPhase::InProgress
+        ));
+    });
+
+    // During the migration, the extrinsic's ok in PolkadotAssetHub but the balance doesn't get to BOB.
+    // NOTE: This is Ok here because this Polkadot version's not aware of the migration. In
+    // production, this extrinsic will be directly blocked on Polkadot. But this proves that
+    // Interlay's reserve is deactivated.
+    AssetHub::execute_with(|| {
+        assert_ok!(polkadot_asset_hub_runtime::PolkadotXcm::reserve_transfer_assets(
+            polkadot_asset_hub_runtime::RuntimeOrigin::signed(ALICE.into()),
+            Box::new(MultiLocation::new(1, Parachain(INTERLAY_PARA_ID)).into()),
+            Box::new(Junction::AccountId32 { id: BOB, network: None }.into_versioned()),
+            Box::new((MultiLocation::parent(), DOT.one()).into()),
+            0
+        ));
+    });
+
+    Interlay::execute_with(|| {
+        let bob = Tokens::free_balance(Token(DOT), &AccountId::from(BOB));
+        assert!(bob == 0);
+
+        // Coomplete the migration
+        assert_ok!(XTokens::set_migration_phase(
+            RuntimeOrigin::root(),
+            MigrationPhase::Completed
+        ));
+    });
+
+    // After the migration, reserve transfer works because AH is the right reserve.
+    // **NOTE**: This shouldn't be called on production, AH will disallow this call, so it'll
+    // result in paying fees for nothing. Use `transfer_assets_using_type_and_the` instead, we
+    // didn't use it here cause it's not available on this AH version
+    AssetHub::execute_with(|| {
+        assert_ok!(polkadot_asset_hub_runtime::PolkadotXcm::reserve_transfer_assets(
+            polkadot_asset_hub_runtime::RuntimeOrigin::signed(ALICE.into()),
+            Box::new(MultiLocation::new(1, Parachain(INTERLAY_PARA_ID)).into()),
+            Box::new(Junction::AccountId32 { id: BOB, network: None }.into_versioned()),
+            Box::new((MultiLocation::parent(), DOT.one()).into()),
+            0
+        ));
+    });
+
+    Interlay::execute_with(|| {
+        let bob = Tokens::free_balance(Token(DOT), &AccountId::from(BOB));
+        assert!(bob > 0);
+        assert!(bob < DOT.one());
+    })
+}
+
+#[test]
+fn ahm_transfer_dot_from_interlay_to_asset_hub() {
+    TestNet::reset();
+    PolkadotNet::execute_with(|| {
+        assert_ok!(polkadot_runtime::Balances::force_set_balance(
+            polkadot_runtime::RuntimeOrigin::root(),
+            sp_runtime::MultiAddress::Id(interlay_sovereign_account_on_polkadot()),
+            10 * DOT.one()
+        ));
+    });
+    AssetHub::execute_with(|| {
+        assert_ok!(polkadot_asset_hub_runtime::Balances::force_set_balance(
+            polkadot_asset_hub_runtime::RuntimeOrigin::root(),
+            sp_runtime::MultiAddress::Id(sovereign_account_on_sibling(INTERLAY_PARA_ID)),
+            10 * DOT.one()
+        ));
+    });
+
+    // Before the migration -> Everything ok
+    Interlay::execute_with(|| {
+        assert_ok!(XTokens::transfer(
+            RuntimeOrigin::signed(ALICE.into()),
+            Token(DOT),
+            2 * DOT.one(),
+            Box::new(
+                MultiLocation::new(
+                    1,
+                    X2(
+                        Junction::Parachain(POLKADOT_ASSET_HUB_PARA_ID),
+                        Junction::AccountId32 { id: BOB, network: None }
+                    )
+                )
+                .into()
+            ),
+            WeightLimit::Unlimited
+        ));
+    });
+
+    // **BUT** AH doesn't receive the tokens perse. This is because Polkadot forwards the message
+    // BUT isn't reserve of DOT for AH, so funds remains locked on AH child account. Note this is
+    // different from the case when we reserve transfer DOT from Interlay to Polkadot with AH being
+    // the reserve.
+    AssetHub::execute_with(|| {
+        let bob = polkadot_asset_hub_runtime::Balances::free_balance(AccountId::from(BOB));
+        assert!(bob == 0);
+    });
+
+    PolkadotNet::execute_with(|| {
+        let ah_sovereign_account = polkadot_runtime::Balances::free_balance(ah_sovereign_account_on_polkadot());
+        assert!(ah_sovereign_account > 0);
+        assert!(ah_sovereign_account < 2 * DOT.one());
+    });
+
+    // During the migration => Extrinsic blocked as expected
+    Interlay::execute_with(|| {
+        assert_ok!(XTokens::set_migration_phase(
+            RuntimeOrigin::root(),
+            MigrationPhase::InProgress
+        ));
+
+        assert_noop!(
+            XTokens::transfer(
+                RuntimeOrigin::signed(ALICE.into()),
+                Token(DOT),
+                DOT.one(),
+                Box::new(
+                    MultiLocation::new(
+                        1,
+                        X2(
+                            Junction::Parachain(SIBLING_PARA_ID),
+                            Junction::AccountId32 { id: BOB, network: None }
+                        )
+                    )
+                    .into()
+                ),
+                WeightLimit::Unlimited
+            ),
+            orml_xtokens::Error::<Runtime>::AssetHasNoReserve
+        );
+    });
+
+    // After the migration => OK
+    Interlay::execute_with(|| {
+        assert_ok!(XTokens::set_migration_phase(
+            RuntimeOrigin::root(),
+            MigrationPhase::Completed
+        ));
+
+        assert_ok!(XTokens::transfer(
+            RuntimeOrigin::signed(ALICE.into()),
+            Token(DOT),
+            2 * DOT.one(),
+            Box::new(MultiLocation::new(1, X1(Junction::AccountId32 { id: BOB, network: None })).into()),
+            WeightLimit::Unlimited
+        ));
+    });
+
+    AssetHub::execute_with(|| {
+        let bob = polkadot_asset_hub_runtime::Balances::free_balance(AccountId::from(BOB));
+        assert!(bob > 0);
+        assert!(bob < 2 * DOT.one());
     });
 }
 

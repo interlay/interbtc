@@ -48,7 +48,7 @@ decl_test_parachain! {
         RuntimeOrigin = polkadot_asset_hub_runtime::RuntimeOrigin,
         XcmpMessageHandler = polkadot_asset_hub_runtime::XcmpQueue,
         DmpMessageHandler = polkadot_asset_hub_runtime::DmpQueue,
-        new_ext = para_ext(POLKADOT_ASSET_HUB_PARA_ID),
+        new_ext = asset_hub_para_ext(),
     }
 }
 
@@ -168,6 +168,12 @@ pub fn para_ext(parachain_id: u32) -> sp_io::TestExternalities {
         .build()
 }
 
+pub fn asset_hub_para_ext() -> sp_io::TestExternalities {
+    AssetHubExtBuilder::default()
+        .balances(vec![(AccountId::from(ALICE), 10 * DOT.one())])
+        .build()
+}
+
 #[allow(dead_code)]
 pub const DEFAULT: [u8; 32] = [0u8; 32];
 #[allow(dead_code)]
@@ -248,10 +254,75 @@ impl ExtBuilder {
     }
 }
 
+pub struct AssetHubExtBuilder {
+    balances: Vec<(AccountId, Balance)>,
+    parachain_id: u32,
+}
+
+impl Default for AssetHubExtBuilder {
+    fn default() -> Self {
+        Self {
+            balances: vec![],
+            parachain_id: POLKADOT_ASSET_HUB_PARA_ID,
+        }
+    }
+}
+
+impl AssetHubExtBuilder {
+    pub fn balances(mut self, balances: Vec<(AccountId, Balance)>) -> Self {
+        self.balances = balances;
+        self
+    }
+
+    pub fn build(self) -> sp_io::TestExternalities {
+        let mut t = frame_system::GenesisConfig::default()
+            .build_storage::<polkadot_asset_hub_runtime::Runtime>()
+            .unwrap();
+
+        pallet_balances::GenesisConfig::<polkadot_asset_hub_runtime::Runtime> {
+            balances: self.balances,
+        }
+        .assimilate_storage(&mut t)
+        .unwrap();
+
+        <parachain_info::GenesisConfig as GenesisBuild<polkadot_asset_hub_runtime::Runtime>>::assimilate_storage(
+            &parachain_info::GenesisConfig {
+                parachain_id: self.parachain_id.into(),
+            },
+            &mut t,
+        )
+        .unwrap();
+
+        <pallet_xcm::GenesisConfig as GenesisBuild<polkadot_asset_hub_runtime::Runtime>>::assimilate_storage(
+            &pallet_xcm::GenesisConfig {
+                safe_xcm_version: Some(3),
+            },
+            &mut t,
+        )
+        .unwrap();
+
+        let mut ext = sp_io::TestExternalities::new(t);
+        ext.execute_with(|| {
+            polkadot_asset_hub_runtime::System::set_block_number(1);
+            polkadot_asset_hub_runtime::PolkadotXcm::force_xcm_version(
+                polkadot_asset_hub_runtime::RuntimeOrigin::root(),
+                Box::new(MultiLocation::parent()),
+                3,
+            )
+            .unwrap();
+        });
+        ext
+    }
+}
+
 pub(crate) fn interlay_sovereign_account_on_polkadot() -> AccountId {
     polkadot_parachain::primitives::Id::from(INTERLAY_PARA_ID).into_account_truncating()
 }
 
 pub(crate) fn sibling_sovereign_account_on_polkadot() -> AccountId {
     polkadot_parachain::primitives::Id::from(SIBLING_PARA_ID).into_account_truncating()
+}
+
+pub(crate) fn ah_sovereign_account_on_polkadot() -> AccountId {
+    polkadot_parachain::primitives::Id::from(POLKADOT_ASSET_HUB_PARA_ID).into_account_truncating()
 }
