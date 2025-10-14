@@ -186,5 +186,6 @@ runtime-benchmarks = [
 
   "kusama-runtime/runtime-benchmarks",
   "polkadot-runtime/runtime-benchmarks",
+  "polkadot-asset-hub-runtime/runtime-benchmarks"
 ]
 with-interlay-runtime = []
