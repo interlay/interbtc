@@ -1,0 +1,30 @@
+endpoint:
+  - wss://rpc.ibp.network/polkadot
+  - wss://polkadot-rpc.dwellir.com
+mock-signature-host: true
+db: ./db.sqlite
+runtime-log-level: 5
+
+import-storage:
+  System:
+    Account:
+      -
+        -
+          - 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY #Alice
+        - providers: 1
+          data:
+            free: '10000000000000000000'
+      -
+        -
+          - 5Ec4AhPbkXX97KXMcf9v9SkRNG4Gyc3VhcMMuQe9QXfAHnrC # Hydration SA
+        - providers: 1
+          data:
+            free: '10000000000000000000'
+      -
+        -
+          - 5Ec4AhPbMHQn55fjyQCTm5UHAzjSgtBFWBuieCK2DwbDqGSG # Interlay SA
+        - providers: 1
+          data:
+            free: '10000000000000000000'
+  ParasDisputes:
+    $removePrefix: ['disputes'] # those can makes block building super slow
