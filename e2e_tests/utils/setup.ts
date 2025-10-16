@@ -50,16 +50,16 @@ export function TestBuilder(title: string, cb: () => void) {
 			this.hydrationPairs = { alice: keyring.addFromUri("//Alice"), bob: keyring.addFromUri("//Bob") };
 
 			const interlayProvider = new WsProvider(`ws://${CHOPSTICKS_INTERLAY_NODE_IP}`);
-			const apiInterlay = await ApiPromise.create({ provider: interlayProvider });
+			const apiInterlay = await new ApiPromise({ provider: interlayProvider }).isReady;
 
 			const assetHubProvider = new WsProvider(`ws://${CHOPSTICKS_ASSET_HUB_NODE_IP}`);
-			const apiAssetHub = await ApiPromise.create({ provider: assetHubProvider });
+			const apiAssetHub = await new ApiPromise({ provider: assetHubProvider }).isReady;
 
 			const hydrationProvider = new WsProvider(`ws://${CHOPSTICKS_HYDRATION_NODE_IP}`);
-			const apiHydration = await ApiPromise.create({ provider: hydrationProvider });
+			const apiHydration = await new ApiPromise({ provider: hydrationProvider }).isReady;
 
 			const polkadotProvider = new WsProvider(`ws://${CHOPSTICKS_POLKADOT_NODE_IP}`);
-			const apiPolkadot = await ApiPromise.create({ provider: polkadotProvider });
+			const apiPolkadot = await new ApiPromise({ provider: polkadotProvider }).isReady;
 
 			this.chains = {
 				interlay: apiInterlay,

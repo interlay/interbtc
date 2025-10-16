@@ -16,6 +16,7 @@ jobs:
           package: interlay-runtime-parachain
           runtime_dir: parachain/runtime/interlay
           chain: interlay
+
       - name: Save Interlay runtime
         uses: actions/upload-artifact@v4
         with:
@@ -82,7 +83,7 @@ jobs:
 
       - name: Run chopsticks
         env:
-            WASM_PATH: ${{ steps.runtime.outputs.wasm_path }}
+          WASM_PATH: ${{ steps.runtime.outputs.wasm_path }}
         run: |
           npx @acala-network/chopsticks xcm \
             -r chopsticks_configs/polkadot.yml \
@@ -94,7 +95,11 @@ jobs:
 
       - name: Wait for chopsticks
         run: |
-          timeout 36 sh -c 'until nc -z $0 $1; do echo -n .; sleep 1; done' localhost 8000
+          for port in 8000 8001 8002 8003; do
+            echo "⏳ Waiting for port $port..."
+            timeout 60 sh -c "until nc -z localhost $port; do echo -n .; sleep 1; done"
+            echo " ✅ Port $port ready"
+          done
 
       - name: Run tests
         run: |
