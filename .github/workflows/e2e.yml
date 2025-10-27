@@ -1,0 +1,107 @@
+name: E2E Tests
+
+on: [pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Build Interlay runtime
+        id: srtool_build
+        uses: paritytech/srtool-actions@v0.9.3
+        with:
+          package: interlay-runtime-parachain
+          runtime_dir: parachain/runtime/interlay
+          chain: interlay
+
+      - name: Save Interlay runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: interlay-runtime
+          path: |
+            ${{ steps.srtool_build.outputs.wasm_compressed }}
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./.github/actions/cache-npm
+        with:
+          cache-key: npm
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+
+      - name: Install npm-dependencies
+        run: |
+          npm install
+        working-directory: ./e2e_tests
+
+      - name: Run lint
+        run: |
+          npm run fmt-check
+        working-directory: ./e2e_tests
+
+  tests:
+    needs: [build, lint]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./.github/actions/cache-npm
+        with:
+          cache-key: npm
+
+      - name: Download Interlay runtime
+        uses: actions/download-artifact@v4
+        with:
+          name: interlay-runtime
+          path: ./e2e_tests/artifacts
+
+      - name: Detect runtime path
+        id: runtime
+        run: |
+          find ./artifacts
+          wasm=$(find ./artifacts -type f -name '*.wasm' | head -n1)
+          echo "Found runtime wasm: $wasm"
+          echo "wasm_path=$wasm" >> $GITHUB_OUTPUT
+        working-directory: ./e2e_tests
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+
+      - name: Install npm-dependencies
+        run: |
+          npm install
+        working-directory: ./e2e_tests
+
+      - name: Run chopsticks
+        env:
+          WASM_PATH: ${{ steps.runtime.outputs.wasm_path }}
+        run: |
+          npx @acala-network/chopsticks xcm \
+            -r chopsticks_configs/polkadot.yml \
+            -p chopsticks_configs/interlay.yml \
+            -p chopsticks_configs/polkadot_ah.yml \
+            -p hydradx &
+          echo "Chopsticks started"
+        working-directory: ./e2e_tests
+
+      - name: Wait for chopsticks
+        run: |
+          for port in 8000 8001 8002 8003; do
+            echo "⏳ Waiting for port $port..."
+            timeout 60 sh -c "until nc -z localhost $port; do echo -n .; sleep 1; done"
+            echo " ✅ Port $port ready"
+          done
+
+      - name: Run tests
+        run: |
+          npm run test
+        working-directory: ./e2e_tests

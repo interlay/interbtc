@@ -1,0 +1,31 @@
+endpoint: wss://polkadot-asset-hub-rpc.polkadot.io
+mock-signature-host: true
+db: ./db.sqlite
+
+import-storage:
+  System:
+    Account:
+      -
+        -
+          - 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY # Alice
+        - providers: 1
+          data:
+            free: 1000000000000000
+      -
+        -
+          - 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY # Hydration SA
+        - providers: 1
+          data:
+            free: 1000000000000000
+      -
+        -
+          - 5Eg2fntQS1bgCgPtXQ9Ysip6RUQkQJEMZqZ9u9qX6fcnhB4H # Interlay SA
+        - providers: 1
+          data:
+            free: 1000000000000000
+  Assets:
+    Account:
+      - [[1984, 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY], { balance: 1000000000 }]
+      - [[1337, 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY], { balance: 1000000000 }]
+      - [[21, 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY], { balance: 1000000000 }]
+    Asset: [[[21], { supply: 1000000000 }]]

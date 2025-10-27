@@ -1,0 +1,20 @@
+name: 'Cache NPM'
+description: 'Caching npm dependencies'
+inputs:
+  cache-key:
+    description: 'Key to use when caching npm dependencies'
+    required: true
+    default: 'npm-default'
+runs:
+  using: "composite"
+  steps:
+    - name: Cache NPM dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.npm
+          node_modules
+        key: ${{ runner.os }}-npm-${{ inputs.cache-key }}-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-npm-${{ inputs.cache-key }}-
+          ${{ runner.os }}-npm-

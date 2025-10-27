@@ -19,6 +19,9 @@ genesis-wasm
 rococo-local.json
 rococo-local-raw.json
 
+## Node
+node_modules
+
 *.log
 
 ### Testdata
