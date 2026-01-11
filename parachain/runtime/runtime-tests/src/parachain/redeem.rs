@@ -1247,7 +1247,7 @@ mod spec_based_tests {
         use super::{assert_eq, *};
 
         #[test]
-        fn integration_test_mint_tokens_for_reimbursed_redeem_equivalence_to_succesful_cancel() {
+        fn integration_test_mint_tokens_for_reimbursed_redeem_equivalence_to_successful_cancel() {
             // PRECONDITIONS:
             // - A pending `RedeemRequest` MUST exist with an id equal to `redeemId`.
             // - The vault MUST have sufficient collateral to remain above the `SecureCollateralThreshold` after
@@ -2152,7 +2152,7 @@ mod mint_tokens_for_reimbursed_redeem_equivalence_test {
     use super::{assert_eq, *};
 
     #[test]
-    fn integration_test_mint_tokens_for_reimbursed_redeem_equivalence_to_succesful_cancel() {
+    fn integration_test_mint_tokens_for_reimbursed_redeem_equivalence_to_successful_cancel() {
         // scenario 1: sufficient collateral
         let result1 = test_with(|vault_id| {
             let redeem_id = setup_cancelable_redeem_with_insufficient_collateral_for_reimburse(vault_id.clone());
