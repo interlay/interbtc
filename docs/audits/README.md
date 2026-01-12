@@ -1,6 +1,6 @@
 # Audit Reports
 
-The Interlay code bases has been audited multiple times by different auditor, listed below. 
+The Interlay codebase has been audited multiple times by different auditors, listed below. 
 We continue to work with leading security companies and research groups to ensure the protocols and implementations adhere to the highest security standards. 
 
 ## Code & Protocol Audits
