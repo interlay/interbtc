@@ -19,6 +19,7 @@ incremental = false
 incremental = false
 
 [profile.release]
+lto = true
 incremental = false
 [patch."https://github.com/paritytech/substrate"]
 binary-merkle-tree = { git = "https://github.com/paritytech//substrate", branch = "polkadot-v1.0.0" }
