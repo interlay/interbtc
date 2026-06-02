@@ -51,7 +51,7 @@ The Substrate runtime configuration is in the [parachain](./parachain) folder.
 - [Kintsugi](parachain/runtime/kintsugi/): The Kintsugi canary network runtime configuration.
 - [Common](parachain/runtime/common/): Common runtime configuration for Interlay and Kintsugi.
 
-Test networks are build from the mainnet runtimes and have no dedicated runtimes.
+Test networks are built from the mainnet runtimes and have no dedicated runtimes.
 
 #### Crates
 
